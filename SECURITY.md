@@ -17,18 +17,22 @@ Ce projet utilise des variables d'environnement pour sécuriser les clés d'API 
 Si quelqu'un clone votre projet, voici les étapes :
 
 ### 1. Cloner le repository
+
 ```bash
 git clone <url-du-repo>
 cd sycebnl_accounting
 ```
 
 ### 2. Installer les dépendances
+
 ```bash
 flutter pub get
 ```
 
 ### 3. Créer le fichier `.env`
+
 Copier `.env.example` vers `.env` :
+
 ```bash
 # Windows PowerShell
 Copy-Item .env.example .env
@@ -38,13 +42,16 @@ cp .env.example .env
 ```
 
 ### 4. Remplir les vraies valeurs dans `.env`
+
 Ouvrir `.env` et remplacer par vos vraies clés Supabase :
+
 ```env
 SUPABASE_URL=https://votre-projet.supabase.co
 SUPABASE_ANON_KEY=votre_vraie_cle_anonyme
 ```
 
 ### 5. Lancer l'application
+
 ```bash
 flutter run
 ```
@@ -56,12 +63,13 @@ Si vous avez **déjà commité** vos clés par erreur :
 1. **Révoquer immédiatement** les clés dans Supabase
 2. Générer de nouvelles clés
 3. Nettoyer l'historique Git :
+
    ```bash
    # Supprimer le fichier de l'historique Git
    git filter-branch --force --index-filter \
    "git rm --cached --ignore-unmatch .env" \
    --prune-empty --tag-name-filter cat -- --all
-   
+
    # Force push (ATTENTION : destructif)
    git push origin --force --all
    ```
@@ -78,6 +86,7 @@ Si vous avez **déjà commité** vos clés par erreur :
 ## ✅ Vérification avant commit
 
 Avant chaque commit, vérifier :
+
 ```bash
 # Voir les fichiers qui seront commités
 git status
@@ -86,6 +95,7 @@ git status
 ```
 
 Si `.env` apparaît :
+
 ```bash
 # L'enlever du staging
 git reset .env
