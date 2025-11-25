@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'config/env_config.dart';
@@ -9,15 +10,22 @@ import 'pages/home_page.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Charger les variables d'environnement
-  await dotenv.load(fileName: ".env");
+  // Charger les variables d'environnement uniquement en mode développement
+  // En production, les variables sont passées via --dart-define
+  if (kDebugMode) {
+    try {
+      await dotenv.load(fileName: "assets/.env");
+    } catch (e) {
+      // Ignore l'erreur si le fichier .env n'existe pas en développement
+      // Les variables peuvent être passées via --dart-define même en debug
+      debugPrint(
+        'Fichier .env non trouvé, utilisation de --dart-define si disponible',
+      );
+    }
+  }
 
   // Vérifier que la configuration est valide
-  if (!EnvConfig.isConfigured) {
-    throw Exception(
-      'Configuration manquante! Créez un fichier .env avec SUPABASE_URL et SUPABASE_ANON_KEY',
-    );
-  }
+  EnvConfig.validateConfig();
 
   await Supabase.initialize(
     url: EnvConfig.supabaseUrl,

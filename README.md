@@ -4,7 +4,7 @@
 
 **SYCEBNL Accounting** est une application de gestion comptable et administrative moderne conçue pour les organisations à but non lucratif (ONG) et les entités publiques. Cette application offre une suite d'outils pour gérer efficacement la comptabilité, les budgets, les ressources et les rapports financiers.
 
-### Objectifs principaux
+### Objectifs principaux $FLUTTER_BASE_HREF
 
 - Centraliser la gestion comptable de l'entité
 - Faciliter la saisie et la réconciliation des opérations comptables
