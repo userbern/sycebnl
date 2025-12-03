@@ -125,7 +125,7 @@ class _EntiteFormPageState extends State<EntiteFormPage> {
     try {
       if (widget.entite == null) {
         // Créer une nouvelle entité
-        final newEntite = await AuthService.createEntite(
+        await AuthService.createEntite(
           denominationSociale: _denominationSocialeController.text,
           domaineIntervention:
               _domaineInterventionController.text.isEmpty
@@ -174,8 +174,6 @@ class _EntiteFormPageState extends State<EntiteFormPage> {
         );
 
         if (!mounted) return;
-
-        widget.onSave(newEntite);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -187,8 +185,8 @@ class _EntiteFormPageState extends State<EntiteFormPage> {
         Navigator.pop(context);
       } else {
         // Modifier une entité existante
-        final updatedEntite = await AuthService.updateEntite(
-          id: widget.entite!.id,
+        await AuthService.updateEntite(
+          id: int.parse(widget.entite!.id),
           denominationSociale: _denominationSocialeController.text,
           domaineIntervention:
               _domaineInterventionController.text.isEmpty
@@ -237,8 +235,6 @@ class _EntiteFormPageState extends State<EntiteFormPage> {
         );
 
         if (!mounted) return;
-
-        widget.onSave(updatedEntite);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -289,7 +285,7 @@ class _EntiteFormPageState extends State<EntiteFormPage> {
                 child: Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: horizontalPadding,
-                    vertical: screenHeight * 0.02,
+                    vertical: screenHeight * 0.04,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

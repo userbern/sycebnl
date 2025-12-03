@@ -34,49 +34,137 @@ TypeCompte stringToTypeCompte(String value) {
   }
 }
 
-/// Nature du compte basée sur le premier chiffre du numéro
+/// Nature du compte basée sur le numéro du compte
 enum NatureCompte {
-  bilan1_5, // 1 à 5: Bilan
-  charge_6_impaire, // 6 impaire: Charge
-  produit_7_paire, // 7 paire: Produit
-  charge_8_impaire, // 8 impaire: Charge
-  produit_8_paire, // 8 paire: Produit
-  horsBilan_9, // 9: Hors bilan
+  // Bilan (ressources durables)
+  bilanRessourcesDurables,
+
+  // Bilan (actif immobilisé)
+  bilanActifImmobilise,
+
+  // Bilan (stocks)
+  bilanStocks,
+
+  // Bilan (Fournisseurs)
+  bilanFournisseurs,
+
+  // Bilan (Adhérents - clients usagers)
+  bilanAdherentsClientsUsagers,
+
+  // Bilan (Personnel)
+  bilanPersonnel,
+
+  // Bilan (Organismes sociaux)
+  bilanOrganismesSociaux,
+
+  // Bilan (Etat et collectivités publiques)
+  bilanEtatCollectivitesPubliques,
+
+  // Bilan (Autres tiers)
+  bilanAutresTiers,
+
+  // Bilan (Banque)
+  bilanBanque,
+
+  // Bilan (Caisse)
+  bilanCaisse,
+
+  // Bilan (Autres trésoreries)
+  bilanAutresTresoreries,
+
+  // Engagements hors bilan
+  engagementsHorsBilan,
+
+  // Charges d'activités ordinaires
+  chargesAO,
+
+  // Charges hors activités ordinaires
+  chargesHAO,
+
+  // Produits d'activités ordinaires
+  produitsAO,
+
+  // Produits hors activités ordinaires
+  produitsHAO,
 }
 
 /// Extension pour convertir enum en string
 extension NatureCompteExtension on NatureCompte {
   String toDbString() {
     switch (this) {
-      case NatureCompte.bilan1_5:
-        return 'bilan_1_5';
-      case NatureCompte.charge_6_impaire:
-        return 'charge_6_impaire';
-      case NatureCompte.produit_7_paire:
-        return 'produit_7_paire';
-      case NatureCompte.charge_8_impaire:
-        return 'charge_8_impaire';
-      case NatureCompte.produit_8_paire:
-        return 'produit_8_paire';
-      case NatureCompte.horsBilan_9:
-        return 'hors_bilan_9';
+      case NatureCompte.bilanRessourcesDurables:
+        return 'bilan_ressources_durables';
+      case NatureCompte.bilanActifImmobilise:
+        return 'bilan_actif_immobilise';
+      case NatureCompte.bilanStocks:
+        return 'bilan_stocks';
+      case NatureCompte.bilanFournisseurs:
+        return 'bilan_fournisseurs';
+      case NatureCompte.bilanAdherentsClientsUsagers:
+        return 'bilan_adherents_clients_usagers';
+      case NatureCompte.bilanPersonnel:
+        return 'bilan_personnel';
+      case NatureCompte.bilanOrganismesSociaux:
+        return 'bilan_organismes_sociaux';
+      case NatureCompte.bilanEtatCollectivitesPubliques:
+        return 'bilan_etat_collectivites_publiques';
+      case NatureCompte.bilanAutresTiers:
+        return 'bilan_autres_tiers';
+      case NatureCompte.bilanBanque:
+        return 'bilan_banque';
+      case NatureCompte.bilanCaisse:
+        return 'bilan_caisse';
+      case NatureCompte.bilanAutresTresoreries:
+        return 'bilan_autres_tresoreries';
+      case NatureCompte.engagementsHorsBilan:
+        return 'engagements_hors_bilan';
+      case NatureCompte.chargesAO:
+        return 'charges_ao';
+      case NatureCompte.chargesHAO:
+        return 'charges_hao';
+      case NatureCompte.produitsAO:
+        return 'produits_ao';
+      case NatureCompte.produitsHAO:
+        return 'produits_hao';
     }
   }
 
   String toLabel() {
     switch (this) {
-      case NatureCompte.bilan1_5:
-        return 'Bilan (1-5)';
-      case NatureCompte.charge_6_impaire:
-        return 'Charge (6 impaire)';
-      case NatureCompte.produit_7_paire:
-        return 'Produit (7 paire)';
-      case NatureCompte.charge_8_impaire:
-        return 'Charge (8 impaire)';
-      case NatureCompte.produit_8_paire:
-        return 'Produit (8 paire)';
-      case NatureCompte.horsBilan_9:
-        return 'Hors bilan (9)';
+      case NatureCompte.bilanRessourcesDurables:
+        return 'Bilan (ressources durables)';
+      case NatureCompte.bilanActifImmobilise:
+        return 'Bilan (Actif immobilisé)';
+      case NatureCompte.bilanStocks:
+        return 'Bilan (stocks)';
+      case NatureCompte.bilanFournisseurs:
+        return 'Bilan (Fournisseurs)';
+      case NatureCompte.bilanAdherentsClientsUsagers:
+        return 'Bilan (Adhérents - clients usagers)';
+      case NatureCompte.bilanPersonnel:
+        return 'Bilan (Personnel)';
+      case NatureCompte.bilanOrganismesSociaux:
+        return 'Bilan (Organismes sociaux)';
+      case NatureCompte.bilanEtatCollectivitesPubliques:
+        return 'Bilan (Etat et collectivités publiques)';
+      case NatureCompte.bilanAutresTiers:
+        return 'Bilan (Autres tiers)';
+      case NatureCompte.bilanBanque:
+        return 'Bilan (Banque)';
+      case NatureCompte.bilanCaisse:
+        return 'Bilan (Caisse)';
+      case NatureCompte.bilanAutresTresoreries:
+        return 'Bilan (Autres trésoreries)';
+      case NatureCompte.engagementsHorsBilan:
+        return 'Engagements hors bilan';
+      case NatureCompte.chargesAO:
+        return 'Charges A.O.';
+      case NatureCompte.chargesHAO:
+        return 'Charges H.A.O.';
+      case NatureCompte.produitsAO:
+        return 'Produits A.O.';
+      case NatureCompte.produitsHAO:
+        return 'Produits H.A.O.';
     }
   }
 }
@@ -84,86 +172,144 @@ extension NatureCompteExtension on NatureCompte {
 /// Convertir string en enum
 NatureCompte stringToNatureCompte(String value) {
   switch (value) {
-    case 'bilan_1_5':
-      return NatureCompte.bilan1_5;
-    case 'charge_6_impaire':
-      return NatureCompte.charge_6_impaire;
-    case 'produit_7_paire':
-      return NatureCompte.produit_7_paire;
-    case 'charge_8_impaire':
-      return NatureCompte.charge_8_impaire;
-    case 'produit_8_paire':
-      return NatureCompte.produit_8_paire;
-    case 'hors_bilan_9':
-      return NatureCompte.horsBilan_9;
+    case 'bilan_ressources_durables':
+      return NatureCompte.bilanRessourcesDurables;
+    case 'bilan_actif_immobilise':
+      return NatureCompte.bilanActifImmobilise;
+    case 'bilan_stocks':
+      return NatureCompte.bilanStocks;
+    case 'bilan_fournisseurs':
+      return NatureCompte.bilanFournisseurs;
+    case 'bilan_adherents_clients_usagers':
+      return NatureCompte.bilanAdherentsClientsUsagers;
+    case 'bilan_personnel':
+      return NatureCompte.bilanPersonnel;
+    case 'bilan_organismes_sociaux':
+      return NatureCompte.bilanOrganismesSociaux;
+    case 'bilan_etat_collectivites_publiques':
+      return NatureCompte.bilanEtatCollectivitesPubliques;
+    case 'bilan_autres_tiers':
+      return NatureCompte.bilanAutresTiers;
+    case 'bilan_banque':
+      return NatureCompte.bilanBanque;
+    case 'bilan_caisse':
+      return NatureCompte.bilanCaisse;
+    case 'bilan_autres_tresoreries':
+      return NatureCompte.bilanAutresTresoreries;
+    case 'engagements_hors_bilan':
+      return NatureCompte.engagementsHorsBilan;
+    case 'charges_ao':
+      return NatureCompte.chargesAO;
+    case 'charges_hao':
+      return NatureCompte.chargesHAO;
+    case 'produits_ao':
+      return NatureCompte.produitsAO;
+    case 'produits_hao':
+      return NatureCompte.produitsHAO;
     default:
-      return NatureCompte.bilan1_5;
+      return NatureCompte.bilanRessourcesDurables;
   }
 }
 
-/// Calculer la nature automatiquement basée sur le premier chiffre du numéro de compte
+/// Calculer la nature automatiquement basée sur le numéro de compte
 /// Règles:
-/// - 1 à 5: Bilan
-/// - 6 impaire: Charge
-/// - 7 paire: Produit
-/// - 8 impaire: Charge
-/// - 8 paire: Produit
-/// - 9: Hors bilan
+/// 1 -> Bilan (ressources durables)
+/// 2 -> Bilan (Actif immobilisé)
+/// 3 -> Bilan (stocks)
+/// 40 -> Bilan (Fournisseurs)
+/// 41 -> Bilan (Adhérents - clients usagers)
+/// 42 -> Bilan (Personnel)
+/// 43 -> Bilan (Organismes sociaux)
+/// 44 -> Bilan (Etat et collectivités publiques)
+/// (45, 46, 47, 48, 49) -> Bilan (Autres tiers)
+/// 52 -> Bilan (Banque)
+/// 57 -> Bilan (Caisse)
+/// (50, 51, 53, 55, 56, 58, 59) -> Bilan (Autres trésoreries)
+/// 6 -> Charges d'activités ordinaires
+/// 7 -> Produits d'activités ordinaires
+/// 8 impair (81, 83, 85, 87, 89) -> Charges hors activités ordinaires
+/// 8 pair (80, 82, 84, 86, 88) -> Produits hors activités ordinaires
+/// 9 -> Engagements hors bilan
 NatureCompte? calculateNatureFromNumeroCompte(String numeroCompte) {
-  if (numeroCompte.isEmpty) return null;
+  if (numeroCompte.isEmpty || numeroCompte.length < 1) return null;
 
-  final firstChar = numeroCompte[0];
-  if (!RegExp(r'^[0-9]$').hasMatch(firstChar)) return null;
+  final firstDigit = int.tryParse(numeroCompte[0]);
+  if (firstDigit == null) return null;
 
-  final firstDigit = int.parse(firstChar);
+  // Cas des 2 premiers chiffres pour plus de précision
+  if (numeroCompte.length >= 2) {
+    final firstTwoDigits = numeroCompte.substring(0, 2);
 
+    switch (firstTwoDigits) {
+      case '40':
+        return NatureCompte.bilanFournisseurs;
+      case '41':
+        return NatureCompte.bilanAdherentsClientsUsagers;
+      case '42':
+        return NatureCompte.bilanPersonnel;
+      case '43':
+        return NatureCompte.bilanOrganismesSociaux;
+      case '44':
+        return NatureCompte.bilanEtatCollectivitesPubliques;
+      case '45':
+      case '46':
+      case '47':
+      case '48':
+      case '49':
+        return NatureCompte.bilanAutresTiers;
+      case '50':
+      case '51':
+      case '53':
+      case '55':
+      case '56':
+      case '58':
+      case '59':
+        return NatureCompte.bilanAutresTresoreries;
+      case '52':
+        return NatureCompte.bilanBanque;
+      case '57':
+        return NatureCompte.bilanCaisse;
+      // Cas pour 8X (charge ou produit hors activités ordinaires)
+      case '80':
+      case '82':
+      case '84':
+      case '86':
+      case '88':
+        return NatureCompte.produitsHAO;
+      case '81':
+      case '83':
+      case '85':
+      case '87':
+      case '89':
+        return NatureCompte.chargesHAO;
+    }
+  }
+
+  // Cas du premier chiffre uniquement
   switch (firstDigit) {
     case 1:
+      return NatureCompte.bilanRessourcesDurables;
     case 2:
+      return NatureCompte.bilanActifImmobilise;
     case 3:
-    case 4:
-    case 5:
-      return NatureCompte.bilan1_5;
+      return NatureCompte.bilanStocks;
     case 6:
-      // 6 impaire (chaîne de caractères, donc on regarde si c'est impair en valeur numérique)
-      if (numeroCompte.length > 1) {
-        try {
-          final secondDigit = int.parse(numeroCompte[1]);
-          return secondDigit % 2 != 0
-              ? NatureCompte.charge_6_impaire
-              : NatureCompte.charge_6_impaire; // Par défaut charge pour 6
-        } catch (e) {
-          return NatureCompte.charge_6_impaire;
-        }
-      }
-      return NatureCompte.charge_6_impaire;
+      return NatureCompte.chargesAO;
     case 7:
-      // 7 paire
-      if (numeroCompte.length > 1) {
-        try {
-          final secondDigit = int.parse(numeroCompte[1]);
-          return secondDigit % 2 == 0
-              ? NatureCompte.produit_7_paire
-              : NatureCompte.produit_7_paire; // Par défaut produit pour 7
-        } catch (e) {
-          return NatureCompte.produit_7_paire;
-        }
-      }
-      return NatureCompte.produit_7_paire;
+      return NatureCompte.produitsAO;
     case 8:
-      if (numeroCompte.length > 1) {
-        try {
-          final secondDigit = int.parse(numeroCompte[1]);
-          return secondDigit % 2 != 0
-              ? NatureCompte.charge_8_impaire
-              : NatureCompte.produit_8_paire;
-        } catch (e) {
-          return NatureCompte.charge_8_impaire;
+      // Vérifier le 2e chiffre pour déterminer si c'est charge ou produit
+      if (numeroCompte.length >= 2) {
+        final secondDigit = int.tryParse(numeroCompte[1]);
+        if (secondDigit != null) {
+          return (secondDigit % 2 == 0)
+              ? NatureCompte.produitsHAO
+              : NatureCompte.chargesHAO;
         }
       }
-      return NatureCompte.charge_8_impaire;
+      return null;
     case 9:
-      return NatureCompte.horsBilan_9;
+      return NatureCompte.engagementsHorsBilan;
     default:
       return null;
   }
@@ -210,6 +356,28 @@ class Compte {
       isActive: json['is_active'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+    );
+  }
+
+  /// Créer à partir d'une Map SQLite
+  factory Compte.fromMap(Map<String, dynamic> map) {
+    return Compte(
+      id: map['id'].toString(),
+      numeroCompte: map['numero_compte'] as String,
+      intitule: map['intitule'] as String,
+      type: stringToTypeCompte(map['type'] as String),
+      nature: stringToNatureCompte(map['nature'] as String),
+      liaisonTiers: ((map['liaison_tiers'] ?? 0) as int) == 1,
+      description: map['description'] as String?,
+      isActive: ((map['is_active'] ?? 1) as int) == 1,
+      createdAt:
+          map['created_at'] != null
+              ? DateTime.parse(map['created_at'] as String)
+              : DateTime.now(),
+      updatedAt:
+          map['updated_at'] != null
+              ? DateTime.parse(map['updated_at'] as String)
+              : DateTime.now(),
     );
   }
 

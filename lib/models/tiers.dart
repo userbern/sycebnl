@@ -1,5 +1,5 @@
 /// Types de tiers comptable
-enum TypeTiers { client, fournisseur, employe, autre }
+enum TypeTiers { client, fournisseur, salarie, banque, caisse, autre }
 
 /// Extension pour convertir enum en string
 extension TypeTiersExtension on TypeTiers {
@@ -9,8 +9,12 @@ extension TypeTiersExtension on TypeTiers {
         return 'client';
       case TypeTiers.fournisseur:
         return 'fournisseur';
-      case TypeTiers.employe:
-        return 'employe';
+      case TypeTiers.salarie:
+        return 'salarié';
+      case TypeTiers.banque:
+        return 'banque';
+      case TypeTiers.caisse:
+        return 'caisse';
       case TypeTiers.autre:
         return 'autre';
     }
@@ -19,13 +23,17 @@ extension TypeTiersExtension on TypeTiers {
   String toLabel() {
     switch (this) {
       case TypeTiers.client:
-        return 'Client';
+        return 'Adhérent - client usager';
       case TypeTiers.fournisseur:
-        return 'Fournisseur';
-      case TypeTiers.employe:
-        return 'Employé';
+        return 'Fournisseurs';
+      case TypeTiers.salarie:
+        return 'Salarié';
+      case TypeTiers.banque:
+        return 'Banque';
+      case TypeTiers.caisse:
+        return 'Caisse';
       case TypeTiers.autre:
-        return 'Autre';
+        return 'Autres';
     }
   }
 }
@@ -37,8 +45,12 @@ TypeTiers stringToTypeTiers(String value) {
       return TypeTiers.client;
     case 'fournisseur':
       return TypeTiers.fournisseur;
-    case 'employe':
-      return TypeTiers.employe;
+    case 'salarié':
+      return TypeTiers.salarie;
+    case 'banque':
+      return TypeTiers.banque;
+    case 'caisse':
+      return TypeTiers.caisse;
     case 'autre':
       return TypeTiers.autre;
     default:
@@ -87,6 +99,28 @@ class Tiers {
       isActive: json['is_active'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+    );
+  }
+
+  /// Créer à partir d'une Map SQLite
+  factory Tiers.fromMap(Map<String, dynamic> map) {
+    return Tiers(
+      id: map['id'].toString(),
+      numeroCompte: map['numero_compte'] as String,
+      intitule: map['intitule'] as String,
+      type: stringToTypeTiers(map['type'] as String),
+      compteCollectif: map['compte_collectif'] as String,
+      nif: map['nif'] as String?,
+      adresse: map['adresse'] as String?,
+      isActive: (map['is_active'] as int?) == 1,
+      createdAt:
+          map['created_at'] != null
+              ? DateTime.parse(map['created_at'] as String)
+              : DateTime.now(),
+      updatedAt:
+          map['updated_at'] != null
+              ? DateTime.parse(map['updated_at'] as String)
+              : DateTime.now(),
     );
   }
 

@@ -1,643 +1,1004 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../models/user_session.dart';
 import '../models/compte.dart';
-import '../services/auth_service.dart';
+import '../services/database_service_new.dart';
 
 class PlanComptablePage extends StatefulWidget {
-  final UserSession userSession;
-  final bool showAppBar;
-
-  const PlanComptablePage({
-    super.key,
-    required this.userSession,
-    this.showAppBar = true,
-  });
+  const PlanComptablePage({super.key});
 
   @override
   State<PlanComptablePage> createState() => _PlanComptablePageState();
 }
 
 class _PlanComptablePageState extends State<PlanComptablePage> {
-  List<Compte> comptes = [];
-  bool isLoading = true;
-  String searchQuery = '';
-  late FocusNode _focusNode;
+  List<Compte> _comptes = [];
+  bool _isLoading = false;
+  String _searchQuery = '';
+  NatureCompte? _selectedNature; // Filtre par nature
+  TypeCompte? _selectedType; // Filtre par type
+  int _longueurCompteGeneral = 7; // Valeur par défaut
 
   @override
   void initState() {
     super.initState();
-    _focusNode = FocusNode();
-    Future.microtask(() {
-      _focusNode.requestFocus();
-    });
     _loadComptes();
+    _loadLongueurCompteGeneral();
   }
 
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadComptes() async {
+  Future<void> _loadLongueurCompteGeneral() async {
     try {
-      final data = await AuthService.getComptes();
-      if (!mounted) return;
-      setState(() {
-        comptes = data;
-        isLoading = false;
-      });
+      final config = await DatabaseService.getFileConfig();
+      if (config != null && config['longueur_compte_general'] != null) {
+        setState(() {
+          _longueurCompteGeneral = config['longueur_compte_general'] as int;
+        });
+      }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      setState(() => isLoading = false);
+      debugPrint('Erreur chargement longueur compte: $e');
     }
   }
 
+  Future<void> _loadComptes() async {
+    setState(() => _isLoading = true);
+    try {
+      final comptes = await DatabaseService.getAllComptes();
+      setState(() {
+        _comptes = comptes;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du chargement des comptes: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  List<Compte> get _filteredComptes {
+    var filtered = _comptes;
+
+    // Filtrer par texte de recherche
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      filtered =
+          filtered.where((compte) {
+            return compte.numeroCompte.toLowerCase().contains(query) ||
+                compte.intitule.toLowerCase().contains(query);
+          }).toList();
+    }
+
+    // Filtrer par nature
+    if (_selectedNature != null) {
+      filtered =
+          filtered.where((compte) {
+            return compte.nature == _selectedNature;
+          }).toList();
+    }
+
+    // Filtrer par type
+    if (_selectedType != null) {
+      filtered =
+          filtered.where((compte) {
+            return compte.type == _selectedType;
+          }).toList();
+    }
+
+    return filtered;
+  }
+
+  String _padNumeroCompte(String numero, TypeCompte type) {
+    // Ne compléter avec des zéros que pour les comptes de type "detail"
+    if (type == TypeCompte.total) {
+      return numero;
+    }
+
+    if (numero.length >= _longueurCompteGeneral) {
+      return numero;
+    }
+    return numero.padRight(_longueurCompteGeneral, '0');
+  }
+
+  void _showCompteDialog({Compte? compte}) {
+    final isEdit = compte != null;
+    final numeroController = TextEditingController(
+      text: compte?.numeroCompte ?? '',
+    );
+    final intituleController = TextEditingController(
+      text: compte?.intitule ?? '',
+    );
+    final descriptionController = TextEditingController(
+      text: compte?.description ?? '',
+    );
+    TypeCompte selectedType = compte?.type ?? TypeCompte.detail;
+    NatureCompte? calculatedNature = compte?.nature;
+    bool liaisonTiers = compte?.liaisonTiers ?? false;
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(
+                    isEdit ? Icons.edit : Icons.add_circle,
+                    color: Colors.blue.shade700,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    isEdit ? 'Modifier le compte' : 'Nouveau compte',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 600,
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTextField(
+                                controller: numeroController,
+                                label: 'N° Compte *',
+                                icon: Icons.numbers,
+                                isRequired: true,
+                                keyboardType: TextInputType.number,
+                                enabled: !isEdit,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Champ requis';
+                                  }
+                                  if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                                    return 'Seuls les chiffres sont autorisés';
+                                  }
+                                  return null;
+                                },
+                                onChanged: (value) {
+                                  setDialogState(() {
+                                    calculatedNature =
+                                        calculateNatureFromNumeroCompte(value);
+                                  });
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 2,
+                              child: _buildTextField(
+                                controller: intituleController,
+                                label: 'Intitulé *',
+                                icon: Icons.title,
+                                isRequired: true,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Champ requis';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<TypeCompte>(
+                                value: selectedType,
+                                decoration: InputDecoration(
+                                  labelText: 'Type',
+                                  prefixIcon: const Icon(Icons.category),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: Colors.grey.shade400,
+                                    ),
+                                  ),
+                                  disabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: Colors.grey.shade300,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: Colors.blue.shade700,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  filled: true,
+                                  fillColor:
+                                      isEdit
+                                          ? Colors.grey.shade200
+                                          : Colors.grey.shade50,
+                                ),
+                                dropdownColor: Colors.white,
+                                icon: Icon(
+                                  Icons.arrow_drop_down_circle,
+                                  color: Colors.blue.shade700,
+                                ),
+                                items:
+                                    TypeCompte.values.map((type) {
+                                      return DropdownMenuItem(
+                                        value: type,
+                                        child: Text(type.toLabel()),
+                                      );
+                                    }).toList(),
+                                onChanged:
+                                    isEdit
+                                        ? null
+                                        : (value) {
+                                          if (value != null) {
+                                            setDialogState(() {
+                                              selectedType = value;
+                                            });
+                                          }
+                                        },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<NatureCompte>(
+                          value: calculatedNature,
+                          decoration: InputDecoration(
+                            labelText: 'Nature *',
+                            prefixIcon: const Icon(Icons.layers),
+                            helperText: 'Auto-détecté du numéro de compte',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade400,
+                              ),
+                            ),
+                            disabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade300,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.blue.shade700,
+                                width: 2,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                          ),
+                          dropdownColor: Colors.white,
+                          icon: Icon(
+                            Icons.arrow_drop_down_circle,
+                            color: Colors.blue.shade700,
+                          ),
+                          items:
+                              NatureCompte.values.map((nature) {
+                                return DropdownMenuItem(
+                                  value: nature,
+                                  child: Text(nature.toLabel()),
+                                );
+                              }).toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setDialogState(() {
+                                calculatedNature = value;
+                              });
+                            }
+                          },
+                          validator: (value) {
+                            if (value == null) {
+                              return 'Sélectionnez une nature';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: descriptionController,
+                          label: 'Description',
+                          icon: Icons.notes,
+                          maxLines: 3,
+                          enabled: !isEdit,
+                        ),
+                        const SizedBox(height: 16),
+                        CheckboxListTile(
+                          title: const Text('Rattachement de tiers'),
+                          subtitle: const Text(
+                            'Permet de rattacher un tiers à ce compte',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          value: liaisonTiers,
+                          onChanged:
+                              isEdit
+                                  ? null
+                                  : (value) {
+                                    setDialogState(() {
+                                      liaisonTiers = value ?? false;
+                                    });
+                                  },
+                          controlAffinity: ListTileControlAffinity.leading,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          tileColor:
+                              isEdit
+                                  ? Colors.grey.shade200
+                                  : Colors.grey.shade50,
+                        ),
+                        if (!isEdit) ...[
+                          const SizedBox(height: 20),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info,
+                                  color: Colors.blue.shade700,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Utilisez Ctrl+N pour ajouter rapidement plusieurs comptes',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.blue.shade900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Fermer'),
+                ),
+                if (!isEdit)
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      if (formKey.currentState!.validate()) {
+                        if (calculatedNature == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Numéro de compte invalide'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        final paddedNumero = _padNumeroCompte(
+                          numeroController.text.trim(),
+                          selectedType,
+                        );
+
+                        try {
+                          await DatabaseService.createCompte(
+                            numeroCompte: paddedNumero,
+                            intitule: intituleController.text.trim(),
+                            type: selectedType.toDbString(),
+                            nature: calculatedNature!.toDbString(),
+                            liaisonTiers: liaisonTiers,
+                            description:
+                                descriptionController.text.trim().isEmpty
+                                    ? null
+                                    : descriptionController.text.trim(),
+                          );
+
+                          // Réinitialiser le formulaire pour saisir un autre compte
+                          numeroController.clear();
+                          intituleController.clear();
+                          descriptionController.clear();
+                          setDialogState(() {
+                            selectedType = TypeCompte.detail;
+                            calculatedNature = null;
+                            liaisonTiers = false;
+                          });
+
+                          await _loadComptes();
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Compte créé avec succès'),
+                                backgroundColor: Colors.green,
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          }
+
+                          // Focus sur le champ numéro pour continuer la saisie
+                          FocusScope.of(context).requestFocus(FocusNode());
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Erreur: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Ajouter et continuer'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    if (formKey.currentState!.validate()) {
+                      if (calculatedNature == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Numéro de compte invalide'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      final paddedNumero = _padNumeroCompte(
+                        numeroController.text.trim(),
+                        selectedType,
+                      );
+
+                      try {
+                        if (isEdit) {
+                          await DatabaseService.updateCompte(
+                            compteId: compte.id,
+                            numeroCompte: paddedNumero,
+                            intitule: intituleController.text.trim(),
+                            type: selectedType.toDbString(),
+                            nature: calculatedNature!.toDbString(),
+                            liaisonTiers: liaisonTiers,
+                            description:
+                                descriptionController.text.trim().isEmpty
+                                    ? null
+                                    : descriptionController.text.trim(),
+                          );
+                        } else {
+                          await DatabaseService.createCompte(
+                            numeroCompte: paddedNumero,
+                            intitule: intituleController.text.trim(),
+                            type: selectedType.toDbString(),
+                            nature: calculatedNature!.toDbString(),
+                            liaisonTiers: liaisonTiers,
+                            description:
+                                descriptionController.text.trim().isEmpty
+                                    ? null
+                                    : descriptionController.text.trim(),
+                          );
+                        }
+
+                        await _loadComptes();
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                isEdit
+                                    ? 'Compte modifié avec succès'
+                                    : 'Compte créé avec succès',
+                              ),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Erreur: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    }
+                  },
+                  icon: Icon(isEdit ? Icons.save : Icons.check),
+                  label: Text(isEdit ? 'Enregistrer' : 'Ajouter'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade700,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _deleteCompte(Compte compte) async {
-    final confirmed = await showDialog<bool>(
+    final confirm = await showDialog<bool>(
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Supprimer le compte?'),
+            title: const Text('Confirmer la suppression'),
             content: Text(
-              'Êtes-vous sûr de vouloir supprimer le compte ${compte.numeroCompte}?',
+              'Voulez-vous vraiment supprimer le compte ${compte.numeroCompte} - ${compte.intitule} ?',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
                 child: const Text('Annuler'),
               ),
-              TextButton(
+              ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text(
-                  'Supprimer',
-                  style: TextStyle(color: Colors.red),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
                 ),
+                child: const Text('Supprimer'),
               ),
             ],
           ),
     );
 
-    if (confirmed != true) return;
-
-    try {
-      await AuthService.deleteCompte(compte.id);
-      if (!mounted) return;
-      _loadComptes();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Compte supprimé'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    if (confirm == true) {
+      try {
+        await DatabaseService.deleteCompte(compte.id);
+        await _loadComptes();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Compte supprimé avec succès'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur lors de la suppression: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    if (!widget.userSession.isAdmin) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Plan comptable'),
-          backgroundColor: Colors.indigo,
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+    bool isRequired = false,
+    bool enabled = true,
+    String? Function(String?)? validator,
+    void Function(String)? onChanged,
+  }) {
+    return TextFormField(
+      controller: controller,
+      enabled: enabled,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade400),
         ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.lock, size: 80, color: Colors.grey[400]),
-              SizedBox(height: screenHeight * 0.02),
-              const Text(
-                'Accès refusé',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey,
-                ),
-              ),
-              SizedBox(height: screenHeight * 0.01),
-              const Text(
-                'Seuls les administrateurs peuvent configurer le plan comptable',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
-              ),
-            ],
-          ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
         ),
-      );
-    }
-
-    // Filtrer les comptes selon la recherche
-    final filteredComptes =
-        comptes
-            .where(
-              (c) =>
-                  c.numeroCompte.toLowerCase().contains(
-                    searchQuery.toLowerCase(),
-                  ) ||
-                  c.intitule.toLowerCase().contains(searchQuery.toLowerCase()),
-            )
-            .toList();
-
-    return RawKeyboardListener(
-      focusNode: _focusNode,
-      onKey: (event) {
-        if (event.logicalKey == LogicalKeyboardKey.keyN &&
-            HardwareKeyboard.instance.isControlPressed) {
-          _showCompteDialog(null);
-        }
-      },
-      child: Scaffold(
-        appBar:
-            widget.showAppBar
-                ? AppBar(
-                  title: const Text('Plan comptable'),
-                  backgroundColor: Colors.indigo,
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () {
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      }
-                    },
-                  ),
-                )
-                : null,
-        body:
-            isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : Column(
-                  children: [
-                    // Barre de recherche
-                    Padding(
-                      padding: EdgeInsets.all(screenHeight * 0.015),
-                      child: TextField(
-                        onChanged: (value) {
-                          setState(() => searchQuery = value);
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Rechercher un compte...',
-                          prefixIcon: const Icon(Icons.search),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Tableau des comptes
-                    Expanded(
-                      child:
-                          filteredComptes.isEmpty
-                              ? Center(
-                                child: Text(
-                                  searchQuery.isEmpty
-                                      ? 'Aucun compte. Cliquez sur + ou Ctrl+N'
-                                      : 'Aucun compte trouvé',
-                                  style: const TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              )
-                              : SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: SingleChildScrollView(
-                                  child: DataTable(
-                                    columnSpacing: 20,
-                                    dataRowHeight: 56,
-                                    columns: const [
-                                      DataColumn(
-                                        label: Text(
-                                          'N° Compte',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Intitulés',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Type',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Nature',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Actions',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                    rows:
-                                        filteredComptes
-                                            .map(
-                                              (compte) => DataRow(
-                                                cells: [
-                                                  DataCell(
-                                                    Text(
-                                                      compte.numeroCompte,
-                                                      style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  DataCell(
-                                                    Text(compte.intitule),
-                                                  ),
-                                                  DataCell(
-                                                    Chip(
-                                                      label: Text(
-                                                        compte.type.toLabel(),
-                                                        style: const TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 12,
-                                                        ),
-                                                      ),
-                                                      backgroundColor:
-                                                          _getTypeColor(
-                                                            compte.type,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                  DataCell(
-                                                    Text(
-                                                      compte.nature.toLabel(),
-                                                    ),
-                                                  ),
-                                                  DataCell(
-                                                    Row(
-                                                      children: [
-                                                        Tooltip(
-                                                          message: 'Modifier',
-                                                          child: IconButton(
-                                                            icon: const Icon(
-                                                              Icons.edit,
-                                                              color:
-                                                                  Colors.blue,
-                                                              size: 20,
-                                                            ),
-                                                            onPressed: () {
-                                                              _showCompteDialog(
-                                                                compte,
-                                                              );
-                                                            },
-                                                            padding:
-                                                                const EdgeInsets.all(
-                                                                  8,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                        Tooltip(
-                                                          message: 'Supprimer',
-                                                          child: IconButton(
-                                                            icon: const Icon(
-                                                              Icons.delete,
-                                                              color: Colors.red,
-                                                              size: 20,
-                                                            ),
-                                                            onPressed: () {
-                                                              _deleteCompte(
-                                                                compte,
-                                                              );
-                                                            },
-                                                            padding:
-                                                                const EdgeInsets.all(
-                                                                  8,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            )
-                                            .toList(),
-                                  ),
-                                ),
-                              ),
-                    ),
-                  ],
-                ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () => _showCompteDialog(null),
-          backgroundColor: Colors.indigo,
-          child: const Icon(Icons.add),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+        ),
+        filled: true,
+        fillColor: enabled ? Colors.grey.shade50 : Colors.grey.shade200,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
         ),
       ),
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      validator: validator,
+      onChanged: onChanged,
     );
-  }
-
-  Color _getTypeColor(TypeCompte type) {
-    switch (type) {
-      case TypeCompte.detail:
-        return Colors.blue;
-      case TypeCompte.total:
-        return Colors.green;
-    }
-  }
-
-  void _showCompteDialog(Compte? compte) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => CompteDialog(
-            compte: compte,
-            onSave: (updatedCompte) {
-              _loadComptes();
-              Navigator.pop(context);
-            },
-          ),
-    );
-  }
-}
-
-// ============ DIALOGUE DE CRÉATION/MODIFICATION ============
-
-class CompteDialog extends StatefulWidget {
-  final Compte? compte;
-  final Function(Compte) onSave;
-
-  const CompteDialog({super.key, this.compte, required this.onSave});
-
-  @override
-  State<CompteDialog> createState() => _CompteDialogState();
-}
-
-class _CompteDialogState extends State<CompteDialog> {
-  late TextEditingController _numeroController;
-  late TextEditingController _intituleController;
-  late TextEditingController _descriptionController;
-  TypeCompte? _selectedType;
-  NatureCompte? _selectedNature;
-  bool _liaisonTiers = false;
-  bool _isSaving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final compte = widget.compte;
-    _numeroController = TextEditingController(text: compte?.numeroCompte ?? '');
-    _intituleController = TextEditingController(text: compte?.intitule ?? '');
-    _descriptionController = TextEditingController(
-      text: compte?.description ?? '',
-    );
-    _selectedType = compte?.type ?? TypeCompte.detail; // Default to detail
-    _selectedNature = compte?.nature;
-    _liaisonTiers = compte?.liaisonTiers ?? false;
-
-    // Calculer la nature automatiquement si elle n'existe pas
-    if (_selectedNature == null && _numeroController.text.isNotEmpty) {
-      _selectedNature = calculateNatureFromNumeroCompte(_numeroController.text);
-    }
-  }
-
-  @override
-  void dispose() {
-    _numeroController.dispose();
-    _intituleController.dispose();
-    _descriptionController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    if (_numeroController.text.isEmpty ||
-        _intituleController.text.isEmpty ||
-        _selectedType == null ||
-        _selectedNature == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tous les champs obligatoires doivent être remplis'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isSaving = true);
-
-    try {
-      if (widget.compte == null) {
-        // Créer
-        await AuthService.createCompte(
-          numeroCompte: _numeroController.text,
-          intitule: _intituleController.text,
-          type: _selectedType!.toDbString(),
-          nature: _selectedNature!.toDbString(),
-          liaisonTiers: _liaisonTiers,
-          description:
-              _descriptionController.text.isEmpty
-                  ? null
-                  : _descriptionController.text,
-        );
-      } else {
-        // Modifier
-        await AuthService.updateCompte(
-          id: widget.compte!.id,
-          numeroCompte: _numeroController.text,
-          intitule: _intituleController.text,
-          type: _selectedType!.toDbString(),
-          nature: _selectedNature!.toDbString(),
-          liaisonTiers: _liaisonTiers,
-          description:
-              _descriptionController.text.isEmpty
-                  ? null
-                  : _descriptionController.text,
-        );
-      }
-
-      if (!mounted) return;
-      widget.onSave(
-        widget.compte ??
-            Compte(
-              id: '',
-              numeroCompte: _numeroController.text,
-              intitule: _intituleController.text,
-              type: _selectedType!,
-              nature: _selectedNature!,
-              liaisonTiers: _liaisonTiers,
-              description: _descriptionController.text,
-              isActive: true,
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      setState(() => _isSaving = false);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.compte != null;
-
-    return AlertDialog(
-      title: Text(isEditing ? 'Modifier le compte' : 'Nouveau compte'),
-      content: SizedBox(
-        width: 500,
-        child: SingleChildScrollView(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.keyN &&
+            HardwareKeyboard.instance.isControlPressed) {
+          _showCompteDialog();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey.shade50,
+        body: Padding(
+          padding: const EdgeInsets.all(24.0),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // En-tête
+              Row(
+                children: [
+                  Icon(
+                    Icons.account_balance_wallet,
+                    size: 32,
+                    color: Colors.blue.shade700,
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Plan Comptable',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const Spacer(),
+                  ElevatedButton.icon(
+                    onPressed: () => _showCompteDialog(),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Nouveau compte (Ctrl+N)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade700,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Barre de recherche
               TextField(
-                controller: _numeroController,
-                decoration: const InputDecoration(
-                  labelText: 'N° Compte *',
-                  border: OutlineInputBorder(),
+                onChanged: (value) => setState(() => _searchQuery = value),
+                decoration: InputDecoration(
+                  labelText: 'Rechercher un compte',
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
                 ),
-                enabled: !_isSaving,
-                onChanged: (value) {
-                  final nature = calculateNatureFromNumeroCompte(value);
-                  if (nature != null) {
-                    setState(() => _selectedNature = nature);
-                  }
-                },
               ),
               const SizedBox(height: 16),
-              TextField(
-                controller: _intituleController,
-                decoration: const InputDecoration(
-                  labelText: 'Intitulé *',
-                  border: OutlineInputBorder(),
-                ),
-                enabled: !_isSaving,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<TypeCompte>(
-                value: _selectedType,
-                decoration: const InputDecoration(
-                  labelText: 'Type *',
-                  border: OutlineInputBorder(),
-                ),
-                items:
-                    TypeCompte.values
-                        .map(
-                          (type) => DropdownMenuItem(
-                            value: type,
-                            child: Text(type.toLabel()),
-                          ),
-                        )
-                        .toList(),
-                onChanged:
-                    _isSaving
-                        ? null
-                        : (value) {
-                          setState(() => _selectedType = value);
-                        },
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<NatureCompte>(
-                value: _selectedNature,
-                decoration: const InputDecoration(
-                  labelText: 'Nature *',
-                  border: OutlineInputBorder(),
-                ),
-                items:
-                    NatureCompte.values
-                        .map(
-                          (nature) => DropdownMenuItem(
+
+              // Filtres par nature et type
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<NatureCompte?>(
+                      value: _selectedNature,
+                      decoration: InputDecoration(
+                        labelText: 'Filtrer par nature',
+                        prefixIcon: const Icon(Icons.category),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('-- Toutes les natures --'),
+                        ),
+                        for (final nature in NatureCompte.values)
+                          DropdownMenuItem(
                             value: nature,
                             child: Text(nature.toLabel()),
                           ),
+                      ],
+                      onChanged: (value) {
+                        setState(() => _selectedNature = value);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: DropdownButtonFormField<TypeCompte?>(
+                      value: _selectedType,
+                      decoration: InputDecoration(
+                        labelText: 'Filtrer par type',
+                        prefixIcon: const Icon(Icons.type_specimen),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('-- Tous les types --'),
+                        ),
+                        for (final type in TypeCompte.values)
+                          DropdownMenuItem(
+                            value: type,
+                            child: Text(type.toLabel()),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        setState(() => _selectedType = value);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _searchQuery = '';
+                        _selectedNature = null;
+                        _selectedType = null;
+                      });
+                    },
+                    icon: const Icon(Icons.clear),
+                    label: const Text('Réinitialiser'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Tableau
+              Expanded(
+                child:
+                    _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _filteredComptes.isEmpty
+                        ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.account_balance_wallet_outlined,
+                                size: 80,
+                                color: Colors.grey.shade300,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _searchQuery.isEmpty
+                                    ? 'Aucun compte dans le plan comptable'
+                                    : 'Aucun compte trouvé',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
                         )
-                        .toList(),
-                onChanged:
-                    _isSaving
-                        ? null
-                        : (value) {
-                          setState(() => _selectedNature = value);
-                        },
-              ),
-              const SizedBox(height: 16),
-              CheckboxListTile(
-                title: const Text('Liaison de tiers'),
-                value: _liaisonTiers,
-                onChanged:
-                    _isSaving
-                        ? null
-                        : (value) {
-                          setState(() => _liaisonTiers = value ?? false);
-                        },
-                contentPadding: EdgeInsets.zero,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-                enabled: !_isSaving,
+                        : Align(
+                          alignment: Alignment.topCenter,
+                          child: Container(
+                            constraints: const BoxConstraints(maxWidth: 3000),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.vertical,
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: DataTable(
+                                    headingRowColor: WidgetStateProperty.all(
+                                      Colors.blue.shade700,
+                                    ),
+                                    headingTextStyle: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                    dataRowMinHeight: 56,
+                                    dataRowMaxHeight: 72,
+                                    columnSpacing: 48,
+                                    horizontalMargin: 32,
+                                    columns: const [
+                                      DataColumn(label: Text('N° Compte')),
+                                      DataColumn(label: Text('Intitulé')),
+                                      DataColumn(label: Text('Type')),
+                                      DataColumn(label: Text('Nature')),
+                                      DataColumn(label: Text('Actions')),
+                                    ],
+                                    rows:
+                                        _filteredComptes.map((compte) {
+                                          return DataRow(
+                                            cells: [
+                                              DataCell(
+                                                Text(
+                                                  compte.numeroCompte,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontFamily: 'monospace',
+                                                    fontSize: 15,
+                                                  ),
+                                                ),
+                                              ),
+                                              DataCell(
+                                                Text(
+                                                  compte.intitule,
+                                                  style: const TextStyle(
+                                                    fontSize: 15,
+                                                  ),
+                                                ),
+                                              ),
+                                              DataCell(
+                                                Text(
+                                                  compte.type.toLabel(),
+                                                  style: const TextStyle(
+                                                    fontSize: 15,
+                                                  ),
+                                                ),
+                                              ),
+                                              DataCell(
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 6,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: _getNatureColor(
+                                                      compte.nature,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                  ),
+                                                  child: Text(
+                                                    compte.nature.toLabel(),
+                                                    style: const TextStyle(
+                                                      fontSize: 14,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              DataCell(
+                                                Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    IconButton(
+                                                      icon: const Icon(
+                                                        Icons.edit,
+                                                        size: 24,
+                                                      ),
+                                                      color:
+                                                          Colors.blue.shade700,
+                                                      onPressed:
+                                                          () =>
+                                                              _showCompteDialog(
+                                                                compte: compte,
+                                                              ),
+                                                      tooltip: 'Modifier',
+                                                    ),
+                                                    IconButton(
+                                                      icon: const Icon(
+                                                        Icons.delete,
+                                                        size: 24,
+                                                      ),
+                                                      color:
+                                                          Colors.red.shade700,
+                                                      onPressed:
+                                                          () => _deleteCompte(
+                                                            compte,
+                                                          ),
+                                                      tooltip: 'Supprimer',
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        }).toList(),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
               ),
             ],
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isSaving ? null : () => Navigator.pop(context),
-          child: const Text('Annuler'),
-        ),
-        ElevatedButton(
-          onPressed: _isSaving ? null : _save,
-          child:
-              _isSaving
-                  ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                  : Text(isEditing ? 'Modifier' : 'Créer'),
-        ),
-      ],
     );
+  }
+
+  Color _getNatureColor(NatureCompte nature) {
+    switch (nature) {
+      case NatureCompte.bilanRessourcesDurables:
+        return Colors.blue.shade700;
+      case NatureCompte.bilanActifImmobilise:
+        return Colors.blue.shade600;
+      case NatureCompte.bilanStocks:
+        return Colors.blue.shade500;
+      case NatureCompte.bilanFournisseurs:
+        return Colors.orange.shade700;
+      case NatureCompte.bilanAdherentsClientsUsagers:
+        return Colors.green.shade700;
+      case NatureCompte.bilanPersonnel:
+        return Colors.purple.shade700;
+      case NatureCompte.bilanOrganismesSociaux:
+        return Colors.pink.shade700;
+      case NatureCompte.bilanEtatCollectivitesPubliques:
+        return Colors.red.shade700;
+      case NatureCompte.bilanAutresTiers:
+        return Colors.amber.shade700;
+      case NatureCompte.bilanBanque:
+        return Colors.teal.shade700;
+      case NatureCompte.bilanCaisse:
+        return Colors.cyan.shade700;
+      case NatureCompte.bilanAutresTresoreries:
+        return Colors.indigo.shade700;
+      case NatureCompte.engagementsHorsBilan:
+        return Colors.grey.shade700;
+      case NatureCompte.chargesAO:
+        return Colors.red.shade500;
+      case NatureCompte.chargesHAO:
+        return Colors.red.shade400;
+      case NatureCompte.produitsAO:
+        return Colors.green.shade500;
+      case NatureCompte.produitsHAO:
+        return Colors.green.shade400;
+    }
   }
 }

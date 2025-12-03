@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_session.dart';
+import '../services/auth_service.dart';
 
 class ListeProjetsPage extends StatefulWidget {
   final bool showAppBar;
@@ -14,42 +14,36 @@ class ListeProjetsPage extends StatefulWidget {
 }
 
 class _ListeProjetsPageState extends State<ListeProjetsPage> {
-  final _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _projets = [];
   List<Map<String, dynamic>> _bailleurs = [];
   bool _isLoading = false;
-  final FocusNode _focusNode = FocusNode();
+  String _searchQuery = '';
+  String _sortBy = 'code';
+  String _filterStatus = 'actifs';
+  late FocusNode _focusNode;
 
-  // Permissions
   bool get _canCreate => _hasPermission('creation');
   bool get _canUpdate => _hasPermission('modification');
   bool get _canDelete => _hasPermission('suppression');
 
   bool _hasPermission(String type) {
-    if (widget.userSession == null)
-      return true; // Par défaut, autoriser si pas de session
-
+    if (widget.userSession == null) return true;
     final permission = widget.userSession!.permissions.firstWhere(
       (p) => p['menu'] == 'parametrages' && p['sous_menu'] == 'liste_projets',
       orElse: () => <String, dynamic>{},
     );
-
-    if (permission.isEmpty)
-      return true; // Si pas de permission définie, autoriser
+    if (permission.isEmpty) return true;
     return permission[type] == true;
   }
 
   @override
   void initState() {
     super.initState();
-    _loadData();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.microtask(() {
-        if (mounted) {
-          _focusNode.requestFocus();
-        }
-      });
+    _focusNode = FocusNode();
+    Future.microtask(() {
+      if (mounted) _focusNode.requestFocus();
     });
+    _loadData();
   }
 
   @override
@@ -59,377 +53,87 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
   }
 
   Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-    });
+    if (!mounted) return;
+    setState(() => _isLoading = true);
 
     try {
-      print('📊 Chargement des données projets...');
+      final projets = await AuthService.getProjetsWithBailleur();
+      final bailleurs = await AuthService.getBailleurs();
 
-      // Charger les bailleurs
-      final bailleursResponse = await _supabase
-          .from('bailleur')
-          .select()
-          .order('sigle', ascending: true);
-
-      print('✅ Bailleurs chargés: ${bailleursResponse.length}');
-
-      // Charger les projets avec leurs relations
-      final projetsResponse = await _supabase
-          .from('projet')
-          .select('*, projet_bailleur(bailleur(id, sigle, designation))')
-          .order('code', ascending: true);
-
-      print('✅ Projets chargés: ${projetsResponse.length}');
-
+      if (!mounted) return;
       setState(() {
-        _bailleurs = List<Map<String, dynamic>>.from(bailleursResponse);
-        _projets = List<Map<String, dynamic>>.from(projetsResponse);
+        _projets = projets;
+        _bailleurs =
+            bailleurs
+                .map(
+                  (b) => {
+                    'id': b.id,
+                    'sigle': b.sigle,
+                    'designation': b.designation,
+                  },
+                )
+                .toList();
         _isLoading = false;
       });
-
-      print('✅ État mis à jour avec succès');
-    } catch (e, stackTrace) {
-      print('❌ Erreur lors du chargement: $e');
-      print('Stack trace: $stackTrace');
-
-      setState(() {
-        _isLoading = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors du chargement: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
-  void _showProjetForm({Map<String, dynamic>? projet}) {
-    final codeController = TextEditingController(text: projet?['code'] ?? '');
-    final designationController = TextEditingController(
-      text: projet?['designation'] ?? '',
-    );
-    final dateDebutController = TextEditingController(
-      text: projet?['date_debut'] ?? '',
-    );
-    final dateFinController = TextEditingController(
-      text: projet?['date_fin'] ?? '',
-    );
+  List<Map<String, dynamic>> get _filteredProjets {
+    var filtered = _projets;
 
-    // Récupérer les bailleurs existants du projet
-    final Set<String> selectedBailleurIds = {};
-    if (projet != null && projet['projet_bailleur'] != null) {
-      for (var pb in projet['projet_bailleur']) {
-        if (pb['bailleur'] != null && pb['bailleur']['id'] != null) {
-          selectedBailleurIds.add(pb['bailleur']['id']);
-        }
-      }
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      filtered =
+          filtered.where((projet) {
+            return (projet['code'] ?? '').toString().toLowerCase().contains(
+                  query,
+                ) ||
+                (projet['designation'] ?? '').toString().toLowerCase().contains(
+                  query,
+                );
+          }).toList();
     }
 
-    final formKey = GlobalKey<FormState>();
+    if (_filterStatus == 'actifs') {
+      filtered = filtered.where((p) => p['deleted_at'] == null).toList();
+    } else if (_filterStatus == 'inactifs') {
+      filtered = filtered.where((p) => p['deleted_at'] != null).toList();
+    }
 
-    showDialog(
-      context: context,
-      builder:
-          (context) => StatefulBuilder(
-            builder:
-                (context, setDialogState) => AlertDialog(
-                  title: Text(
-                    projet == null ? 'Nouveau Projet' : 'Modifier Projet',
-                  ),
-                  content: SizedBox(
-                    width: 500,
-                    child: Form(
-                      key: formKey,
-                      child: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            TextFormField(
-                              controller: codeController,
-                              decoration: const InputDecoration(
-                                labelText: 'Code',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Le code est requis';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: designationController,
-                              decoration: const InputDecoration(
-                                labelText: 'Désignation',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'La désignation est requise';
-                                }
-                                return null;
-                              },
-                              maxLines: 2,
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: dateDebutController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Date début',
-                                      border: OutlineInputBorder(),
-                                      hintText: 'AAAA-MM-JJ',
-                                    ),
-                                    readOnly: true,
-                                    onTap: () async {
-                                      final date = await showDatePicker(
-                                        context: context,
-                                        initialDate:
-                                            dateDebutController.text.isNotEmpty
-                                                ? DateTime.parse(
-                                                  dateDebutController.text,
-                                                )
-                                                : DateTime.now(),
-                                        firstDate: DateTime(2000),
-                                        lastDate: DateTime(2100),
-                                      );
-                                      if (date != null) {
-                                        dateDebutController.text =
-                                            date.toIso8601String().split(
-                                              'T',
-                                            )[0];
-                                      }
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: dateFinController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Date fin',
-                                      border: OutlineInputBorder(),
-                                      hintText: 'AAAA-MM-JJ',
-                                    ),
-                                    readOnly: true,
-                                    onTap: () async {
-                                      final date = await showDatePicker(
-                                        context: context,
-                                        initialDate:
-                                            dateFinController.text.isNotEmpty
-                                                ? DateTime.parse(
-                                                  dateFinController.text,
-                                                )
-                                                : DateTime.now(),
-                                        firstDate: DateTime(2000),
-                                        lastDate: DateTime(2100),
-                                      );
-                                      if (date != null) {
-                                        dateFinController.text =
-                                            date.toIso8601String().split(
-                                              'T',
-                                            )[0];
-                                      }
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Bailleurs (sélection multiple)',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              constraints: const BoxConstraints(maxHeight: 200),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child:
-                                  _bailleurs.isEmpty
-                                      ? const Padding(
-                                        padding: EdgeInsets.all(16),
-                                        child: Text(
-                                          'Aucun bailleur disponible',
-                                          style: TextStyle(color: Colors.grey),
-                                        ),
-                                      )
-                                      : ListView.builder(
-                                        shrinkWrap: true,
-                                        itemCount: _bailleurs.length,
-                                        itemBuilder: (context, index) {
-                                          final bailleur = _bailleurs[index];
-                                          final bailleurId = bailleur['id'];
-                                          final isSelected = selectedBailleurIds
-                                              .contains(bailleurId);
+    if (_sortBy == 'code') {
+      filtered.sort(
+        (a, b) => (a['code'] ?? '').toString().compareTo(
+          (b['code'] ?? '').toString(),
+        ),
+      );
+    } else if (_sortBy == 'designation') {
+      filtered.sort(
+        (a, b) => (a['designation'] ?? '').toString().compareTo(
+          (b['designation'] ?? '').toString(),
+        ),
+      );
+    }
 
-                                          return CheckboxListTile(
-                                            title: Text(
-                                              bailleur['sigle'] ?? '',
-                                            ),
-                                            subtitle: Text(
-                                              bailleur['designation'] ?? '',
-                                            ),
-                                            value: isSelected,
-                                            onChanged: (bool? value) {
-                                              setDialogState(() {
-                                                if (value == true) {
-                                                  selectedBailleurIds.add(
-                                                    bailleurId,
-                                                  );
-                                                } else {
-                                                  selectedBailleurIds.remove(
-                                                    bailleurId,
-                                                  );
-                                                }
-                                              });
-                                            },
-                                            dense: true,
-                                          );
-                                        },
-                                      ),
-                            ),
-                            if (selectedBailleurIds.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.only(top: 8),
-                                child: Text(
-                                  'Veuillez sélectionner au moins un bailleur',
-                                  style: TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Annuler'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () async {
-                        if (formKey.currentState!.validate() &&
-                            selectedBailleurIds.isNotEmpty) {
-                          try {
-                            String projetId;
+    return filtered;
+  }
 
-                            if (projet == null) {
-                              // Insertion
-                              final response =
-                                  await _supabase
-                                      .from('projet')
-                                      .insert({
-                                        'code': codeController.text.trim(),
-                                        'designation':
-                                            designationController.text.trim(),
-                                        'date_debut':
-                                            dateDebutController.text.isNotEmpty
-                                                ? dateDebutController.text
-                                                : null,
-                                        'date_fin':
-                                            dateFinController.text.isNotEmpty
-                                                ? dateFinController.text
-                                                : null,
-                                      })
-                                      .select('id')
-                                      .single();
+  bool _isActive(Map<String, dynamic> projet) {
+    return projet['deleted_at'] == null;
+  }
 
-                              projetId = response['id'];
-                            } else {
-                              // Mise à jour
-                              await _supabase
-                                  .from('projet')
-                                  .update({
-                                    'code': codeController.text.trim(),
-                                    'designation':
-                                        designationController.text.trim(),
-                                    'date_debut':
-                                        dateDebutController.text.isNotEmpty
-                                            ? dateDebutController.text
-                                            : null,
-                                    'date_fin':
-                                        dateFinController.text.isNotEmpty
-                                            ? dateFinController.text
-                                            : null,
-                                  })
-                                  .eq('id', projet['id']);
-
-                              projetId = projet['id'];
-
-                              // Supprimer les anciennes relations
-                              await _supabase
-                                  .from('projet_bailleur')
-                                  .delete()
-                                  .eq('projet_id', projetId);
-                            }
-
-                            // Insérer les nouvelles relations
-                            final relations =
-                                selectedBailleurIds
-                                    .map(
-                                      (bailleurId) => {
-                                        'projet_id': projetId,
-                                        'bailleur_id': bailleurId,
-                                      },
-                                    )
-                                    .toList();
-
-                            if (relations.isNotEmpty) {
-                              await _supabase
-                                  .from('projet_bailleur')
-                                  .insert(relations);
-                            }
-
-                            if (context.mounted) {
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    projet == null
-                                        ? 'Projet ajouté avec succès'
-                                        : 'Projet modifié avec succès',
-                                  ),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
-                              _loadData();
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Erreur: ${e.toString()}'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          }
-                        }
-                      },
-                      child: const Text('Enregistrer'),
-                    ),
-                  ],
-                ),
-          ),
-    );
+  String _getBailleursString(Map<String, dynamic> projet) {
+    final bailleurs = projet['bailleurs'];
+    if (bailleurs == null || bailleurs.isEmpty) return 'Aucun';
+    return bailleurs.toString();
   }
 
   Future<void> _deleteProjet(Map<String, dynamic> projet) async {
@@ -457,9 +161,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
 
     if (confirm == true) {
       try {
-        // Les relations seront supprimées automatiquement grâce à ON DELETE CASCADE
-        await _supabase.from('projet').delete().eq('id', projet['id']);
-
+        await AuthService.deleteProjet(int.parse(projet['id'].toString()));
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -473,7 +175,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Erreur lors de la suppression: ${e.toString()}'),
+              content: Text('Erreur: ${e.toString()}'),
               backgroundColor: Colors.red,
             ),
           );
@@ -482,50 +184,38 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
     }
   }
 
-  String _getBailleursString(Map<String, dynamic> projet) {
-    if (projet['projet_bailleur'] == null) return 'Aucun';
-
-    final bailleurs = <String>[];
-    for (var pb in projet['projet_bailleur']) {
-      if (pb['bailleur'] != null && pb['bailleur']['designation'] != null) {
-        bailleurs.add(pb['bailleur']['designation']);
-      }
-    }
-
-    return bailleurs.isEmpty ? 'Aucun' : bailleurs.join(', ');
-  }
-
-  String _getPeriodeString(Map<String, dynamic> projet) {
-    final debut = projet['date_debut'];
-    final fin = projet['date_fin'];
-
-    if (debut == null && fin == null) return 'Non définie';
-
-    final debutStr = debut ?? '?';
-    final finStr = fin ?? '?';
-
-    return '$debutStr → $finStr';
+  void _showProjetDialog(Map<String, dynamic>? projet) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => _ProjetDialog(
+            projet: projet,
+            bailleurs: _bailleurs,
+            onSave: (_) {
+              _loadData();
+              Navigator.pop(context);
+            },
+          ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return RawKeyboardListener(
       focusNode: _focusNode,
-      autofocus: true,
       onKey: (event) {
-        if (event is RawKeyDownEvent) {
-          if (event.isControlPressed &&
-              event.logicalKey == LogicalKeyboardKey.keyN &&
-              _canCreate) {
-            _showProjetForm();
-          }
+        if (event.logicalKey == LogicalKeyboardKey.keyN &&
+            HardwareKeyboard.instance.isControlPressed &&
+            _canCreate) {
+          _showProjetDialog(null);
         }
       },
       child: Scaffold(
         appBar:
             widget.showAppBar
                 ? AppBar(
-                  title: const Text('Liste des Projets'),
+                  title: const Text('Projets'),
+                  backgroundColor: Colors.indigo,
                   leading: IconButton(
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () {
@@ -541,132 +231,775 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                 ? const Center(child: CircularProgressIndicator())
                 : Column(
                   children: [
-                    // Barre d'outils
-                    Container(
+                    Padding(
                       padding: const EdgeInsets.all(16),
-                      color: Colors.grey[100],
-                      child: Row(
+                      child: Column(
                         children: [
-                          if (_canCreate)
-                            ElevatedButton.icon(
-                              onPressed: () => _showProjetForm(),
-                              icon: const Icon(Icons.add),
-                              label: const Text('Nouveau (Ctrl+N)'),
-                            ),
-                          if (_canCreate) const SizedBox(width: 16),
-                          ElevatedButton.icon(
-                            onPressed: _loadData,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Actualiser'),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  onChanged: (value) {
+                                    setState(() => _searchQuery = value);
+                                  },
+                                  decoration: InputDecoration(
+                                    hintText: 'Rechercher un projet...',
+                                    prefixIcon: const Icon(Icons.search),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              if (_canCreate)
+                                ElevatedButton.icon(
+                                  onPressed: () => _showProjetDialog(null),
+                                  icon: const Icon(Icons.add),
+                                  label: const Text('Nouveau (Ctrl+N)'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.indigo,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  value: _sortBy,
+                                  decoration: InputDecoration(
+                                    labelText: 'Trier par',
+                                    prefixIcon: const Icon(Icons.sort),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: 'code',
+                                      child: Text('Code'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'designation',
+                                      child: Text('Désignation'),
+                                    ),
+                                  ],
+                                  onChanged: (value) {
+                                    setState(() => _sortBy = value ?? 'code');
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  value: _filterStatus,
+                                  decoration: InputDecoration(
+                                    labelText: 'Statut',
+                                    prefixIcon: const Icon(Icons.filter_alt),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: 'actifs',
+                                      child: Text('Actifs'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'inactifs',
+                                      child: Text('Inactifs'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'tous',
+                                      child: Text('Tous'),
+                                    ),
+                                  ],
+                                  onChanged: (value) {
+                                    setState(
+                                      () => _filterStatus = value ?? 'actifs',
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _searchQuery = '';
+                                    _sortBy = 'code';
+                                    _filterStatus = 'actifs';
+                                  });
+                                },
+                                icon: const Icon(Icons.clear),
+                                label: const Text('Réinitialiser'),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                    // Liste des projets
                     Expanded(
                       child:
-                          _projets.isEmpty
-                              ? const Center(
-                                child: Text(
-                                  'Aucun projet enregistré',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.grey,
-                                  ),
+                          _filteredProjets.isEmpty
+                              ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.folder,
+                                      size: 80,
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      _searchQuery.isEmpty
+                                          ? 'Aucun projet'
+                                          : 'Aucun projet trouvé',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        color: Colors.grey.shade500,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               )
-                              : ListView.builder(
-                                itemCount: _projets.length,
-                                itemBuilder: (context, index) {
-                                  final projet = _projets[index];
-                                  return Card(
-                                    margin: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 4,
+                              : SingleChildScrollView(
+                                child: Container(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 2500,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.grey.shade200,
                                     ),
-                                    child: ListTile(
-                                      title: Text(
-                                        projet['code'] ?? '',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.05,
                                         ),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
                                       ),
-                                      subtitle: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(projet['designation'] ?? ''),
-                                          const SizedBox(height: 4),
-                                          Row(
-                                            children: [
-                                              const Icon(
-                                                Icons.people_outline,
-                                                size: 14,
-                                                color: Colors.blue,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Expanded(
-                                                child: Text(
-                                                  _getBailleursString(projet),
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    color: Colors.blue,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Row(
-                                            children: [
-                                              const Icon(
-                                                Icons.calendar_today,
-                                                size: 14,
-                                                color: Colors.green,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                _getPeriodeString(projet),
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.green,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      trailing: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          if (_canUpdate)
-                                            IconButton(
-                                              icon: const Icon(Icons.edit),
-                                              color: Colors.blue,
-                                              onPressed:
-                                                  () => _showProjetForm(
-                                                    projet: projet,
-                                                  ),
-                                              tooltip: 'Modifier',
+                                    ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: DataTable(
+                                        headingRowColor:
+                                            WidgetStateProperty.all(
+                                              Colors.indigo.shade700,
                                             ),
-                                          if (_canDelete)
-                                            IconButton(
-                                              icon: const Icon(Icons.delete),
-                                              color: Colors.red,
-                                              onPressed:
-                                                  () => _deleteProjet(projet),
-                                              tooltip: 'Supprimer',
-                                            ),
+                                        headingTextStyle: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                        dataRowMinHeight: 56,
+                                        dataRowMaxHeight: 72,
+                                        columnSpacing: 48,
+                                        horizontalMargin: 32,
+                                        columns: const [
+                                          DataColumn(label: Text('Code')),
+                                          DataColumn(
+                                            label: Text('Désignation'),
+                                          ),
+                                          DataColumn(label: Text('Bailleurs')),
+                                          DataColumn(label: Text('Actions')),
                                         ],
+                                        rows:
+                                            _filteredProjets.map((projet) {
+                                              return DataRow(
+                                                color: WidgetStateProperty.all(
+                                                  _isActive(projet)
+                                                      ? Colors.white
+                                                      : Colors.grey.shade50,
+                                                ),
+                                                cells: [
+                                                  DataCell(
+                                                    Text(
+                                                      projet['code'] ?? '',
+                                                      style: TextStyle(
+                                                        fontSize: 15,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color:
+                                                            _isActive(projet)
+                                                                ? Colors.black87
+                                                                : Colors
+                                                                    .grey
+                                                                    .shade500,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  DataCell(
+                                                    Text(
+                                                      projet['designation'] ??
+                                                          '',
+                                                      style: TextStyle(
+                                                        fontSize: 15,
+                                                        color:
+                                                            _isActive(projet)
+                                                                ? Colors.black87
+                                                                : Colors
+                                                                    .grey
+                                                                    .shade500,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  DataCell(
+                                                    Text(
+                                                      _getBailleursString(
+                                                        projet,
+                                                      ),
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        color:
+                                                            _isActive(projet)
+                                                                ? Colors.black87
+                                                                : Colors
+                                                                    .grey
+                                                                    .shade500,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  DataCell(
+                                                    Row(
+                                                      children: [
+                                                        if (_canUpdate)
+                                                          Tooltip(
+                                                            message: 'Modifier',
+                                                            child: IconButton(
+                                                              icon: Icon(
+                                                                Icons.edit,
+                                                                color:
+                                                                    Colors
+                                                                        .indigo
+                                                                        .shade700,
+                                                                size: 20,
+                                                              ),
+                                                              onPressed: () {
+                                                                _showProjetDialog(
+                                                                  projet,
+                                                                );
+                                                              },
+                                                            ),
+                                                          ),
+                                                        if (_canDelete)
+                                                          Tooltip(
+                                                            message:
+                                                                'Supprimer',
+                                                            child: IconButton(
+                                                              icon: const Icon(
+                                                                Icons.delete,
+                                                                color:
+                                                                    Colors.red,
+                                                                size: 20,
+                                                              ),
+                                                              onPressed: () {
+                                                                _deleteProjet(
+                                                                  projet,
+                                                                );
+                                                              },
+                                                            ),
+                                                          ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              );
+                                            }).toList(),
                                       ),
                                     ),
-                                  );
-                                },
+                                  ),
+                                ),
                               ),
                     ),
                   ],
                 ),
       ),
+    );
+  }
+}
+
+class _ProjetDialog extends StatefulWidget {
+  final Map<String, dynamic>? projet;
+  final List<Map<String, dynamic>> bailleurs;
+  final Function(Map<String, dynamic>) onSave;
+
+  const _ProjetDialog({
+    required this.projet,
+    required this.bailleurs,
+    required this.onSave,
+  });
+
+  @override
+  State<_ProjetDialog> createState() => _ProjetDialogState();
+}
+
+class _ProjetDialogState extends State<_ProjetDialog> {
+  late TextEditingController _codeController;
+  late TextEditingController _designationController;
+  late TextEditingController _dateDebutController;
+  late TextEditingController _dateFinController;
+  List<Map<String, dynamic>> _availableBailleurs = [];
+  List<Map<String, dynamic>> _selectedBailleurs = [];
+  bool _isSaving = false;
+  bool _loadingBailleurs = true;
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _codeController = TextEditingController(text: widget.projet?['code'] ?? '');
+    _designationController = TextEditingController(
+      text: widget.projet?['designation'] ?? '',
+    );
+    _dateDebutController = TextEditingController(
+      text: widget.projet?['date_debut'] ?? '',
+    );
+    _dateFinController = TextEditingController(
+      text: widget.projet?['date_fin'] ?? '',
+    );
+
+    _initializeBailleurs();
+  }
+
+  Future<void> _initializeBailleurs() async {
+    try {
+      // Charger la liste des bailleurs disponibles
+      final availableList =
+          widget.bailleurs.isNotEmpty
+              ? widget.bailleurs
+              : (await AuthService.getBailleurs())
+                  .map(
+                    (b) => {
+                      'id': b.id,
+                      'sigle': b.sigle,
+                      'designation': b.designation,
+                    },
+                  )
+                  .toList();
+
+      setState(() {
+        _availableBailleurs = availableList;
+        _loadingBailleurs = false;
+      });
+
+      // Si on édite un projet, charger ses bailleurs
+      if (widget.projet != null) {
+        await _loadProjectBailleurs();
+      }
+    } catch (e) {
+      debugPrint('Erreur lors du chargement des bailleurs: $e');
+      setState(() => _loadingBailleurs = false);
+    }
+  }
+
+  Future<void> _loadProjectBailleurs() async {
+    try {
+      if (widget.projet != null) {
+        final bailleurs = await AuthService.getBailleursForProjet(
+          widget.projet!['id'] as int,
+        );
+        setState(() {
+          _selectedBailleurs = List<Map<String, dynamic>>.from(bailleurs);
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    _designationController.dispose();
+    _dateDebutController.dispose();
+    _dateFinController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectDate(TextEditingController controller) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate:
+          controller.text.isNotEmpty
+              ? DateTime.parse(controller.text)
+              : DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(
+        () =>
+            controller.text =
+                '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}',
+      );
+    }
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedBailleurs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez sélectionner au moins un bailleur'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      if (widget.projet == null) {
+        await AuthService.createProjet(
+          code: _codeController.text,
+          designation: _designationController.text,
+          bailleurIds: _selectedBailleurs.map((b) => b['id'] as int).toList(),
+          dateDebut:
+              _dateDebutController.text.isNotEmpty
+                  ? DateTime.parse(_dateDebutController.text)
+                  : null,
+          dateFin:
+              _dateFinController.text.isNotEmpty
+                  ? DateTime.parse(_dateFinController.text)
+                  : null,
+        );
+      } else {
+        await AuthService.updateProjet(
+          id: widget.projet!['id'] as int,
+          code: _codeController.text,
+          designation: _designationController.text,
+          bailleurIds: _selectedBailleurs.map((b) => b['id'] as int).toList(),
+          dateDebut:
+              _dateDebutController.text.isNotEmpty
+                  ? DateTime.parse(_dateDebutController.text)
+                  : null,
+          dateFin:
+              _dateFinController.text.isNotEmpty
+                  ? DateTime.parse(_dateFinController.text)
+                  : null,
+        );
+      }
+      if (!mounted) return;
+      widget.onSave({});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        widget.projet == null ? 'Nouveau projet' : 'Modifier le projet',
+      ),
+      content: SizedBox(
+        width: 500,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: _codeController,
+                  decoration: InputDecoration(
+                    labelText: 'Code *',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  validator:
+                      (value) =>
+                          value?.isEmpty ?? true ? 'Le code est requis' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _designationController,
+                  decoration: InputDecoration(
+                    labelText: 'Désignation *',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  validator:
+                      (value) =>
+                          value?.isEmpty ?? true
+                              ? 'La désignation est requise'
+                              : null,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _dateDebutController,
+                        decoration: InputDecoration(
+                          labelText: 'Date début *',
+                          prefixIcon: const Icon(Icons.calendar_today),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        readOnly: true,
+                        onTap: () => _selectDate(_dateDebutController),
+                        validator:
+                            (value) =>
+                                value?.isEmpty ?? true
+                                    ? 'La date début est requise'
+                                    : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _dateFinController,
+                        decoration: InputDecoration(
+                          labelText: 'Date fin *',
+                          prefixIcon: const Icon(Icons.calendar_today),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        readOnly: true,
+                        onTap: () => _selectDate(_dateFinController),
+                        validator:
+                            (value) =>
+                                value?.isEmpty ?? true
+                                    ? 'La date fin est requise'
+                                    : null,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Bailleurs *',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                _loadingBailleurs
+                    ? const SizedBox(
+                      height: 50,
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                    : _availableBailleurs.isEmpty
+                    ? Container(
+                      height: 50,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'Aucun bailleur disponible',
+                          style: TextStyle(color: Colors.grey.shade500),
+                        ),
+                      ),
+                    )
+                    : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Champ d'autocomplete
+                        Autocomplete<Map<String, dynamic>>(
+                          optionsBuilder: (TextEditingValue textEditingValue) {
+                            if (textEditingValue.text.isEmpty) {
+                              return _availableBailleurs
+                                  .where(
+                                    (b) =>
+                                        !_selectedBailleurs.any(
+                                          (sb) => sb['id'] == b['id'],
+                                        ),
+                                  )
+                                  .toList();
+                            }
+                            final query = textEditingValue.text.toLowerCase();
+                            return _availableBailleurs
+                                .where(
+                                  (b) =>
+                                      !_selectedBailleurs.any(
+                                        (sb) => sb['id'] == b['id'],
+                                      ) &&
+                                      ((b['sigle'] ?? '')
+                                              .toString()
+                                              .toLowerCase()
+                                              .contains(query) ||
+                                          (b['designation'] ?? '')
+                                              .toString()
+                                              .toLowerCase()
+                                              .contains(query)),
+                                )
+                                .toList();
+                          },
+                          onSelected: (Map<String, dynamic> selection) {
+                            setState(() {
+                              final newList = List<Map<String, dynamic>>.from(
+                                _selectedBailleurs,
+                              );
+                              newList.add(selection);
+                              _selectedBailleurs = newList;
+                            });
+                          },
+                          displayStringForOption:
+                              (option) =>
+                                  '${option['sigle']} - ${option['designation']}',
+                          fieldViewBuilder: (
+                            BuildContext context,
+                            TextEditingController textEditingController,
+                            FocusNode focusNode,
+                            VoidCallback onFieldSubmitted,
+                          ) {
+                            return TextFormField(
+                              controller: textEditingController,
+                              focusNode: focusNode,
+                              decoration: InputDecoration(
+                                hintText: 'Chercher et ajouter un bailleur...',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                prefixIcon: const Icon(Icons.search),
+                                suffixIcon:
+                                    textEditingController.text.isNotEmpty
+                                        ? IconButton(
+                                          icon: const Icon(Icons.clear),
+                                          onPressed: () {
+                                            textEditingController.clear();
+                                            focusNode.requestFocus();
+                                          },
+                                        )
+                                        : null,
+                              ),
+                            );
+                          },
+                          optionsViewBuilder: (
+                            BuildContext context,
+                            AutocompleteOnSelected<Map<String, dynamic>>
+                            onSelected,
+                            Iterable<Map<String, dynamic>> options,
+                          ) {
+                            return Material(
+                              elevation: 4,
+                              child: SizedBox(
+                                width: 400,
+                                child: ListView.builder(
+                                  padding: EdgeInsets.zero,
+                                  itemCount: options.length,
+                                  itemBuilder: (
+                                    BuildContext context,
+                                    int index,
+                                  ) {
+                                    final option = options.elementAt(index);
+                                    return ListTile(
+                                      title: Text(option['sigle'] ?? ''),
+                                      subtitle: Text(
+                                        option['designation'] ?? '',
+                                      ),
+                                      onTap: () {
+                                        onSelected(option);
+                                      },
+                                    );
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        // Afficher les bailleurs sélectionnés comme chips
+                        if (_selectedBailleurs.isNotEmpty)
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children:
+                                _selectedBailleurs.map((bailleur) {
+                                  return Chip(
+                                    label: Text(
+                                      '${bailleur['sigle']} - ${bailleur['designation']}',
+                                    ),
+                                    deleteIcon: const Icon(Icons.close),
+                                    onDeleted: () {
+                                      setState(() {
+                                        final newList =
+                                            List<Map<String, dynamic>>.from(
+                                              _selectedBailleurs,
+                                            );
+                                        newList.removeWhere(
+                                          (b) => b['id'] == bailleur['id'],
+                                        );
+                                        _selectedBailleurs = newList;
+                                      });
+                                    },
+                                    backgroundColor: Colors.indigo.withValues(
+                                      alpha: 0.2,
+                                    ),
+                                    labelStyle: TextStyle(
+                                      color: Colors.indigo.shade700,
+                                    ),
+                                  );
+                                }).toList(),
+                          ),
+                      ],
+                    ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSaving ? null : () => Navigator.pop(context),
+          child: const Text('Annuler'),
+        ),
+        ElevatedButton(
+          onPressed: _isSaving ? null : _save,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.indigo,
+            foregroundColor: Colors.white,
+          ),
+          child:
+              _isSaving
+                  ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                  : const Text('Enregistrer'),
+        ),
+      ],
     );
   }
 }

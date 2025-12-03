@@ -179,6 +179,42 @@ class Entite {
     );
   }
 
+  /// Créer à partir d'une Map SQLite
+  factory Entite.fromMap(Map<String, dynamic> map) {
+    return Entite(
+      id: map['id'].toString(),
+      denominationSociale: map['denomination_sociale'] as String,
+      sigleUsuel: map['sigle_usuel'] as String?,
+      domaineIntervention: map['domaine_intervention'] as String?,
+      formeJuridique: map['forme_juridique'] as String?,
+      ongType:
+          map['ong_type'] != null ? stringToOngType(map['ong_type']) : null,
+      pays: map['pays'] as String?,
+      region: map['region'] as String?,
+      ville: map['ville'] as String?,
+      quartier: map['quartier'] as String?,
+      email: map['email'] as String?,
+      telephone: map['telephone'] as String?,
+      fixeFax: map['fixe_fax'] as String?,
+      numeroFiscal: map['numero_fiscal'] as String?,
+      numeroCnss: map['numero_cnss'] as String?,
+      numeroRecepisse: map['numero_recepisse'] as String?,
+      informationsComplementaires:
+          map['informations_complementaires'] as String?,
+      currency: map['currency'] as String?,
+      createdAt:
+          map['created_at'] != null
+              ? DateTime.parse(map['created_at'] as String)
+              : DateTime.now(),
+      updatedAt:
+          map['updated_at'] != null
+              ? DateTime.parse(map['updated_at'] as String)
+              : DateTime.now(),
+      createdBy: map['created_by'] as String?,
+      isActive: (map['actif'] as int?) == 1,
+    );
+  }
+
   /// Convertir en JSON pour envoyer à Supabase
   Map<String, dynamic> toJson() {
     return {

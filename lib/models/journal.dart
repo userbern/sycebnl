@@ -75,6 +75,27 @@ class Journal {
     );
   }
 
+  /// Créer à partir d'une Map SQLite
+  factory Journal.fromMap(Map<String, dynamic> map) {
+    return Journal(
+      id: map['id'].toString(),
+      code: (map['code'] ?? '') as String,
+      intitule: (map['libelle'] ?? map['intitule'] ?? '') as String,
+      type: stringToTypeJournal((map['type'] ?? 'financier') as String),
+      compteFresorerie: map['numero_compte_tresorerie'] as String?,
+      saisieAnalytique: (map['saisie_analytique'] as int?) == 1,
+      isActive: (map['is_active'] ?? 1 as int?) == 1,
+      createdAt:
+          map['created_at'] != null
+              ? DateTime.parse(map['created_at'] as String)
+              : DateTime.now(),
+      updatedAt:
+          map['updated_at'] != null
+              ? DateTime.parse(map['updated_at'] as String)
+              : DateTime.now(),
+    );
+  }
+
   /// Convertir en JSON pour envoyer à Supabase
   Map<String, dynamic> toJson() {
     return {

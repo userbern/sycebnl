@@ -74,7 +74,7 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
       final entites = await AuthService.getEntites();
       if (entites.isNotEmpty) {
         await AuthService.updateEntite(
-          id: entites.first.id,
+          id: int.parse(entites.first.id),
           currency: selectedCurrency,
         );
 
@@ -89,6 +89,9 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
             backgroundColor: Colors.green,
           ),
         );
+
+        // Fermer la page après l'enregistrement
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
@@ -109,7 +112,6 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
     if (!widget.userSession.isAdmin) {
@@ -181,7 +183,6 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                         ),
                         SizedBox(height: screenHeight * 0.015),
 
-                        // Titre centré
                         const Text(
                           'Configuration de la monnaie',
                           textAlign: TextAlign.center,
@@ -193,7 +194,7 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                         ),
                         SizedBox(height: screenHeight * 0.008),
                         Text(
-                          'Sélectionnez la monnaie pour la tenue de vos comptes',
+                          'Définissez la monnaie dans laquelle seront tenus vos journaux comptables',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 13,
@@ -202,7 +203,6 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                         ),
                         SizedBox(height: screenHeight * 0.02),
 
-                        // Message d'erreur
                         if (errorMessage != null)
                           Container(
                             padding: EdgeInsets.all(screenHeight * 0.02),
@@ -235,7 +235,6 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                             ),
                           ),
 
-                        // Carte principale
                         Card(
                           elevation: 4,
                           shape: RoundedRectangleBorder(
@@ -246,7 +245,6 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Monnaie actuelle
                                 Container(
                                   padding: EdgeInsets.all(screenHeight * 0.015),
                                   decoration: BoxDecoration(
@@ -261,7 +259,7 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                                   child: Row(
                                     children: [
                                       Container(
-                                        padding: EdgeInsets.all(8),
+                                        padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
                                           color: Colors.blue,
                                           borderRadius: BorderRadius.circular(
@@ -274,7 +272,7 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                                           size: 20,
                                         ),
                                       ),
-                                      SizedBox(width: 12),
+                                      const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment:
@@ -288,7 +286,7 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                                                 fontWeight: FontWeight.w500,
                                               ),
                                             ),
-                                            SizedBox(height: 3),
+                                            const SizedBox(height: 3),
                                             Text(
                                               currencies.firstWhere(
                                                 (c) =>
@@ -320,7 +318,6 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                                 ),
                                 SizedBox(height: screenHeight * 0.02),
 
-                                // Label pour sélection
                                 Text(
                                   'Choisir une nouvelle monnaie',
                                   style: TextStyle(
@@ -331,7 +328,6 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                                 ),
                                 SizedBox(height: screenHeight * 0.01),
 
-                                // Options de monnaie (cartes cliquables)
                                 ...currencies.map((currency) {
                                   final isSelected =
                                       selectedCurrency == currency['code'];
@@ -350,7 +346,7 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                                       },
                                       borderRadius: BorderRadius.circular(10),
                                       child: Container(
-                                        padding: EdgeInsets.all(12),
+                                        padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
                                           color:
                                               isSelected
@@ -396,7 +392,7 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                                                 ),
                                               ),
                                             ),
-                                            SizedBox(width: 12),
+                                            const SizedBox(width: 12),
                                             Expanded(
                                               child: Column(
                                                 crossAxisAlignment:
@@ -456,7 +452,7 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                                               ),
                                             ),
                                             if (isSelected)
-                                              Icon(
+                                              const Icon(
                                                 Icons.check_circle,
                                                 color: Colors.indigo,
                                                 size: 24,
@@ -466,14 +462,13 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                                       ),
                                     ),
                                   );
-                                }).toList(),
+                                }),
                               ],
                             ),
                           ),
                         ),
                         SizedBox(height: screenHeight * 0.02),
 
-                        // Boutons d'action
                         Row(
                           children: [
                             Expanded(
@@ -484,14 +479,16 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: Colors.grey.shade700,
                                   side: BorderSide(color: Colors.grey.shade300),
-                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                 ),
                               ),
                             ),
-                            SizedBox(width: 12),
+                            const SizedBox(width: 12),
                             Expanded(
                               flex: 2,
                               child: ElevatedButton.icon(
@@ -509,7 +506,9 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                                   foregroundColor: Colors.white,
                                   disabledBackgroundColor: Colors.grey.shade300,
                                   disabledForegroundColor: Colors.grey.shade500,
-                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                   elevation:
                                       selectedCurrency == currentCurrencyCode
                                           ? 0
