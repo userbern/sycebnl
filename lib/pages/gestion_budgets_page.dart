@@ -94,33 +94,8 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
     }
   }
 
-  Future<void> _createBudget(
-    Map<String, dynamic> projetData,
-    Map<String, dynamic> bailleurData,
-  ) async {
-    try {
-      await AuthService.createBudget(
-        projetId: projetData['id'] as int,
-        bailleurId: bailleurData['id'] as int,
-      );
-      if (!mounted) return;
-      _loadData();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Budget créé avec succès'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
+  // Unused - replaced by _createBudgetWithIds
+  // This method is kept for reference but no longer used
 
   Future<void> _deleteBudget(int budgetId) async {
     final confirm = await showDialog<bool>(
@@ -171,8 +146,8 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
   }
 
   void _showCreateBudgetDialog() {
-    Map<String, dynamic>? selectedProjet;
-    Map<String, dynamic>? selectedBailleur;
+    int? selectedProjetId;
+    int? selectedBailleurId;
 
     showDialog(
       context: context,
@@ -184,15 +159,15 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                   (context, setState) => Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      DropdownButtonFormField<Map<String, dynamic>>(
-                        value: selectedProjet,
+                      DropdownButtonFormField<int>(
+                        value: selectedProjetId,
                         hint: const Text('Sélectionner un projet'),
                         items:
                             _projets
                                 .where((p) => p['deleted_at'] == null)
                                 .map(
                                   (p) => DropdownMenuItem(
-                                    value: p,
+                                    value: p['id'] as int,
                                     child: Text(
                                       '${p['code']} - ${p['designation']}',
                                     ),
@@ -200,7 +175,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                                 )
                                 .toList(),
                         onChanged: (value) {
-                          setState(() => selectedProjet = value);
+                          setState(() => selectedProjetId = value);
                         },
                         decoration: InputDecoration(
                           labelText: 'Projet *',
@@ -210,14 +185,14 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      DropdownButtonFormField<Map<String, dynamic>>(
-                        value: selectedBailleur,
+                      DropdownButtonFormField<int>(
+                        value: selectedBailleurId,
                         hint: const Text('Sélectionner un bailleur'),
                         items:
                             _bailleurs
                                 .map(
                                   (b) => DropdownMenuItem(
-                                    value: b,
+                                    value: b['id'] as int,
                                     child: Text(
                                       '${b['sigle']} - ${b['designation']}',
                                     ),
@@ -225,7 +200,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                                 )
                                 .toList(),
                         onChanged: (value) {
-                          setState(() => selectedBailleur = value);
+                          setState(() => selectedBailleurId = value);
                         },
                         decoration: InputDecoration(
                           labelText: 'Bailleur *',
@@ -244,9 +219,12 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
               ),
               ElevatedButton(
                 onPressed:
-                    selectedProjet != null && selectedBailleur != null
+                    selectedProjetId != null && selectedBailleurId != null
                         ? () {
-                          _createBudget(selectedProjet!, selectedBailleur!);
+                          _createBudgetWithIds(
+                            selectedProjetId!,
+                            selectedBailleurId!,
+                          );
                           if (mounted) Navigator.pop(context);
                         }
                         : null,
@@ -259,6 +237,31 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
             ],
           ),
     );
+  }
+
+  Future<void> _createBudgetWithIds(int projetId, int bailleurId) async {
+    try {
+      await AuthService.createBudget(
+        projetId: projetId,
+        bailleurId: bailleurId,
+      );
+      if (!mounted) return;
+      _loadData();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Budget créé avec succès'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
