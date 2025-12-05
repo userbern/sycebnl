@@ -199,18 +199,26 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
             children: [
               // En-tête
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(Icons.business, size: 32, color: Colors.indigo.shade700),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Liste des bailleurs',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.business,
+                        size: 32,
+                        color: Colors.indigo.shade700,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Liste des bailleurs',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
                   ),
-                  const Spacer(),
                   if (_canCreate)
                     ElevatedButton.icon(
                       onPressed: () => _showBailleurDialog(null),
@@ -245,77 +253,119 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
               const SizedBox(height: 16),
 
               // Filtres et tri
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _sortBy,
-                      decoration: InputDecoration(
-                        labelText: 'Trier par',
-                        prefixIcon: const Icon(Icons.sort),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 150,
+                      child: DropdownButtonFormField<String>(
+                        value: _sortBy,
+                        decoration: InputDecoration(
+                          labelText: 'Trier',
+                          prefixIcon: const Icon(Icons.sort),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                         ),
-                        filled: true,
-                        fillColor: Colors.white,
+                        isDense: true,
+                        isExpanded: true,
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'sigle',
+                            child: Text(
+                              'Sigle',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'designation',
+                            child: Text(
+                              'Désignation',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() => _sortBy = value ?? 'sigle');
+                        },
                       ),
-                      items: const [
-                        DropdownMenuItem(value: 'sigle', child: Text('Sigle')),
-                        DropdownMenuItem(
-                          value: 'designation',
-                          child: Text('Désignation'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() => _sortBy = value ?? 'sigle');
-                      },
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _filterStatus,
-                      decoration: InputDecoration(
-                        labelText: 'Afficher',
-                        prefixIcon: const Icon(Icons.filter_alt),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 150,
+                      child: DropdownButtonFormField<String>(
+                        value: _filterStatus,
+                        decoration: InputDecoration(
+                          labelText: 'Afficher',
+                          prefixIcon: const Icon(Icons.filter_alt),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                         ),
-                        filled: true,
-                        fillColor: Colors.white,
+                        isDense: true,
+                        isExpanded: true,
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'actifs',
+                            child: Text(
+                              'Actifs',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'inactifs',
+                            child: Text(
+                              'Inactifs',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'tous',
+                            child: Text(
+                              'Tous',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() => _filterStatus = value ?? 'actifs');
+                        },
                       ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'actifs',
-                          child: Text('Bailleurs actifs'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'inactifs',
-                          child: Text('Bailleurs inactifs'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'tous',
-                          child: Text('Tous les bailleurs'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() => _filterStatus = value ?? 'actifs');
-                      },
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _searchQuery = '';
-                        _sortBy = 'sigle';
-                        _filterStatus = 'actifs';
-                      });
-                    },
-                    icon: const Icon(Icons.clear),
-                    label: const Text('Réinitialiser'),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _searchQuery = '';
+                          _sortBy = 'sigle';
+                          _filterStatus = 'actifs';
+                        });
+                      },
+                      icon: const Icon(Icons.clear, size: 18),
+                      label: const Text('Réinit.'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
 
@@ -345,138 +395,177 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                             ],
                           ),
                         )
-                        : Align(
-                          alignment: Alignment.topCenter,
-                          child: Container(
-                            constraints: const BoxConstraints(maxWidth: 2500),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade200),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.05),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
+                        : SingleChildScrollView(
+                          scrollDirection: Axis.vertical,
+                          child: Column(
+                            children: [
+                              // En-tête des colonnes
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
                                 ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.vertical,
-                                child: SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: DataTable(
-                                    headingRowColor: WidgetStateProperty.all(
-                                      Colors.indigo.shade700,
-                                    ),
-                                    headingTextStyle: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                    dataRowMinHeight: 56,
-                                    dataRowMaxHeight: 72,
-                                    columnSpacing: 48,
-                                    horizontalMargin: 32,
-                                    columns: const [
-                                      DataColumn(label: Text('Sigle')),
-                                      DataColumn(label: Text('Désignation')),
-                                      DataColumn(label: Text('Actions')),
-                                    ],
-                                    rows:
-                                        _filteredBailleurs.map((bailleur) {
-                                          return DataRow(
-                                            color: WidgetStateProperty.all(
-                                              _isActive(bailleur)
-                                                  ? Colors.white
-                                                  : Colors.grey.shade50,
-                                            ),
-                                            cells: [
-                                              DataCell(
-                                                Text(
-                                                  bailleur['sigle'] ?? '',
-                                                  style: TextStyle(
-                                                    fontSize: 15,
-                                                    fontWeight: FontWeight.w600,
-                                                    color:
-                                                        _isActive(bailleur)
-                                                            ? Colors.black87
-                                                            : Colors
-                                                                .grey
-                                                                .shade500,
-                                                  ),
-                                                ),
-                                              ),
-                                              DataCell(
-                                                Text(
-                                                  bailleur['designation'] ?? '',
-                                                  style: TextStyle(
-                                                    fontSize: 15,
-                                                    color:
-                                                        _isActive(bailleur)
-                                                            ? Colors.black87
-                                                            : Colors
-                                                                .grey
-                                                                .shade500,
-                                                  ),
-                                                ),
-                                              ),
-                                              DataCell(
-                                                Row(
-                                                  children: [
-                                                    Tooltip(
-                                                      message: 'Modifier',
-                                                      child: IconButton(
-                                                        icon: Icon(
-                                                          Icons.edit,
-                                                          color:
-                                                              Colors
-                                                                  .indigo
-                                                                  .shade700,
-                                                          size: 20,
-                                                        ),
-                                                        onPressed: () {
-                                                          _showBailleurDialog(
-                                                            bailleur,
-                                                          );
-                                                        },
-                                                      ),
-                                                    ),
-                                                    Tooltip(
-                                                      message: 'Supprimer',
-                                                      child: IconButton(
-                                                        icon: const Icon(
-                                                          Icons.delete,
-                                                          color: Colors.red,
-                                                          size: 20,
-                                                        ),
-                                                        onPressed: () {
-                                                          _deleteBailleur(
-                                                            bailleur['id']
-                                                                .toString(),
-                                                            bailleur['sigle'] ??
-                                                                '',
-                                                          );
-                                                        },
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          );
-                                        }).toList(),
+                                decoration: BoxDecoration(
+                                  color: Colors.indigo.shade700,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(10),
+                                    topRight: Radius.circular(10),
                                   ),
                                 ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        'Sigle',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 3,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          left: 16,
+                                        ),
+                                        child: Text(
+                                          'Désignation',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: 120,
+                                      child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Text(
+                                          'Actions',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
+                              // Cartes des bailleurs
+                              ..._filteredBailleurs
+                                  .map(
+                                    (bailleur) => _buildBailleurCard(bailleur),
+                                  )
+                                  .toList(),
+                            ],
                           ),
                         ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBailleurCard(Map<String, dynamic> bailleur) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 1),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: Text(
+                bailleur['sigle'] ?? '',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color:
+                      _isActive(bailleur)
+                          ? Colors.black87
+                          : Colors.grey.shade500,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: Text(
+                  bailleur['designation'] ?? '',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color:
+                        _isActive(bailleur)
+                            ? Colors.black87
+                            : Colors.grey.shade500,
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 120,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Tooltip(
+                    message: 'Modifier',
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.edit,
+                        color: Colors.indigo.shade700,
+                        size: 18,
+                      ),
+                      onPressed: () {
+                        _showBailleurDialog(bailleur);
+                      },
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: 'Supprimer',
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.delete,
+                        color: Colors.red,
+                        size: 18,
+                      ),
+                      onPressed: () {
+                        _deleteBailleur(
+                          bailleur['id'].toString(),
+                          bailleur['sigle'] ?? '',
+                        );
+                      },
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -558,7 +647,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                         // Désignation
                         TextFormField(
                           controller: designationController,
-                          maxLines: 3,
+                          maxLines: 1,
                           decoration: InputDecoration(
                             labelText: 'Désignation *',
                             prefixIcon: const Icon(Icons.description),
@@ -604,7 +693,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                       try {
                         if (isEdit) {
                           await AuthService.updateBailleur(
-                            id: int.parse(bailleur!['id'].toString()),
+                            id: int.parse(bailleur['id'].toString()),
                             code: sigleController.text.trim(),
                             nom: designationController.text.trim(),
                           );

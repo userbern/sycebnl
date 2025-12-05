@@ -23,7 +23,7 @@ class _HomePageState extends State<HomePage> {
   int _currentPageIndex = 0;
   String? _expandedMenu;
   Map<String, dynamic>? _entiteData;
-  Map<String, dynamic>? _configData;
+
   List<Map<String, dynamic>> _exercices = [];
   int? _activeExerciceId;
 
@@ -56,7 +56,6 @@ class _HomePageState extends State<HomePage> {
       print('🔍 DEBUG: Mise à jour du state...');
       setState(() {
         _entiteData = entite;
-        _configData = config;
         _exercices = exercices;
         _activeExerciceId = activeExercice['id'];
       });
@@ -730,6 +729,7 @@ class _HomePageState extends State<HomePage> {
       case 9:
         return GestionBudgetsPage(
           showAppBar: false,
+          exerciceId: _activeExerciceId,
           userSession: UserSession(
             id: '0',
             nom: 'Admin',

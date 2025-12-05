@@ -485,7 +485,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                     try {
                       if (isEdit) {
                         await DatabaseService.updateTiers(
-                          int.parse(tiers!.id),
+                          int.parse(tiers.id),
                           numeroController.text,
                           intituleController.text,
                           selectedType.toDbString(),
@@ -558,12 +558,11 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
     NatureCompte? calculatedNature;
     bool liaisonTiers = false;
     final formKey = GlobalKey<FormState>();
-    int _longueurCompteGeneral = 7;
 
     // Charger la longueur du compte
     DatabaseService.getFileConfig().then((config) {
       if (config != null && config['longueur_compte_general'] != null) {
-        _longueurCompteGeneral = config['longueur_compte_general'] as int;
+        // longueur du compte chargée
       }
     });
 

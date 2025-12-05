@@ -1033,10 +1033,7 @@ class _JournalDialogState extends State<JournalDialog> {
                           Padding(
                             padding: const EdgeInsets.only(top: 8.0),
                             child: ElevatedButton.icon(
-                              onPressed:
-                                  _isSaving
-                                      ? null
-                                      : _showCompteCreationDialogForTresorerie,
+                              onPressed: null,
                               icon: const Icon(Icons.add_circle),
                               label: const Text('Créer'),
                               style: ElevatedButton.styleFrom(
@@ -1184,6 +1181,7 @@ class _JournalDialogState extends State<JournalDialog> {
     }
   }
 
+  /*
   void _showCompteSelectionDialog([String? prefilledNumero]) {
     showDialog(
       context: context,
@@ -1251,6 +1249,7 @@ class _JournalDialogState extends State<JournalDialog> {
           ),
     );
   }
+  */
 
   List<Compte> _getFilteredComptes() {
     return widget.comptes.where((c) {
@@ -1268,6 +1267,7 @@ class _JournalDialogState extends State<JournalDialog> {
     }).toList();
   }
 
+  /*
   Widget _buildCompteSelectionList(
     String searchText,
     List<Compte> filteredComptes,
@@ -1344,7 +1344,9 @@ class _JournalDialogState extends State<JournalDialog> {
       ],
     );
   }
+  */
 
+  /*
   String _extractNumericPrefix(String input) {
     final regex = RegExp(r'^(\d+)');
     final match = regex.firstMatch(input);
@@ -1499,7 +1501,9 @@ class _JournalDialogState extends State<JournalDialog> {
       },
     );
   }
+  */
 
+  /*
   void _showCompteCreationDialogForTresorerie() {
     TextEditingController numeroController = TextEditingController();
     TextEditingController intituleController = TextEditingController();
@@ -1628,4 +1632,5 @@ class _JournalDialogState extends State<JournalDialog> {
       },
     );
   }
+  */
 }

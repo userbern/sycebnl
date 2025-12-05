@@ -23,6 +23,22 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
   bool isLoading = false;
   bool reportSoldes = true;
 
+  // Variables pour les dropdowns
+  late int selectedDebutDay, selectedDebutMonth, selectedDebutYear;
+  late int selectedFinDay, selectedFinMonth, selectedFinYear;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    selectedDebutDay = 1;
+    selectedDebutMonth = 1;
+    selectedDebutYear = now.year;
+    selectedFinDay = 31;
+    selectedFinMonth = 12;
+    selectedFinYear = now.year;
+  }
+
   @override
   void dispose() {
     _anneeController.dispose();
@@ -31,21 +47,242 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     super.dispose();
   }
 
+  Future<void> _selectDateWithDropdown(
+    BuildContext context,
+    TextEditingController controller,
+    bool isDebut,
+  ) async {
+    int day = isDebut ? selectedDebutDay : selectedFinDay;
+    int month = isDebut ? selectedDebutMonth : selectedFinMonth;
+    int year = isDebut ? selectedDebutYear : selectedFinYear;
+
+    final result = await showDialog<Map<String, int>>(
+      context: context,
+      builder:
+          (context) => StatefulBuilder(
+            builder:
+                (context, setState) => AlertDialog(
+                  title: Text(
+                    isDebut
+                        ? 'Sélectionner la date de début'
+                        : 'Sélectionner la date de fin',
+                  ),
+                  content: SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 300),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.max,
+                        children: [
+                          // Jour
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Jour',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: DropdownButton<int>(
+                                    isExpanded: true,
+                                    value: day,
+                                    underline: const SizedBox(),
+                                    items:
+                                        List.generate(31, (i) => i + 1)
+                                            .map(
+                                              (d) => DropdownMenuItem(
+                                                value: d,
+                                                child: Text(
+                                                  d.toString().padLeft(2, '0'),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                    onChanged: (value) {
+                                      setState(() => day = value ?? day);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Mois
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Mois',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: DropdownButton<int>(
+                                    isExpanded: true,
+                                    value: month,
+                                    underline: const SizedBox(),
+                                    items:
+                                        [
+                                              'Jan',
+                                              'Fév',
+                                              'Mar',
+                                              'Avr',
+                                              'Mai',
+                                              'Jun',
+                                              'Jul',
+                                              'Aoû',
+                                              'Sep',
+                                              'Oct',
+                                              'Nov',
+                                              'Déc',
+                                            ]
+                                            .asMap()
+                                            .entries
+                                            .map(
+                                              (e) => DropdownMenuItem(
+                                                value: e.key + 1,
+                                                child: Text(
+                                                  e.value,
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                    onChanged: (value) {
+                                      setState(() => month = value ?? month);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Année
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Année',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: DropdownButton<int>(
+                                    isExpanded: true,
+                                    value: year,
+                                    underline: const SizedBox(),
+                                    items:
+                                        List.generate(101, (i) => 2000 + i)
+                                            .map(
+                                              (y) => DropdownMenuItem(
+                                                value: y,
+                                                child: Text(
+                                                  y.toString(),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                    onChanged: (value) {
+                                      setState(() => year = value ?? year);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Annuler'),
+                    ),
+                    ElevatedButton(
+                      onPressed:
+                          () => Navigator.pop(context, {
+                            'day': day,
+                            'month': month,
+                            'year': year,
+                          }),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.shade600,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Confirmer'),
+                    ),
+                  ],
+                ),
+          ),
+    );
+
+    if (result != null) {
+      setState(() {
+        if (isDebut) {
+          selectedDebutDay = result['day']!;
+          selectedDebutMonth = result['month']!;
+          selectedDebutYear = result['year']!;
+        } else {
+          selectedFinDay = result['day']!;
+          selectedFinMonth = result['month']!;
+          selectedFinYear = result['year']!;
+        }
+
+        final formattedDay = result['day'].toString().padLeft(2, '0');
+        final formattedMonth = result['month'].toString().padLeft(2, '0');
+        controller.text = '$formattedDay/$formattedMonth/${result['year']}';
+      });
+    }
+  }
+
   Future<void> _selectDate(
     BuildContext context,
     TextEditingController controller,
+    bool isDebut,
   ) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null) {
-      setState(() {
-        controller.text = '${picked.day}/${picked.month}/${picked.year}';
-      });
-    }
+    _selectDateWithDropdown(context, controller, isDebut);
   }
 
   Future<void> _creerExercice() async {
@@ -298,6 +535,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                                       () => _selectDate(
                                         context,
                                         _dateDebutController,
+                                        true,
                                       ),
                                 ),
                               ),
@@ -320,6 +558,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                                       () => _selectDate(
                                         context,
                                         _dateFinController,
+                                        false,
                                       ),
                                 ),
                               ),

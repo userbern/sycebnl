@@ -6,7 +6,6 @@ import '../models/tiers.dart';
 import '../models/journal.dart';
 import '../models/bailleur.dart';
 import '../models/projet.dart';
-import '../models/budget.dart';
 
 class AuthService {
   static Database get _db => DatabaseService.database;
@@ -775,27 +774,47 @@ class AuthService {
 
   // ==================== BUDGETS ====================
 
-  // Récupérer tous les budgets (projet + bailleur)
-  static Future<List<Map<String, dynamic>>> getBudgetsWithDetails() async {
+  // Récupérer tous les budgets (projet + bailleur) filtrés par exercice
+  static Future<List<Map<String, dynamic>>> getBudgetsWithDetails({
+    required int exerciceId,
+  }) async {
     try {
-      final results = await _db.rawQuery('''
-        SELECT 
-          b.id,
-          b.projet_id,
-          b.bailleur_id,
-          b.created_at,
-          b.updated_at,
-          b.deleted_at,
-          p.code as projet_code,
-          p.designation as projet_designation,
-          ba.sigle as bailleur_sigle,
-          ba.designation as bailleur_designation
-        FROM budget b
-        LEFT JOIN projet p ON b.projet_id = p.id
-        LEFT JOIN bailleur ba ON b.bailleur_id = ba.id
-        WHERE b.deleted_at IS NULL
-        ORDER BY p.code ASC, ba.sigle ASC
-      ''');
+      // Vérifier d'abord si la colonne exercice_id existe
+      final columns = await _db.rawQuery("PRAGMA table_info(budget)");
+      final hasExerciceId = columns.any((col) => col['name'] == 'exercice_id');
+
+      late List<Map<String, dynamic>> results;
+
+      if (hasExerciceId) {
+        // Si la colonne existe, l'utiliser dans le WHERE
+        results = await _db.rawQuery(
+          '''
+          SELECT 
+            b.id,
+            b.projet_id,
+            b.bailleur_id,
+            COALESCE(b.exercice_id, 0) as exercice_id,
+            b.created_at,
+            b.updated_at,
+            b.deleted_at,
+            p.code as projet_code,
+            p.designation as projet_designation,
+            ba.sigle as bailleur_sigle,
+            ba.designation as bailleur_designation
+          FROM budget b
+          LEFT JOIN projet p ON b.projet_id = p.id
+          LEFT JOIN bailleur ba ON b.bailleur_id = ba.id
+          WHERE b.deleted_at IS NULL AND b.exercice_id = ?
+          ORDER BY p.code ASC, ba.sigle ASC
+        ''',
+          [exerciceId],
+        );
+      } else {
+        // Si la colonne n'existe pas, retourner une liste vide
+        // Les budgets anciens sans exercice_id ne seront pas visibles
+        results = [];
+      }
+
       return results;
     } catch (e) {
       throw Exception(
@@ -804,15 +823,46 @@ class AuthService {
     }
   }
 
-  // Créer un budget (projet + bailleur)
+  // Créer un budget (projet + bailleur + exercice)
   static Future<int> createBudget({
     required int projetId,
     required int bailleurId,
+    required int exerciceId,
   }) async {
     try {
+      // Vérifier s'il existe un budget supprimé avec cette combinaison
+      final existingBudget = await _db.query(
+        'budget',
+        where: 'projet_id = ? AND bailleur_id = ? AND exercice_id = ?',
+        whereArgs: [projetId, bailleurId, exerciceId],
+      );
+
+      if (existingBudget.isNotEmpty) {
+        final budget = existingBudget.first;
+        final deletedAt = budget['deleted_at'];
+
+        // Si le budget existe et n'est pas supprimé, c'est une violation de contrainte
+        if (deletedAt == null) {
+          throw Exception(
+            'Un budget existe déjà pour cette combinaison projet + bailleur + exercice',
+          );
+        }
+
+        // Si le budget est supprimé, le réactiver
+        await _db.update(
+          'budget',
+          {'deleted_at': null, 'updated_at': DateTime.now().toIso8601String()},
+          where: 'id = ?',
+          whereArgs: [budget['id']],
+        );
+        return budget['id'] as int;
+      }
+
+      // Sinon, créer un nouveau budget
       final budgetId = await _db.insert('budget', {
         'projet_id': projetId,
         'bailleur_id': bailleurId,
+        'exercice_id': exerciceId,
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
       });

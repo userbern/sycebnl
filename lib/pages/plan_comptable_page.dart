@@ -843,8 +843,8 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
                                     ),
-                                    dataRowMinHeight: 56,
-                                    dataRowMaxHeight: 72,
+                                    dataRowMinHeight: 72,
+                                    dataRowMaxHeight: 96,
                                     columnSpacing: 48,
                                     horizontalMargin: 32,
                                     columns: const [

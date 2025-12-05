@@ -142,11 +142,33 @@ class DatabaseService {
       options: OpenDatabaseOptions(
         version: 1,
         onOpen: (db) async {
-          // Migration: Corriger la table journal
+          // Migration: Ajouter exercice_id à la table budget
           try {
-            // Vérifier si la colonne numero_compte_tresorerie existe
-            final columns = await db.rawQuery("PRAGMA table_info(journal)");
-            final hasNumeroColumn = columns.any(
+            final columns = await db.rawQuery("PRAGMA table_info(budget)");
+            final hasExerciceId = columns.any(
+              (col) => col['name'] == 'exercice_id',
+            );
+
+            if (!hasExerciceId) {
+              print('🔄 Migration: Ajout de exercice_id à la table budget');
+
+              try {
+                // Ajouter la colonne exercice_id
+                await db.execute(
+                  'ALTER TABLE budget ADD COLUMN exercice_id INTEGER',
+                );
+                print('✅ Migration: Colonne exercice_id ajoutée');
+              } catch (e) {
+                print('⚠️ Migration: Impossible d\'ajouter exercice_id ($e)');
+                // Continuer même si la migration échoue
+              }
+            }
+
+            // Migration: Corriger la table journal
+            final journalColumns = await db.rawQuery(
+              "PRAGMA table_info(journal)",
+            );
+            final hasNumeroColumn = journalColumns.any(
               (col) => col['name'] == 'numero_compte_tresorerie',
             );
 
@@ -408,18 +430,20 @@ class DatabaseService {
       )
     ''');
 
-    // Table budget (niveau 1 : Budget principal lié à projet + bailleur)
+    // Table budget (niveau 1 : Budget principal lié à projet + bailleur + exercice)
     await db.execute('''
       CREATE TABLE budget (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         projet_id INTEGER NOT NULL,
         bailleur_id INTEGER NOT NULL,
+        exercice_id INTEGER NOT NULL,
         created_at TEXT,
         updated_at TEXT,
         deleted_at TEXT,
         FOREIGN KEY (projet_id) REFERENCES projet(id) ON DELETE CASCADE,
         FOREIGN KEY (bailleur_id) REFERENCES bailleur(id) ON DELETE CASCADE,
-        UNIQUE (projet_id, bailleur_id)
+        FOREIGN KEY (exercice_id) REFERENCES exercice(id) ON DELETE CASCADE,
+        UNIQUE (projet_id, bailleur_id, exercice_id)
       )
     ''');
 

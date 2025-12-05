@@ -126,10 +126,6 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
     return filtered;
   }
 
-  bool _isActive(Map<String, dynamic> projet) {
-    return projet['deleted_at'] == null;
-  }
-
   String _getBailleursString(Map<String, dynamic> projet) {
     final bailleurs = projet['bailleurs'];
     if (bailleurs == null || bailleurs.isEmpty) return 'Aucun';
@@ -199,6 +195,124 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
     );
   }
 
+  Widget _buildProjetCard(Map<String, dynamic> projet) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 1),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            // Code
+            Expanded(
+              flex: 2,
+              child: GestureDetector(
+                onTap: () => _showProjetDialog(projet),
+                child: Text(
+                  projet['code'] ?? 'N/A',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.indigo.shade700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            // Désignation
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: GestureDetector(
+                  onTap: () => _showProjetDialog(projet),
+                  child: Text(
+                    projet['designation'] ?? 'N/A',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+              ),
+            ),
+            // Bailleurs
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: GestureDetector(
+                  onTap: () => _showProjetDialog(projet),
+                  child: Text(
+                    _getBailleursString(projet),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+              ),
+            ),
+            // Actions
+            SizedBox(
+              width: 120,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (_canUpdate)
+                      IconButton(
+                        icon: Icon(
+                          Icons.edit,
+                          size: 18,
+                          color: Colors.indigo.shade700,
+                        ),
+                        onPressed: () => _showProjetDialog(projet),
+                        tooltip: 'Modifier',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
+                      ),
+                    if (_canDelete)
+                      IconButton(
+                        icon: const Icon(
+                          Icons.delete,
+                          size: 18,
+                          color: Colors.red,
+                        ),
+                        onPressed: () => _deleteProjet(projet),
+                        tooltip: 'Supprimer',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return RawKeyboardListener(
@@ -229,315 +343,335 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
         body:
             _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  onChanged: (value) {
-                                    setState(() => _searchQuery = value);
-                                  },
-                                  decoration: InputDecoration(
-                                    hintText: 'Rechercher un projet...',
-                                    prefixIcon: const Icon(Icons.search),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 12,
+                : Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header avec statistiques
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.indigo.shade100,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                Icons.folder_open,
+                                size: 28,
+                                color: Colors.indigo.shade700,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Projets',
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.indigo.shade800,
                                     ),
                                   ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              if (_canCreate)
-                                ElevatedButton.icon(
-                                  onPressed: () => _showProjetDialog(null),
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('Nouveau (Ctrl+N)'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.indigo,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 12,
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${_filteredProjets.length} projet${_filteredProjets.length > 1 ? 's' : ''} disponible${_filteredProjets.length > 1 ? 's' : ''}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade600,
                                     ),
                                   ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  value: _sortBy,
-                                  decoration: InputDecoration(
-                                    labelText: 'Trier par',
-                                    prefixIcon: const Icon(Icons.sort),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
+                                ],
+                              ),
+                            ),
+                            if (_canCreate)
+                              ElevatedButton.icon(
+                                onPressed: () => _showProjetDialog(null),
+                                icon: const Icon(Icons.add, size: 20),
+                                label: const Text('Nouveau projet'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.indigo,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 12,
                                   ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'code',
-                                      child: Text('Code'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'designation',
-                                      child: Text('Désignation'),
-                                    ),
-                                  ],
-                                  onChanged: (value) {
-                                    setState(() => _sortBy = value ?? 'code');
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  value: _filterStatus,
-                                  decoration: InputDecoration(
-                                    labelText: 'Statut',
-                                    prefixIcon: const Icon(Icons.filter_alt),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'actifs',
-                                      child: Text('Actifs'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'inactifs',
-                                      child: Text('Inactifs'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'tous',
-                                      child: Text('Tous'),
-                                    ),
-                                  ],
-                                  onChanged: (value) {
-                                    setState(
-                                      () => _filterStatus = value ?? 'actifs',
-                                    );
-                                  },
+                                  elevation: 2,
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              OutlinedButton.icon(
-                                onPressed: () {
-                                  setState(() {
-                                    _searchQuery = '';
-                                    _sortBy = 'code';
-                                    _filterStatus = 'actifs';
-                                  });
-                                },
-                                icon: const Icon(Icons.clear),
-                                label: const Text('Réinitialiser'),
-                              ),
-                            ],
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child:
-                          _filteredProjets.isEmpty
-                              ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.folder,
-                                      size: 80,
-                                      color: Colors.grey.shade300,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      _searchQuery.isEmpty
-                                          ? 'Aucun projet'
-                                          : 'Aucun projet trouvé',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        color: Colors.grey.shade500,
-                                      ),
-                                    ),
-                                  ],
+                      const SizedBox(height: 24),
+
+                      // Barre de recherche et filtres
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Column(
+                          children: [
+                            TextField(
+                              onChanged: (value) {
+                                setState(() => _searchQuery = value);
+                              },
+                              decoration: InputDecoration(
+                                hintText: 'Rechercher un projet...',
+                                prefixIcon: const Icon(Icons.search),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                              )
-                              : SingleChildScrollView(
-                                child: Container(
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 2500,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: Colors.grey.shade200,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.05,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 200,
+                                    child: DropdownButtonFormField<String>(
+                                      value: _sortBy,
+                                      decoration: InputDecoration(
+                                        labelText: 'Trier par',
+                                        prefixIcon: const Icon(Icons.sort),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 8,
+                                            ),
+                                      ),
+                                      items: const [
+                                        DropdownMenuItem(
+                                          value: 'code',
+                                          child: Text('Code'),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: 'designation',
+                                          child: Text('Désignation'),
+                                        ),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(
+                                          () => _sortBy = value ?? 'code',
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  SizedBox(
+                                    width: 200,
+                                    child: DropdownButtonFormField<String>(
+                                      value: _filterStatus,
+                                      decoration: InputDecoration(
+                                        labelText: 'Statut',
+                                        prefixIcon: const Icon(
+                                          Icons.filter_alt,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 8,
+                                            ),
+                                      ),
+                                      items: const [
+                                        DropdownMenuItem(
+                                          value: 'actifs',
+                                          child: Text('Actifs'),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: 'inactifs',
+                                          child: Text('Inactifs'),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: 'tous',
+                                          child: Text('Tous'),
+                                        ),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(
+                                          () =>
+                                              _filterStatus = value ?? 'actifs',
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  OutlinedButton.icon(
+                                    onPressed: () {
+                                      setState(() {
+                                        _searchQuery = '';
+                                        _sortBy = 'code';
+                                        _filterStatus = 'actifs';
+                                      });
+                                    },
+                                    icon: const Icon(Icons.clear),
+                                    label: const Text('Réinitialiser'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // En-tête des colonnes
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.indigo.shade700,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(10),
+                            topRight: Radius.circular(10),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            // Code header
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                'Code',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            // Désignation header
+                            Expanded(
+                              flex: 3,
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 16),
+                                child: Text(
+                                  'Désignation',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Bailleurs header
+                            Expanded(
+                              flex: 3,
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 16),
+                                child: Text(
+                                  'Bailleurs',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Actions header
+                            SizedBox(
+                              width: 120,
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  'Actions',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Liste des projets
+                      Expanded(
+                        child:
+                            _filteredProjets.isEmpty
+                                ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.folder,
+                                        size: 80,
+                                        color: Colors.grey.shade300,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        _searchQuery.isEmpty
+                                            ? 'Aucun projet'
+                                            : 'Aucun projet trouvé',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          color: Colors.grey.shade500,
+                                        ),
                                       ),
                                     ],
                                   ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: DataTable(
-                                        headingRowColor:
-                                            WidgetStateProperty.all(
-                                              Colors.indigo.shade700,
-                                            ),
-                                        headingTextStyle: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ),
-                                        dataRowMinHeight: 56,
-                                        dataRowMaxHeight: 72,
-                                        columnSpacing: 48,
-                                        horizontalMargin: 32,
-                                        columns: const [
-                                          DataColumn(label: Text('Code')),
-                                          DataColumn(
-                                            label: Text('Désignation'),
-                                          ),
-                                          DataColumn(label: Text('Bailleurs')),
-                                          DataColumn(label: Text('Actions')),
-                                        ],
-                                        rows:
-                                            _filteredProjets.map((projet) {
-                                              return DataRow(
-                                                color: WidgetStateProperty.all(
-                                                  _isActive(projet)
-                                                      ? Colors.white
-                                                      : Colors.grey.shade50,
-                                                ),
-                                                cells: [
-                                                  DataCell(
-                                                    Text(
-                                                      projet['code'] ?? '',
-                                                      style: TextStyle(
-                                                        fontSize: 15,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color:
-                                                            _isActive(projet)
-                                                                ? Colors.black87
-                                                                : Colors
-                                                                    .grey
-                                                                    .shade500,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  DataCell(
-                                                    Text(
-                                                      projet['designation'] ??
-                                                          '',
-                                                      style: TextStyle(
-                                                        fontSize: 15,
-                                                        color:
-                                                            _isActive(projet)
-                                                                ? Colors.black87
-                                                                : Colors
-                                                                    .grey
-                                                                    .shade500,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  DataCell(
-                                                    Text(
-                                                      _getBailleursString(
-                                                        projet,
-                                                      ),
-                                                      style: TextStyle(
-                                                        fontSize: 13,
-                                                        color:
-                                                            _isActive(projet)
-                                                                ? Colors.black87
-                                                                : Colors
-                                                                    .grey
-                                                                    .shade500,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  DataCell(
-                                                    Row(
-                                                      children: [
-                                                        if (_canUpdate)
-                                                          Tooltip(
-                                                            message: 'Modifier',
-                                                            child: IconButton(
-                                                              icon: Icon(
-                                                                Icons.edit,
-                                                                color:
-                                                                    Colors
-                                                                        .indigo
-                                                                        .shade700,
-                                                                size: 20,
-                                                              ),
-                                                              onPressed: () {
-                                                                _showProjetDialog(
-                                                                  projet,
-                                                                );
-                                                              },
-                                                            ),
-                                                          ),
-                                                        if (_canDelete)
-                                                          Tooltip(
-                                                            message:
-                                                                'Supprimer',
-                                                            child: IconButton(
-                                                              icon: const Icon(
-                                                                Icons.delete,
-                                                                color:
-                                                                    Colors.red,
-                                                                size: 20,
-                                                              ),
-                                                              onPressed: () {
-                                                                _deleteProjet(
-                                                                  projet,
-                                                                );
-                                                              },
-                                                            ),
-                                                          ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              );
-                                            }).toList(),
-                                      ),
-                                    ),
-                                  ),
+                                )
+                                : ListView.builder(
+                                  itemCount: _filteredProjets.length,
+                                  itemBuilder: (context, index) {
+                                    final projet = _filteredProjets[index];
+                                    return _buildProjetCard(projet);
+                                  },
                                 ),
-                              ),
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
       ),
     );
@@ -570,6 +704,10 @@ class _ProjetDialogState extends State<_ProjetDialog> {
   bool _loadingBailleurs = true;
   final _formKey = GlobalKey<FormState>();
 
+  // Variables pour le date picker avec dropdowns
+  late int _debutDay, _debutMonth, _debutYear;
+  late int _finDay, _finMonth, _finYear;
+
   @override
   void initState() {
     super.initState();
@@ -583,6 +721,23 @@ class _ProjetDialogState extends State<_ProjetDialog> {
     _dateFinController = TextEditingController(
       text: widget.projet?['date_fin'] ?? '',
     );
+
+    // Initialiser les dropdowns de date
+    final debutDate =
+        _dateDebutController.text.isNotEmpty
+            ? DateTime.parse(_dateDebutController.text)
+            : DateTime.now();
+    final finDate =
+        _dateFinController.text.isNotEmpty
+            ? DateTime.parse(_dateFinController.text)
+            : DateTime.now().add(const Duration(days: 365));
+
+    _debutDay = debutDate.day;
+    _debutMonth = debutDate.month;
+    _debutYear = debutDate.year;
+    _finDay = finDate.day;
+    _finMonth = finDate.month;
+    _finYear = finDate.year;
 
     _initializeBailleurs();
   }
@@ -643,21 +798,230 @@ class _ProjetDialogState extends State<_ProjetDialog> {
   }
 
   Future<void> _selectDate(TextEditingController controller) async {
-    final DateTime? picked = await showDatePicker(
+    final isDebut = controller == _dateDebutController;
+    int day = isDebut ? _debutDay : _finDay;
+    int month = isDebut ? _debutMonth : _finMonth;
+    int year = isDebut ? _debutYear : _finYear;
+
+    final result = await showDialog<Map<String, int>>(
       context: context,
-      initialDate:
-          controller.text.isNotEmpty
-              ? DateTime.parse(controller.text)
-              : DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      builder:
+          (context) => StatefulBuilder(
+            builder:
+                (context, setState) => AlertDialog(
+                  title: Text(
+                    isDebut
+                        ? 'Sélectionner la date de début'
+                        : 'Sélectionner la date de fin',
+                  ),
+                  content: SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 300),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.max,
+                        children: [
+                          // Jour
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Jour',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: DropdownButton<int>(
+                                    isExpanded: true,
+                                    value: day,
+                                    underline: const SizedBox(),
+                                    items:
+                                        List.generate(31, (i) => i + 1)
+                                            .map(
+                                              (d) => DropdownMenuItem(
+                                                value: d,
+                                                child: Text(
+                                                  d.toString().padLeft(2, '0'),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                    onChanged: (value) {
+                                      setState(() => day = value ?? day);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Mois
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Mois',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: DropdownButton<int>(
+                                    isExpanded: true,
+                                    value: month,
+                                    underline: const SizedBox(),
+                                    items:
+                                        [
+                                              'Jan',
+                                              'Fév',
+                                              'Mar',
+                                              'Avr',
+                                              'Mai',
+                                              'Jun',
+                                              'Jul',
+                                              'Aoû',
+                                              'Sep',
+                                              'Oct',
+                                              'Nov',
+                                              'Déc',
+                                            ]
+                                            .asMap()
+                                            .entries
+                                            .map(
+                                              (e) => DropdownMenuItem(
+                                                value: e.key + 1,
+                                                child: Text(
+                                                  e.value,
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                    onChanged: (value) {
+                                      setState(() => month = value ?? month);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Année
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Année',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: DropdownButton<int>(
+                                    isExpanded: true,
+                                    value: year,
+                                    underline: const SizedBox(),
+                                    items:
+                                        List.generate(101, (i) => 2000 + i)
+                                            .map(
+                                              (y) => DropdownMenuItem(
+                                                value: y,
+                                                child: Text(
+                                                  y.toString(),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                    onChanged: (value) {
+                                      setState(() => year = value ?? year);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Annuler'),
+                    ),
+                    ElevatedButton(
+                      onPressed:
+                          () => Navigator.pop(context, {
+                            'day': day,
+                            'month': month,
+                            'year': year,
+                          }),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.shade600,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Confirmer'),
+                    ),
+                  ],
+                ),
+          ),
     );
-    if (picked != null) {
-      setState(
-        () =>
-            controller.text =
-                '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}',
-      );
+
+    if (result != null) {
+      setState(() {
+        if (isDebut) {
+          _debutDay = result['day']!;
+          _debutMonth = result['month']!;
+          _debutYear = result['year']!;
+        } else {
+          _finDay = result['day']!;
+          _finMonth = result['month']!;
+          _finYear = result['year']!;
+        }
+
+        final formattedDay = result['day'].toString().padLeft(2, '0');
+        final formattedMonth = result['month'].toString().padLeft(2, '0');
+        final formattedDate = '${result['year']}-$formattedMonth-$formattedDay';
+        controller.text = formattedDate;
+      });
     }
   }
 
