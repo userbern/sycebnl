@@ -1,6 +1,7 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:async';
 import '../services/auth_service.dart';
 import '../services/database_service_new.dart' as db_service;
 import '../models/journal.dart';
@@ -184,26 +185,15 @@ class _JournauxPageState extends State<JournauxPage> {
                         children: [
                           Row(
                             children: [
-                              Expanded(
-                                child: TextField(
-                                  onChanged: (value) {
-                                    setState(() => searchQuery = value);
-                                  },
-                                  decoration: InputDecoration(
-                                    hintText:
-                                        'Rechercher par code ou intitulé...',
-                                    prefixIcon: const Icon(Icons.search),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 12,
-                                    ),
-                                  ),
+                              const Text(
+                                'Codes Journaux',
+                                style: TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
                                 ),
                               ),
-                              const SizedBox(width: 16),
+                              const Spacer(),
                               ElevatedButton.icon(
                                 onPressed: () => _showJournalDialog(null),
                                 icon: const Icon(Icons.add),
@@ -223,6 +213,28 @@ class _JournauxPageState extends State<JournauxPage> {
                           // Filtres par type et statut
                           Row(
                             children: [
+                              Expanded(
+                                flex: 2,
+                                child: TextField(
+                                  onChanged: (value) {
+                                    setState(() => searchQuery = value);
+                                  },
+                                  decoration: InputDecoration(
+                                    labelText:
+                                        'Rechercher par code ou intitulé',
+                                    isDense: true,
+                                    prefixIcon: const Icon(Icons.search),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: DropdownButtonFormField<String?>(
                                   value: _selectedType,
@@ -293,16 +305,19 @@ class _JournauxPageState extends State<JournauxPage> {
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              OutlinedButton.icon(
-                                onPressed: () {
-                                  setState(() {
-                                    searchQuery = '';
-                                    _selectedType = null;
-                                    _filterStatus = 'actifs';
-                                  });
-                                },
-                                icon: const Icon(Icons.clear),
-                                label: const Text('Réinitialiser'),
+                              SizedBox(
+                                width: 44,
+                                child: IconButton(
+                                  tooltip: 'Réinitialiser',
+                                  onPressed: () {
+                                    setState(() {
+                                      searchQuery = '';
+                                      _selectedType = null;
+                                      _filterStatus = 'actifs';
+                                    });
+                                  },
+                                  icon: const Icon(Icons.clear),
+                                ),
                               ),
                             ],
                           ),
@@ -324,185 +339,261 @@ class _JournauxPageState extends State<JournauxPage> {
                                   ),
                                 ),
                               )
-                              : Align(
-                                alignment: Alignment.topCenter,
-                                child: Container(
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 2500,
-                                  ),
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: DataTable(
-                                      columnSpacing: 72,
-                                      horizontalMargin: 48,
-                                      columns: const [
-                                        DataColumn(
-                                          label: Text(
-                                            'Code',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        DataColumn(
-                                          label: Text(
-                                            'Intitulé',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        DataColumn(
-                                          label: Text(
-                                            'Type',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        DataColumn(
-                                          label: Text(
-                                            'Saisie Analytique',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        DataColumn(
-                                          label: Text(
-                                            'Actions',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                      rows:
-                                          _filteredJournaux
-                                              .map(
-                                                (j) => DataRow(
-                                                  cells: [
-                                                    DataCell(
-                                                      Text(
-                                                        j.code,
-                                                        style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    DataCell(Text(j.intitule)),
-                                                    DataCell(
-                                                      Container(
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              horizontal: 12,
-                                                              vertical: 6,
-                                                            ),
-                                                        decoration: BoxDecoration(
-                                                          color: _getTypeColor(
-                                                            j.type,
-                                                          ).withOpacity(0.2),
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                4,
-                                                              ),
-                                                          border: Border.all(
-                                                            color:
-                                                                _getTypeColor(
-                                                                  j.type,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                        child: Text(
-                                                          j.type.toLabel(),
-                                                          style: TextStyle(
-                                                            color:
-                                                                _getTypeColor(
-                                                                  j.type,
-                                                                ),
-                                                            fontWeight:
-                                                                FontWeight.w500,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    DataCell(
-                                                      j.saisieAnalytique
-                                                          ? const Icon(
-                                                            Icons.check_circle,
-                                                            color: Colors.green,
-                                                          )
-                                                          : const Icon(
-                                                            Icons.cancel,
-                                                            color: Colors.red,
-                                                          ),
-                                                    ),
-                                                    DataCell(
-                                                      PopupMenuButton(
-                                                        itemBuilder:
-                                                            (context) => [
-                                                              PopupMenuItem(
-                                                                onTap:
-                                                                    () =>
-                                                                        _showJournalDialog(
-                                                                          j,
-                                                                        ),
-                                                                child: const Row(
-                                                                  children: [
-                                                                    Icon(
-                                                                      Icons
-                                                                          .edit,
-                                                                      size: 16,
-                                                                    ),
-                                                                    SizedBox(
-                                                                      width: 8,
-                                                                    ),
-                                                                    Text(
-                                                                      'Modifier',
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                              PopupMenuItem(
-                                                                onTap:
-                                                                    () => _deleteJournal(
-                                                                      j.id,
-                                                                      j.intitule,
-                                                                    ),
-                                                                child: const Row(
-                                                                  children: [
-                                                                    Icon(
-                                                                      Icons
-                                                                          .delete,
-                                                                      size: 16,
-                                                                      color:
-                                                                          Colors
-                                                                              .red,
-                                                                    ),
-                                                                    SizedBox(
-                                                                      width: 8,
-                                                                    ),
-                                                                    Text(
-                                                                      'Supprimer',
-                                                                      style: TextStyle(
-                                                                        color:
-                                                                            Colors.red,
-                                                                      ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                            ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              )
-                                              .toList(),
+                              : LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final double availableWidth =
+                                      constraints.maxWidth;
+                                  final double horizontalPadding =
+                                      (availableWidth * 0.05)
+                                          .clamp(16, 80)
+                                          .toDouble();
+                                  final double tableWidth =
+                                      availableWidth - (horizontalPadding * 2);
+                                  final double columnSpacing =
+                                      (tableWidth * 0.02)
+                                          .clamp(12, 40)
+                                          .toDouble();
+
+                                  double clampWidth(
+                                    double value,
+                                    double min,
+                                    double preferredMaxFactor,
+                                  ) {
+                                    final double preferredMax =
+                                        tableWidth * preferredMaxFactor;
+                                    final double upper = math.max(
+                                      min,
+                                      preferredMax,
+                                    );
+                                    return value.clamp(min, upper).toDouble();
+                                  }
+
+                                  final double codeWidth = clampWidth(
+                                    tableWidth * 0.18,
+                                    120,
+                                    0.24,
+                                  );
+                                  final double intituleWidth = clampWidth(
+                                    tableWidth * 0.32,
+                                    200,
+                                    0.38,
+                                  );
+                                  final double typeWidth = clampWidth(
+                                    tableWidth * 0.18,
+                                    140,
+                                    0.24,
+                                  );
+                                  final double saisieWidth = clampWidth(
+                                    tableWidth * 0.16,
+                                    120,
+                                    0.22,
+                                  );
+                                  final double actionsWidth = clampWidth(
+                                    tableWidth * 0.16,
+                                    120,
+                                    0.20,
+                                  );
+
+                                  return Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: horizontalPadding,
                                     ),
-                                  ),
-                                ),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: Colors.grey.shade200,
+                                        ),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: SingleChildScrollView(
+                                          scrollDirection: Axis.vertical,
+                                          child: SizedBox(
+                                            width: tableWidth,
+                                            child: DataTable(
+                                              columnSpacing: columnSpacing,
+                                              horizontalMargin: 24,
+                                              dataRowMinHeight: 28,
+                                              dataRowMaxHeight: 40,
+                                              headingRowColor:
+                                                  MaterialStateProperty.all(
+                                                    Colors.indigo.shade600,
+                                                  ),
+                                              headingTextStyle: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              columns: const [
+                                                DataColumn(label: Text('Code')),
+                                                DataColumn(
+                                                  label: Text('Intitulé'),
+                                                ),
+                                                DataColumn(label: Text('Type')),
+                                                DataColumn(
+                                                  label: Text(
+                                                    'Saisie Analytique',
+                                                  ),
+                                                ),
+                                                DataColumn(
+                                                  label: Text('Actions'),
+                                                ),
+                                              ],
+                                              rows:
+                                                  _filteredJournaux
+                                                      .map(
+                                                        (j) => DataRow(
+                                                          cells: [
+                                                            DataCell(
+                                                              SizedBox(
+                                                                width:
+                                                                    codeWidth,
+                                                                child: Text(
+                                                                  j.code,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  style: const TextStyle(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            DataCell(
+                                                              SizedBox(
+                                                                width:
+                                                                    intituleWidth,
+                                                                child: Text(
+                                                                  j.intitule,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            DataCell(
+                                                              SizedBox(
+                                                                width:
+                                                                    typeWidth,
+                                                                child: Text(
+                                                                  j.type
+                                                                      .toLabel(),
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  style: TextStyle(
+                                                                    color:
+                                                                        _getTypeColor(
+                                                                          j.type,
+                                                                        ),
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            DataCell(
+                                                              SizedBox(
+                                                                width:
+                                                                    saisieWidth,
+                                                                child: Center(
+                                                                  child:
+                                                                      j.saisieAnalytique
+                                                                          ? const Icon(
+                                                                            Icons.check_circle,
+                                                                            color:
+                                                                                Colors.green,
+                                                                          )
+                                                                          : const Icon(
+                                                                            Icons.cancel,
+                                                                            color:
+                                                                                Colors.red,
+                                                                          ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            DataCell(
+                                                              SizedBox(
+                                                                width: actionsWidth,
+                                                                child: Align(
+                                                                  alignment:
+                                                                      Alignment
+                                                                          .centerLeft,
+                                                                  child: PopupMenuButton(
+                                                                    itemBuilder:
+                                                                        (
+                                                                          context,
+                                                                        ) => [
+                                                                          PopupMenuItem(
+                                                                            onTap:
+                                                                                () => _showJournalDialog(j),
+                                                                            child: const Row(
+                                                                              children: [
+                                                                                Icon(
+                                                                                  Icons.edit,
+                                                                                  size:
+                                                                                      16,
+                                                                                ),
+                                                                                SizedBox(
+                                                                                  width:
+                                                                                      8,
+                                                                                ),
+                                                                                Text(
+                                                                                  'Modifier',
+                                                                                ),
+                                                                              ],
+                                                                            ),
+                                                                          ),
+                                                                          PopupMenuItem(
+                                                                            onTap:
+                                                                                () => _deleteJournal(
+                                                                                  j.id,
+                                                                                  j.intitule,
+                                                                                ),
+                                                                            child: const Row(
+                                                                              children: [
+                                                                                Icon(
+                                                                                  Icons.delete,
+                                                                                  size:
+                                                                                      16,
+                                                                                  color:
+                                                                                      Colors.red,
+                                                                                ),
+                                                                                SizedBox(
+                                                                                  width:
+                                                                                      8,
+                                                                                ),
+                                                                                Text(
+                                                                                  'Supprimer',
+                                                                                  style: TextStyle(
+                                                                                    color:
+                                                                                        Colors.red,
+                                                                                  ),
+                                                                                ),
+                                                                              ],
+                                                                            ),
+                                                                          ),
+                                                                        ],
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          
+                                                          ],
+                                                        ),
+                                                      )
+                                                      .toList(),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                     ),
                   ],
@@ -557,6 +648,372 @@ class _JournalDialogState extends State<JournalDialog> {
   final _formKey = GlobalKey<FormState>();
   Timer? _debounceTimer;
   bool _compteFieldInitialized = false;
+
+
+  Future<void> _showCompteCreationDialog() async {
+  final numeroController = TextEditingController();
+  final intituleController = TextEditingController();
+  final descriptionController = TextEditingController();
+  TypeCompte selectedType = TypeCompte.detail;
+  NatureCompte? calculatedNature;
+  bool liaisonTiers = false;
+  final formKey = GlobalKey<FormState>();
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.add_circle, color: Colors.indigo.shade700),
+                const SizedBox(width: 12),
+                const Text(
+                  'Nouveau compte de trésorerie',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 600,
+              child: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Numéro de compte
+                      TextFormField(
+                        controller: numeroController,
+                        decoration: InputDecoration(
+                          labelText: 'N° Compte *',
+                          prefixIcon: const Icon(Icons.numbers),
+                          hintText: 'Ex: 52100, 57100, 53000...',
+                          helperText: 'Doit commencer par 52, 57 ou 50-59',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade400),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: Colors.indigo.shade700,
+                              width: 2,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Champ requis';
+                          }
+                          if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                            return 'Seuls les chiffres sont autorisés';
+                          }
+                          // Vérifier que c'est un compte de trésorerie
+                          final isTresorerie = [
+                            '52', '57', '50', '51', '53',
+                            '55', '56', '58', '59'
+                          ].any((prefix) => value.startsWith(prefix));
+                          
+                          if (!isTresorerie) {
+                            return 'Le compte doit être de trésorerie (classe 5)';
+                          }
+                          return null;
+                        },
+                        onChanged: (value) {
+                          setDialogState(() {
+                            calculatedNature = calculateNatureFromNumeroCompte(value);
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Intitulé
+                      TextFormField(
+                        controller: intituleController,
+                        decoration: InputDecoration(
+                          labelText: 'Intitulé *',
+                          prefixIcon: const Icon(Icons.title),
+                          hintText: 'Ex: Caisse principale, Banque ABC...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade400),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: Colors.indigo.shade700,
+                              width: 2,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Champ requis';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Type (fixé à "détail" pour les comptes de trésorerie)
+                      DropdownButtonFormField<TypeCompte>(
+                        value: selectedType,
+                        decoration: InputDecoration(
+                          labelText: 'Type',
+                          prefixIcon: const Icon(Icons.category),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade400),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: Colors.indigo.shade700,
+                              width: 2,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                        ),
+                        dropdownColor: Colors.white,
+                        icon: Icon(
+                          Icons.arrow_drop_down_circle,
+                          color: Colors.indigo.shade700,
+                        ),
+                        items: TypeCompte.values.map((type) {
+                          return DropdownMenuItem(
+                            value: type,
+                            child: Text(type.toLabel()),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() {
+                              selectedType = value;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Nature (auto-détectée)
+                      DropdownButtonFormField<NatureCompte>(
+                        value: calculatedNature,
+                        decoration: InputDecoration(
+                          labelText: 'Nature *',
+                          prefixIcon: const Icon(Icons.layers),
+                          helperText: 'Auto-détecté du numéro de compte',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade400),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: Colors.indigo.shade700,
+                              width: 2,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                        ),
+                        dropdownColor: Colors.white,
+                        icon: Icon(
+                          Icons.arrow_drop_down_circle,
+                          color: Colors.indigo.shade700,
+                        ),
+                        items: NatureCompte.values.map((nature) {
+                          return DropdownMenuItem(
+                            value: nature,
+                            child: Text(nature.toLabel()),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() {
+                              calculatedNature = value;
+                            });
+                          }
+                        },
+                        validator: (value) {
+                          if (value == null) {
+                            return 'Sélectionnez une nature';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Description
+                      TextFormField(
+                        controller: descriptionController,
+                        decoration: InputDecoration(
+                          labelText: 'Description',
+                          prefixIcon: const Icon(Icons.notes),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade400),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: Colors.indigo.shade700,
+                              width: 2,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Rattachement de tiers
+                      CheckboxListTile(
+                        title: const Text('Rattachement de tiers'),
+                        subtitle: const Text(
+                          'Permet de rattacher un tiers à ce compte',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        value: liaisonTiers,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            liaisonTiers = value ?? false;
+                          });
+                        },
+                        controlAffinity: ListTileControlAffinity.leading,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        tileColor: Colors.grey.shade50,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (formKey.currentState!.validate()) {
+                    if (calculatedNature == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Numéro de compte invalide'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    try {
+                      // Récupérer la longueur de compte depuis la config
+                      final config = await db_service.DatabaseService.getFileConfig();
+                      final longueurCompteGeneral = 
+                          config?['longueur_compte_general'] as int? ?? 7;
+
+                      // Padding du numéro de compte
+                      String paddedNumero = numeroController.text.trim();
+                      if (selectedType == TypeCompte.detail && 
+                          paddedNumero.length < longueurCompteGeneral) {
+                        paddedNumero = paddedNumero.padRight(longueurCompteGeneral, '0');
+                      }
+
+                      // Créer le compte
+                      await db_service.DatabaseService.createCompte(
+                        numeroCompte: paddedNumero,
+                        intitule: intituleController.text.trim(),
+                        type: selectedType.toDbString(),
+                        nature: calculatedNature!.toDbString(),
+                        liaisonTiers: liaisonTiers,
+                        description: descriptionController.text.trim().isEmpty
+                            ? null
+                            : descriptionController.text.trim(),
+                      );
+
+                      // Récupérer le nouveau compte créé
+                      final allComptes = await db_service.DatabaseService.getAllComptes();
+                      final newCompte = allComptes.firstWhere(
+                        (c) => c.numeroCompte == paddedNumero,
+                        orElse: () => allComptes.firstWhere(
+                          (c) => c.numeroCompte.startsWith(numeroController.text.trim()),
+                        ),
+                      );
+
+                      // Mettre à jour l'état local et le parent
+                      if (!mounted) return;
+                      
+                      setState(() {
+                        widget.comptes.add(newCompte);
+                        _selectedCompteFresorerie = newCompte;
+                        _compteFresorerieController.text = 
+                            '${newCompte.numeroCompte} - ${newCompte.intitule}';
+                        _compteError = null;
+                      });
+
+                      // Fermer le dialogue
+                      Navigator.pop(context);
+
+                      // Confirmation
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Compte $paddedNumero créé avec succès'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Erreur: ${e.toString()}'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Créer le compte'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
 
   @override
   void initState() {
@@ -1033,8 +1490,11 @@ class _JournalDialogState extends State<JournalDialog> {
                           Padding(
                             padding: const EdgeInsets.only(top: 8.0),
                             child: ElevatedButton.icon(
-                              onPressed: null,
-                              icon: const Icon(Icons.add_circle),
+                              onPressed:
+                                  _isSaving
+                                      ? null
+                                      : _showCompteCreationDialog,
+                              icon: const Icon(Icons.add_circle, color: Colors.white,),
                               label: const Text('Créer'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.indigo,

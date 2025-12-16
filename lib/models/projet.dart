@@ -33,15 +33,15 @@ class Projet {
     return Projet(
       id: map['id'] as int,
       code: map['code'] as String,
-      nom: map['nom'] as String,
-      bailleurId: map['bailleur_id'] as int,
+      nom: map['nom'] as String? ?? map['designation'] as String? ?? 'Sans nom',
+      bailleurId: map['bailleur_id'] as int? ?? 0,
       description: map['description'] as String?,
       dateDebut: map['date_debut'] as String?,
       dateFin: map['date_fin'] as String?,
       budget: map['budget'] != null ? (map['budget'] as num).toDouble() : null,
       devise: map['devise'] as String?,
       statut: map['statut'] as String? ?? 'EN_COURS',
-      actif: (map['actif'] as int) == 1,
+      actif: (map['actif'] ?? map['is_active'] ?? 1) as int == 1,
       createdAt: map['created_at'] as String?,
       updatedAt: map['updated_at'] as String?,
     );

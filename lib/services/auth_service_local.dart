@@ -6,6 +6,7 @@ import '../models/tiers.dart';
 import '../models/journal.dart';
 import '../models/bailleur.dart';
 import '../models/projet.dart';
+import '../models/exercice.dart';
 
 class AuthService {
   static Database get _db => DatabaseService.database;
@@ -123,8 +124,6 @@ class AuthService {
       final userId = await _db.insert('utilisateur', {
         'login': login,
         'password': hashedPassword,
-        'nom': nom,
-        'prenom': prenom,
         'role': role,
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
@@ -618,9 +617,8 @@ class AuthService {
     try {
       final results = await _db.query(
         'projet',
-        where: 'is_active = ?',
-        whereArgs: [1],
-        orderBy: 'nom ASC',
+        where: 'deleted_at IS NULL',
+        orderBy: 'designation ASC',
       );
       return results.map((p) => Projet.fromMap(p)).toList();
     } catch (e) {
@@ -1361,5 +1359,26 @@ class AuthService {
   /// Obtenir l'utilisateur courant
   static Map<String, dynamic>? getCurrentUser() {
     return _currentUser;
+  }
+
+  /// Récupérer l'exercice comptable actif
+  static Future<Exercice?> getExerciceActif() async {
+    try {
+      final result = await _db.query(
+        'exercice',
+        where: 'is_active = 1',
+        limit: 1,
+      );
+
+      if (result.isEmpty) {
+        return null;
+      }
+
+      return Exercice.fromMap(result.first);
+    } catch (e) {
+      throw Exception(
+        'Erreur lors de la récupération de l\'exercice actif: $e',
+      );
+    }
   }
 }

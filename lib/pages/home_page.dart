@@ -1,6 +1,8 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:io';
 import '../services/database_service_new.dart';
 import '../models/user_session.dart';
 import 'entite_identification_page.dart';
@@ -11,6 +13,10 @@ import 'journaux_page.dart';
 import 'liste_bailleurs_page.dart';
 import 'liste_projets_page.dart';
 import 'gestion_budgets_page.dart';
+import 'journal_periode_selection_page.dart';
+import 'journaux_de_saisie_page.dart';
+import 'saisie_ecriture_page.dart';
+import '../models/saisie_comptable.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -26,6 +32,36 @@ class _HomePageState extends State<HomePage> {
 
   List<Map<String, dynamic>> _exercices = [];
   int? _activeExerciceId;
+  static const int _saisiePageIndex = 99;
+  JournalPeriode? _activeSaisiePeriode;
+  int? _previousPageIndex;
+  Completer<bool>? _saisieCompleter;
+  int _journauxRefreshSeed = 0;
+  int _selectionRefreshSeed = 0;
+  bool _isSidebarCollapsed = false;
+  static const List<_QuickAccessItem> _quickAccessItems = [
+    _QuickAccessItem(
+      label: 'Saisie comptable',
+      icon: Icons.receipt_long,
+      pageIndex: 10,
+    ),
+    _QuickAccessItem(
+      label: 'Journaux de saisie',
+      icon: Icons.view_list,
+      pageIndex: 16,
+    ),
+    _QuickAccessItem(
+      label: 'Interrogations & Lettrages',
+      icon: Icons.search,
+      pageIndex: 11,
+    ),
+    _QuickAccessItem(
+      label: 'Plan comptable',
+      icon: Icons.list_alt,
+      pageIndex: 4,
+    ),
+    _QuickAccessItem(label: 'Codes journaux', icon: Icons.code, pageIndex: 6),
+  ];
 
   @override
   void initState() {
@@ -67,12 +103,24 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showPage(int index) {
+    _saisieCompleter?.complete(false);
+    _saisieCompleter = null;
+
     setState(() {
       _currentPageIndex = index;
+      _activeSaisiePeriode = null;
+      _previousPageIndex = null;
     });
   }
 
   void _toggleMenu(String menuName) {
+    if (_isSidebarCollapsed) {
+      setState(() {
+        _isSidebarCollapsed = false;
+        _expandedMenu = menuName;
+      });
+      return;
+    }
     setState(() {
       if (_expandedMenu == menuName) {
         _expandedMenu = null;
@@ -80,6 +128,46 @@ class _HomePageState extends State<HomePage> {
         _expandedMenu = menuName;
       }
     });
+  }
+
+  void _toggleSidebarCollapse() {
+    setState(() {
+      _isSidebarCollapsed = !_isSidebarCollapsed;
+      if (_isSidebarCollapsed) {
+        _expandedMenu = null;
+      }
+    });
+  }
+
+  Future<bool> _openSaisie(JournalPeriode periode) {
+    final completer = Completer<bool>();
+    setState(() {
+      _previousPageIndex = _currentPageIndex;
+      _activeSaisiePeriode = periode;
+      _currentPageIndex = _saisiePageIndex;
+      _saisieCompleter = completer;
+    });
+    return completer.future;
+  }
+
+  void _closeSaisie(bool refresh) {
+    final target = _previousPageIndex ?? 10;
+
+    setState(() {
+      _currentPageIndex = target;
+      _activeSaisiePeriode = null;
+      _previousPageIndex = null;
+      if (refresh) {
+        if (target == 16) {
+          _journauxRefreshSeed++;
+        } else if (target == 10) {
+          _selectionRefreshSeed++;
+        }
+      }
+    });
+
+    _saisieCompleter?.complete(refresh);
+    _saisieCompleter = null;
   }
 
   void _showDatabaseInfo() {
@@ -362,63 +450,111 @@ class _HomePageState extends State<HomePage> {
         children: [
           // Sidebar VSCode style
           Container(
-            width: 280,
+            width: _isSidebarCollapsed ? 72 : 280,
             color: Colors.blue.shade50,
             child: Column(
               children: [
-                // Entity info compact
                 Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade100,
-                    border: Border(
-                      bottom: BorderSide(color: Colors.blue.shade200),
+                  alignment:
+                      _isSidebarCollapsed
+                          ? Alignment.center
+                          : Alignment.centerRight,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  child: Tooltip(
+                    message:
+                        _isSidebarCollapsed
+                            ? 'Développer le menu'
+                            : 'Réduire le menu',
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: _toggleSidebarCollapse,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade200,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Icon(
+                          _isSidebarCollapsed
+                              ? Icons.keyboard_arrow_right
+                              : Icons.keyboard_arrow_left,
+                          color: Colors.blue.shade900,
+                          size: 20,
+                        ),
+                      ),
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: Colors.blue,
-                        radius: 16,
-                        child: const Icon(
-                          Icons.business,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              entiteName,
-                              style: TextStyle(
-                                color: Colors.blue.shade900,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (_exercices.isNotEmpty &&
-                                _activeExerciceId != null)
-                              Container(
-                                margin: const EdgeInsets.only(top: 2),
-                                child: Text(
-                                  'Exercice: ${_exercices.firstWhere((e) => e['id'] == _activeExerciceId, orElse: () => {'code': 'N/A'})['code']}',
-                                  style: TextStyle(
-                                    color: Colors.blue.shade700,
-                                    fontSize: 9,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
+                // Entity info compact
+                if (!_isSidebarCollapsed)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade100,
+                      border: Border(
+                        bottom: BorderSide(color: Colors.blue.shade200),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: Colors.blue,
+                          radius: 16,
+                          child: const Icon(
+                            Icons.business,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                entiteName,
+                                style: TextStyle(
+                                  color: Colors.blue.shade900,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (_exercices.isNotEmpty &&
+                                  _activeExerciceId != null)
+                                Container(
+                                  margin: const EdgeInsets.only(top: 2),
+                                  child: Text(
+                                    'Exercice: ${_exercices.firstWhere((e) => e['id'] == _activeExerciceId, orElse: () => {'code': 'N/A'})['code']}',
+                                    style: TextStyle(
+                                      color: Colors.blue.shade700,
+                                      fontSize: 9,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: CircleAvatar(
+                      backgroundColor: Colors.blue,
+                      radius: 20,
+                      child: const Icon(
+                        Icons.business,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
                 // Menu items
                 Expanded(
                   child: ListView(
@@ -438,6 +574,7 @@ class _HomePageState extends State<HomePage> {
                       ]),
                       _buildMenuItem('TRAITEMENTS', Icons.description, [
                         _SubMenuItem('Saisie comptable', 10),
+                        _SubMenuItem('Journaux de saisie', 16),
                         _SubMenuItem('Interrogations & Lettrages', 11),
                       ]),
                       _buildExercicesMenu(),
@@ -449,6 +586,7 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                 ),
+                _buildQuickAccessSection(),
               ],
             ),
           ),
@@ -459,11 +597,162 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildQuickAccessSection() {
+    if (_quickAccessItems.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    if (_isSidebarCollapsed) {
+      return Container(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: Colors.blue.shade100)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children:
+              _quickAccessItems.map((item) {
+                final bool isActive = _currentPageIndex == item.pageIndex;
+                return Tooltip(
+                  message: item.label,
+                  preferBelow: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () => _showPage(item.pageIndex),
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color:
+                              isActive
+                                  ? Colors.blue.shade200
+                                  : Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(
+                          item.icon,
+                          color:
+                              isActive
+                                  ? Colors.blue.shade900
+                                  : Colors.blue.shade700,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        border: Border(top: BorderSide(color: Colors.blue.shade100)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Raccourcis',
+            style: TextStyle(
+              color: Colors.blue.shade800,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ..._quickAccessItems.map((item) {
+            final bool isActive = _currentPageIndex == item.pageIndex;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _showPage(item.pageIndex),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color:
+                        isActive
+                            ? Colors.blue.shade200
+                            : Colors.blue.shade100.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        item.icon,
+                        color:
+                            isActive
+                                ? Colors.blue.shade900
+                                : Colors.blue.shade700,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          item.label,
+                          style: TextStyle(
+                            color:
+                                isActive
+                                    ? Colors.blue.shade900
+                                    : Colors.blue.shade700,
+                            fontWeight:
+                                isActive ? FontWeight.w700 : FontWeight.w500,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMenuItem(
     String title,
     IconData icon,
     List<_SubMenuItem> subItems,
   ) {
+    if (_isSidebarCollapsed) {
+      final bool isActive = subItems.any(
+        (item) => item.index == _currentPageIndex,
+      );
+      return Tooltip(
+        message: title,
+        preferBelow: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _toggleMenu(title),
+            child: Container(
+              height: 44,
+              alignment: Alignment.center,
+              child: Icon(
+                icon,
+                color: isActive ? Colors.blue.shade900 : Colors.blue.shade700,
+                size: 22,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final isExpanded = _expandedMenu == title;
 
     return Column(
@@ -543,6 +832,30 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildExercicesMenu() {
+    if (_isSidebarCollapsed) {
+      final bool isActive = _currentPageIndex == 12;
+      return Tooltip(
+        message: 'EXERCICES',
+        preferBelow: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _toggleMenu('EXERCICES'),
+            child: Container(
+              height: 44,
+              alignment: Alignment.center,
+              child: Icon(
+                Icons.calendar_today,
+                color: isActive ? Colors.blue.shade900 : Colors.blue.shade700,
+                size: 22,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final isExpanded = _expandedMenu == 'EXERCICES';
 
     return Column(
@@ -740,7 +1053,11 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       case 10:
-        return _buildPlaceholderPage('Saisie comptable');
+        return JournalPeriodeSelectionPage(
+          key: ValueKey(_selectionRefreshSeed),
+          showAppBar: false,
+          onOpenPeriode: _openSaisie,
+        );
       case 11:
         return _buildPlaceholderPage('Interrogations & Lettrages');
       case 12:
@@ -761,6 +1078,22 @@ class _HomePageState extends State<HomePage> {
         return _buildPlaceholderPage('Grand livre');
       case 15:
         return _buildPlaceholderPage('Journal');
+      case 16:
+        return JournauxDeSaisiePage(
+          key: ValueKey(_journauxRefreshSeed),
+          showAppBar: false,
+          onOpenPeriode: _openSaisie,
+        );
+      case _saisiePageIndex:
+        final periode = _activeSaisiePeriode;
+        if (periode == null) {
+          return _buildPlaceholderPage('Sélectionnez une période de saisie');
+        }
+        return SaisieEcriturePage(
+          journalPeriode: periode,
+          showAppBar: false,
+          onClose: _closeSaisie,
+        );
       default:
         return _buildWelcomePage();
     }
@@ -1049,4 +1382,16 @@ class _SubMenuItem {
   final int index;
 
   _SubMenuItem(this.title, this.index);
+}
+
+class _QuickAccessItem {
+  final String label;
+  final IconData icon;
+  final int pageIndex;
+
+  const _QuickAccessItem({
+    required this.label,
+    required this.icon,
+    required this.pageIndex,
+  });
 }

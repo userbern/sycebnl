@@ -93,8 +93,6 @@ class DatabaseService {
             await db.insert('utilisateur', {
               'login': adminLogin,
               'password': hashedPassword,
-              'nom': 'Administrateur',
-              'prenom': 'Système',
               'role': 'admin',
               'created_at': DateTime.now().toIso8601String(),
               'updated_at': DateTime.now().toIso8601String(),
@@ -215,8 +213,89 @@ class DatabaseService {
 
               print('✅ Migration complétée');
             }
+
+            // Créer les tables manquantes pour la saisie comptable
+            try {
+              // Vérifier si la table journaux_periodes existe
+              final tableList = await db.rawQuery(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='journaux_periodes'",
+              );
+
+              if (tableList.isEmpty) {
+                print('🔄 Création des tables de saisie comptable');
+
+                await db.execute('''
+                  CREATE TABLE journaux_periodes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code_journal TEXT NOT NULL,
+                    annee INTEGER NOT NULL,
+                    mois INTEGER NOT NULL,
+                    exercice_id INTEGER,
+                    nombre_ecritures INTEGER DEFAULT 0,
+                    total_debit REAL DEFAULT 0,
+                    total_credit REAL DEFAULT 0,
+                    solde_final REAL DEFAULT 0,
+                    is_equilibre INTEGER DEFAULT 0,
+                    is_closed INTEGER DEFAULT 0,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    UNIQUE(code_journal, annee, mois, exercice_id),
+                    FOREIGN KEY (code_journal) REFERENCES journal(code),
+                    FOREIGN KEY (exercice_id) REFERENCES exercice(id)
+                  )
+                ''');
+
+                await db.execute('''
+                  CREATE TABLE ecritures (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    journal_periode_id INTEGER NOT NULL,
+                    numero_enregistrement INTEGER NOT NULL,
+                    jour INTEGER NOT NULL,
+                    numero_document TEXT,
+                    reference TEXT,
+                    numero_compte TEXT NOT NULL,
+                    numero_tiers TEXT,
+                    libelle TEXT NOT NULL,
+                    montant_debit REAL DEFAULT 0,
+                    montant_credit REAL DEFAULT 0,
+                    is_ventilee INTEGER DEFAULT 0,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    FOREIGN KEY (journal_periode_id) REFERENCES journaux_periodes(id),
+                    FOREIGN KEY (numero_compte) REFERENCES compte(numero_compte),
+                    FOREIGN KEY (numero_tiers) REFERENCES tiers(numero_tiers)
+                  )
+                ''');
+
+                await db.execute('''
+                  CREATE TABLE ventilations_analytiques (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ecriture_id INTEGER NOT NULL,
+                    type TEXT NOT NULL,
+                    id_projet INTEGER,
+                    volet TEXT,
+                    id_bailleur INTEGER,
+                    id_poste_budgetaire INTEGER,
+                    id_ligne_budgetaire INTEGER,
+                    montant_ventile REAL DEFAULT 0,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    FOREIGN KEY (ecriture_id) REFERENCES ecritures(id) ON DELETE CASCADE,
+                    FOREIGN KEY (id_projet) REFERENCES projet(id) ON DELETE CASCADE,
+                    FOREIGN KEY (id_poste_budgetaire) REFERENCES poste_budgetaire(id) ON DELETE CASCADE,
+                    FOREIGN KEY (id_ligne_budgetaire) REFERENCES ligne_budgetaire(id) ON DELETE CASCADE
+                  )
+                ''');
+
+                print('✅ Tables de saisie comptable créées');
+              } else {
+                await _ensureJournalPeriodeSchema(db);
+              }
+            } catch (e) {
+              print('⚠️ Erreur création tables saisie comptable: $e');
+            }
           } catch (e) {
-            print('⚠️ Migration error: $e');
+            print('⚠️ Erreur général migration: $e');
           }
         },
       ),
@@ -329,19 +408,6 @@ class DatabaseService {
         FOREIGN KEY (created_by) REFERENCES utilisateur(id)
       )
     ''');
-
-    // Table monnaie
-    /* await db.execute('''
-      CREATE TABLE monnaie (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        code TEXT UNIQUE NOT NULL,
-        libelle TEXT NOT NULL,
-        symbole TEXT,
-        is_active INTEGER DEFAULT 1,
-        created_at TEXT,
-        updated_at TEXT
-      )
-    '''); */
 
     // Table compte
     await db.execute('''
@@ -515,5 +581,279 @@ class DatabaseService {
         updated_at TEXT
       )
     ''');
+
+    // Table journaux_periodes (journal + mois + année)
+    await db.execute('''
+      CREATE TABLE journaux_periodes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code_journal TEXT NOT NULL,
+        annee INTEGER NOT NULL,
+        mois INTEGER NOT NULL,
+        exercice_id INTEGER,
+        nombre_ecritures INTEGER DEFAULT 0,
+        total_debit REAL DEFAULT 0,
+        total_credit REAL DEFAULT 0,
+        solde_final REAL DEFAULT 0,
+        is_equilibre INTEGER DEFAULT 0,
+        is_closed INTEGER DEFAULT 0,
+        created_at TEXT,
+        updated_at TEXT,
+        FOREIGN KEY (code_journal) REFERENCES journal(code),
+        FOREIGN KEY (exercice_id) REFERENCES exercice(id),
+        UNIQUE (code_journal, annee, mois, exercice_id)
+      )
+    ''');
+
+    // Table ecritures (lignes d'écriture comptable)
+    await db.execute('''
+      CREATE TABLE ecritures (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        journal_periode_id INTEGER NOT NULL,
+        numero_enregistrement INTEGER NOT NULL,
+        jour INTEGER NOT NULL,
+        numero_document TEXT NOT NULL,
+        reference TEXT,
+        numero_compte TEXT NOT NULL,
+        numero_tiers TEXT,
+        libelle TEXT NOT NULL,
+        montant_debit REAL DEFAULT 0,
+        montant_credit REAL DEFAULT 0,
+        is_ventilee INTEGER DEFAULT 0,
+        created_at TEXT,
+        updated_at TEXT,
+        FOREIGN KEY (journal_periode_id) REFERENCES journaux_periodes(id) ON DELETE CASCADE,
+        FOREIGN KEY (numero_compte) REFERENCES compte(numero_compte),
+        FOREIGN KEY (numero_tiers) REFERENCES tiers(numero_compte)
+      )
+    ''');
+
+    // Table ventilations_analytiques (détail ventilation d'une écriture)
+    await db.execute('''
+      CREATE TABLE ventilations_analytiques (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ecriture_id INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        id_projet INTEGER,
+        volet TEXT,
+        id_bailleur INTEGER,
+        id_poste_budgetaire INTEGER,
+        id_ligne_budgetaire INTEGER,
+        montant_ventile REAL DEFAULT 0,
+        created_at TEXT,
+        updated_at TEXT,
+        FOREIGN KEY (ecriture_id) REFERENCES ecritures(id) ON DELETE CASCADE,
+        FOREIGN KEY (id_projet) REFERENCES projet(id) ON DELETE CASCADE,
+        FOREIGN KEY (id_poste_budgetaire) REFERENCES poste_budgetaire(id) ON DELETE CASCADE,
+        FOREIGN KEY (id_ligne_budgetaire) REFERENCES ligne_budgetaire(id) ON DELETE CASCADE
+      )
+    ''');
+  }
+
+  static Future<void> _ensureJournalPeriodeSchema(Database db) async {
+    try {
+      final columns = await db.rawQuery("PRAGMA table_info(journaux_periodes)");
+      final hasExerciceColumn = columns.any(
+        (col) => col['name'] == 'exercice_id',
+      );
+
+      bool needsRebuild = !hasExerciceColumn;
+
+      if (!needsRebuild) {
+        final indexList = await db.rawQuery(
+          "PRAGMA index_list('journaux_periodes')",
+        );
+
+        bool hasCompositeUnique = false;
+        for (final index in indexList) {
+          final isUnique = (index['unique'] as int? ?? 0) == 1;
+          if (!isUnique) continue;
+
+          final indexName = index['name'] as String?;
+          if (indexName == null) continue;
+
+          final indexInfo = await db.rawQuery(
+            "PRAGMA index_info('$indexName')",
+          );
+          final columnNames =
+              indexInfo
+                  .map((row) => row['name'] as String?)
+                  .whereType<String>()
+                  .toList();
+
+          if (columnNames.contains('code_journal') &&
+              columnNames.contains('annee') &&
+              columnNames.contains('mois') &&
+              columnNames.contains('exercice_id')) {
+            hasCompositeUnique = true;
+            break;
+          }
+        }
+
+        if (!hasCompositeUnique) {
+          needsRebuild = true;
+        }
+      }
+
+      if (needsRebuild) {
+        print(
+          '🔄 Migration: mise à jour de journaux_periodes pour gérer les exercices',
+        );
+        await _rebuildJournalPeriodesTable(
+          db,
+          hasExistingExerciceColumn: hasExerciceColumn,
+        );
+        print('✅ Migration journaux_periodes terminée');
+      }
+    } catch (e) {
+      print('⚠️ Migration journaux_periodes échouée: $e');
+    }
+  }
+
+  static Future<void> _rebuildJournalPeriodesTable(
+    Database db, {
+    required bool hasExistingExerciceColumn,
+  }) async {
+    await db.execute('PRAGMA foreign_keys=OFF');
+    int maxId = 0;
+
+    try {
+      await db.execute('''
+        CREATE TABLE journaux_periodes_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          code_journal TEXT NOT NULL,
+          annee INTEGER NOT NULL,
+          mois INTEGER NOT NULL,
+          exercice_id INTEGER,
+          nombre_ecritures INTEGER DEFAULT 0,
+          total_debit REAL DEFAULT 0,
+          total_credit REAL DEFAULT 0,
+          solde_final REAL DEFAULT 0,
+          is_equilibre INTEGER DEFAULT 0,
+          is_closed INTEGER DEFAULT 0,
+          created_at TEXT,
+          updated_at TEXT,
+          FOREIGN KEY (code_journal) REFERENCES journal(code),
+          FOREIGN KEY (exercice_id) REFERENCES exercice(id),
+          UNIQUE(code_journal, annee, mois, exercice_id)
+        )
+      ''');
+
+      final periodes = await db.query('journaux_periodes');
+      final exercicesRaw = await db.query('exercice');
+      final exercices =
+          exercicesRaw
+              .map((row) {
+                final id = row['id'];
+                final startRaw = row['date_debut'];
+                final endRaw = row['date_fin'];
+                if (id is! int || startRaw is! String || endRaw is! String) {
+                  return null;
+                }
+                try {
+                  return (
+                    id: id,
+                    start: DateTime.parse(startRaw),
+                    end: DateTime.parse(endRaw),
+                    isActive: (row['is_active'] as int? ?? 0) == 1,
+                  );
+                } catch (_) {
+                  return null;
+                }
+              })
+              .whereType<
+                ({int id, DateTime start, DateTime end, bool isActive})
+              >()
+              .toList();
+
+      int? fallbackId;
+      if (exercices.isNotEmpty) {
+        final active = exercices.firstWhere(
+          (ex) => ex.isActive,
+          orElse: () => exercices.first,
+        );
+        fallbackId = active.id;
+      }
+
+      for (final periode in periodes) {
+        final rawId = periode['id'];
+        final rawCode = periode['code_journal'];
+        final rawAnnee = periode['annee'];
+        final rawMois = periode['mois'];
+
+        if (rawId is! int || rawCode is! String) {
+          continue;
+        }
+
+        final annee = rawAnnee is int ? rawAnnee : int.tryParse('$rawAnnee');
+        final mois = rawMois is int ? rawMois : int.tryParse('$rawMois');
+
+        if (annee == null || mois == null) {
+          continue;
+        }
+
+        int? exerciceId =
+            hasExistingExerciceColumn ? periode['exercice_id'] as int? : null;
+
+        if (exerciceId == null) {
+          try {
+            final candidateDate = DateTime(annee, mois, 1);
+            for (final exercice in exercices) {
+              if (!candidateDate.isBefore(exercice.start) &&
+                  !candidateDate.isAfter(exercice.end)) {
+                exerciceId = exercice.id;
+                break;
+              }
+            }
+          } catch (_) {
+            // Ignore parsing errors and fall back later
+          }
+        }
+
+        exerciceId ??= fallbackId;
+
+        final insertData = <String, Object?>{
+          'id': rawId,
+          'code_journal': rawCode,
+          'annee': annee,
+          'mois': mois,
+          'exercice_id': exerciceId,
+          'nombre_ecritures': periode['nombre_ecritures'],
+          'total_debit': periode['total_debit'],
+          'total_credit': periode['total_credit'],
+          'solde_final': periode['solde_final'],
+          'is_equilibre': periode['is_equilibre'],
+          'is_closed': periode['is_closed'],
+          'created_at': periode['created_at'],
+          'updated_at': periode['updated_at'],
+        };
+
+        await db.insert(
+          'journaux_periodes_new',
+          insertData,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+
+        if (rawId > maxId) {
+          maxId = rawId;
+        }
+      }
+
+      await db.execute('DROP TABLE journaux_periodes');
+      await db.execute(
+        'ALTER TABLE journaux_periodes_new RENAME TO journaux_periodes',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_journaux_periodes_exercice ON journaux_periodes(exercice_id)',
+      );
+
+      if (maxId > 0) {
+        await db.rawUpdate(
+          'UPDATE sqlite_sequence SET seq = ? WHERE name = ?',
+          [maxId, 'journaux_periodes'],
+        );
+      }
+    } finally {
+      await db.execute('PRAGMA foreign_keys=ON');
+    }
   }
 }

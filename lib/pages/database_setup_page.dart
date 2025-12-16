@@ -18,16 +18,72 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
   final _loginController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _anneeController = TextEditingController();
+  final _dateDebutController = TextEditingController();
+  final _dateFinController = TextEditingController();
   String? _databasePath;
   bool _isCreatingDatabase = true;
   bool _isLoading = false;
+
+  DateTime? _selectedDateDebut;
+  DateTime? _selectedDateFin;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _selectedDateDebut = DateTime(now.year, 1, 1);
+    _selectedDateFin = DateTime(now.year, 12, 31);
+    _anneeController.text = now.year.toString();
+    _updateDateControllers();
+  }
 
   @override
   void dispose() {
     _loginController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _anneeController.dispose();
+    _dateDebutController.dispose();
+    _dateFinController.dispose();
     super.dispose();
+  }
+
+  void _updateDateControllers() {
+    if (_selectedDateDebut != null) {
+      _dateDebutController.text = _formatDate(_selectedDateDebut!);
+    }
+    if (_selectedDateFin != null) {
+      _dateFinController.text = _formatDate(_selectedDateFin!);
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  Future<void> _selectDateWithDropdown(
+    BuildContext context,
+    bool isDebut,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      builder:
+          (context) => _DatePickerDialog(
+            isDebut: isDebut,
+            initialDate: isDebut ? _selectedDateDebut : _selectedDateFin,
+            onDateSelected: (selectedDate) {
+              setState(() {
+                if (isDebut) {
+                  _selectedDateDebut = selectedDate;
+                } else {
+                  _selectedDateFin = selectedDate;
+                }
+                _updateDateControllers();
+              });
+            },
+          ),
+    );
   }
 
   /// Obtenir le chemin par défaut de la base de données
@@ -98,13 +154,23 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
   Future<void> _createDatabase() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_selectedDateDebut == null || _selectedDateFin == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez sélectionner les dates'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
       // Utiliser le chemin sélectionné ou le chemin par défaut
       final dbPath = _databasePath ?? await _getDefaultDatabasePath();
 
-      // Préparer les données par défaut (à améliorer avec un formulaire multi-étapes)
+      // Préparer les données par défaut
       final entiteData = {
         'denomination_sociale': 'Mon Organisation',
         'sigle_usuel': '',
@@ -125,9 +191,9 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
       };
 
       final exerciceData = {
-        'code': '2025',
-        'date_debut': '2025-01-01',
-        'date_fin': '2025-12-31',
+        'code': _anneeController.text.trim(),
+        'date_debut': _selectedDateDebut!.toIso8601String(),
+        'date_fin': _selectedDateFin!.toIso8601String(),
       };
 
       final configData = {
@@ -204,6 +270,46 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
       );
       setState(() => _isLoading = false);
     }
+  }
+
+  Widget _buildDateField({
+    required TextEditingController controller,
+    required VoidCallback onTap,
+    required bool enabled,
+  }) {
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+      child: GestureDetector(
+        onTap: enabled ? onTap : null,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8),
+            color: enabled ? Colors.white : Colors.grey.shade50,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: [
+              Icon(Icons.calendar_today, color: Colors.grey.shade600, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  controller.text.isEmpty
+                      ? 'Sélectionner une date'
+                      : controller.text,
+                  style: TextStyle(
+                    color:
+                        controller.text.isEmpty
+                            ? Colors.grey.shade500
+                            : Colors.black,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -345,6 +451,105 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
                               enabled: !_isLoading,
                             ),
                             const SizedBox(height: 24),
+                            // Premier exercice comptable
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.blue.shade200),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Premier exercice comptable',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  TextFormField(
+                                    controller: _anneeController,
+                                    decoration: InputDecoration(
+                                      labelText: 'Code exercice',
+                                      hintText: '2025',
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    enabled: !_isLoading,
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Le code d\'exercice est requis';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Date début',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            _buildDateField(
+                                              controller: _dateDebutController,
+                                              onTap:
+                                                  () => _selectDateWithDropdown(
+                                                    context,
+                                                    true,
+                                                  ),
+                                              enabled: !_isLoading,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Date fin',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            _buildDateField(
+                                              controller: _dateFinController,
+                                              onTap:
+                                                  () => _selectDateWithDropdown(
+                                                    context,
+                                                    false,
+                                                  ),
+                                              enabled: !_isLoading,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
                           ],
                         ),
                       ),
@@ -479,6 +684,184 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DatePickerDialog extends StatefulWidget {
+  final bool isDebut;
+  final DateTime? initialDate;
+  final Function(DateTime) onDateSelected;
+
+  const _DatePickerDialog({
+    required this.isDebut,
+    this.initialDate,
+    required this.onDateSelected,
+  });
+
+  @override
+  State<_DatePickerDialog> createState() => _DatePickerDialogState();
+}
+
+class _DatePickerDialogState extends State<_DatePickerDialog> {
+  late int selectedDay;
+  late int selectedMonth;
+  late int selectedYear;
+
+  @override
+  void initState() {
+    super.initState();
+    final date = widget.initialDate ?? DateTime.now();
+    selectedDay = date.day;
+    selectedMonth = date.month;
+    selectedYear = date.year;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.isDebut ? 'Date de début' : 'Date de fin'),
+      content: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                // Jour
+                Expanded(
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Jour',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButton<int>(
+                          isExpanded: true,
+                          value: selectedDay,
+                          underline: const SizedBox(),
+                          items:
+                              List.generate(31, (i) => i + 1)
+                                  .map(
+                                    (d) => DropdownMenuItem(
+                                      value: d,
+                                      child: Text(d.toString()),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged: (value) {
+                            setState(() => selectedDay = value ?? selectedDay);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Mois
+                Expanded(
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Mois',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButton<int>(
+                          isExpanded: true,
+                          value: selectedMonth,
+                          underline: const SizedBox(),
+                          items:
+                              List.generate(12, (i) => i + 1)
+                                  .map(
+                                    (m) => DropdownMenuItem(
+                                      value: m,
+                                      child: Text(m.toString()),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged: (value) {
+                            setState(
+                              () => selectedMonth = value ?? selectedMonth,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Année
+                Expanded(
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Année',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButton<int>(
+                          isExpanded: true,
+                          value: selectedYear,
+                          underline: const SizedBox(),
+                          items:
+                              List.generate(
+                                    20,
+                                    (i) => DateTime.now().year - 10 + i,
+                                  )
+                                  .map(
+                                    (y) => DropdownMenuItem(
+                                      value: y,
+                                      child: Text(y.toString()),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged: (value) {
+                            setState(
+                              () => selectedYear = value ?? selectedYear,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Annuler'),
+        ),
+        TextButton(
+          onPressed: () {
+            widget.onDateSelected(
+              DateTime(selectedYear, selectedMonth, selectedDay),
+            );
+            Navigator.pop(context);
+          },
+          child: const Text('OK'),
+        ),
+      ],
     );
   }
 }

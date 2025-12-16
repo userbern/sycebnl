@@ -4,10 +4,29 @@ import 'dart:convert';
 import 'database_service.dart' as old_service;
 import '../models/tiers.dart';
 import '../models/compte.dart';
+import '../models/journal.dart';
 
 /// Service pour gérer le fichier comptable (base de données SQLite)
 /// Ce service délègue à database_service.dart pour partager la même connexion
 class DatabaseService {
+  /// Vérifie si un compte est utilisé dans la table journaux (compte de trésorerie)
+  static Future<bool> isCompteUsedInJournaux(String numeroCompte) async {
+    await ensureDatabaseOpen();
+    try {
+      final result = await database.query(
+        'journal',
+        where: 'compte_tresorerie = ? AND is_active = 1',
+        whereArgs: [numeroCompte],
+        limit: 1,
+      );
+      return result.isNotEmpty;
+    } catch (e) {
+      // Si la table n'existe pas, on considère que le compte n'est pas utilisé
+      print('⚠️ Table journaux absente ou erreur SQL: $e');
+      return false;
+    }
+  }
+
   /// S'assurer que la base est ouverte avant toute requête
   static Future<void> ensureDatabaseOpen() async {
     if (!old_service.DatabaseService.isConnected) {
@@ -597,5 +616,24 @@ class DatabaseService {
       where: 'id = ?',
       whereArgs: [tiersId],
     );
+  }
+
+  // ==================== GESTION DES JOURNAUX ====================
+
+  /// Récupérer un journal par son code
+  static Future<Journal> getJournalByCode(String code) async {
+    await ensureDatabaseOpen();
+
+    final results = await database.query(
+      'journal',
+      where: 'code = ?',
+      whereArgs: [code],
+    );
+
+    if (results.isEmpty) {
+      throw Exception('Journal avec le code "$code" non trouvé');
+    }
+
+    return Journal.fromMap(results.first);
   }
 }

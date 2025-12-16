@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/database_service_new.dart';
@@ -1125,27 +1127,33 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
               ),
               const SizedBox(height: 24),
 
-              // Barre de recherche
-              TextField(
-                onChanged: (value) => setState(() => _searchQuery = value),
-                decoration: InputDecoration(
-                  labelText: 'Rechercher un tiers',
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Filtres par type et tri
+              // Barre de recherche et filtres (sur une seule ligne)
               Row(
                 children: [
                   Expanded(
+                    flex: 2,
+                    child: TextField(
+                      onChanged:
+                          (value) => setState(() => _searchQuery = value),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        labelText: 'Rechercher un tiers',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 180,
                     child: DropdownButtonFormField<TypeTiers?>(
                       value: _selectedType,
+                      isDense: true,
+                      isExpanded: true,
                       decoration: InputDecoration(
                         labelText: 'Type de tiers',
                         prefixIcon: const Icon(Icons.category),
@@ -1158,7 +1166,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                       items: [
                         const DropdownMenuItem(
                           value: null,
-                          child: Text('-- Tous les types --'),
+                          child: Text('-- Tous --'),
                         ),
                         for (final type in TypeTiers.values)
                           DropdownMenuItem(
@@ -1171,10 +1179,13 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                       },
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 160,
                     child: DropdownButtonFormField<String>(
                       value: _sortBy,
+                      isDense: true,
+                      isExpanded: true,
                       decoration: InputDecoration(
                         labelText: 'Trier par',
                         prefixIcon: const Icon(Icons.sort),
@@ -1199,17 +1210,20 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                       },
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _searchQuery = '';
-                        _selectedType = null;
-                        _sortBy = 'numero';
-                      });
-                    },
-                    icon: const Icon(Icons.clear),
-                    label: const Text('Réinitialiser'),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 44,
+                    child: IconButton(
+                      tooltip: 'Réinitialiser',
+                      onPressed: () {
+                        setState(() {
+                          _searchQuery = '';
+                          _selectedType = null;
+                          _sortBy = 'numero';
+                        });
+                      },
+                      icon: const Icon(Icons.clear),
+                    ),
                   ),
                 ],
               ),
@@ -1241,120 +1255,226 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                             ],
                           ),
                         )
-                        : Align(
-                          alignment: Alignment.topCenter,
-                          child: Container(
-                            constraints: const BoxConstraints(maxWidth: 2500),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade200),
-                            ),
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: SingleChildScrollView(
+                        : LayoutBuilder(
+                          builder: (context, constraints) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: Container(
+                                width: constraints.maxWidth,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey.shade200,
+                                  ),
+                                ),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
-                                  child: DataTable(
-                                    headingRowColor: WidgetStateProperty.all(
-                                      Colors.blue.shade700,
-                                    ),
-                                    headingTextStyle: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    columnSpacing: 72,
-                                    horizontalMargin: 48,
-                                    columns: const [
-                                      DataColumn(label: Text('N° Compte')),
-                                      DataColumn(label: Text('Intitulé')),
-                                      DataColumn(label: Text('Type')),
-                                      DataColumn(
-                                        label: Text('Compte Collectif'),
-                                      ),
-                                      DataColumn(label: Text('Actions')),
-                                    ],
-                                    rows:
-                                        _filteredTiers.map((tiers) {
-                                          return DataRow(
-                                            cells: [
-                                              DataCell(
-                                                Text(tiers.numeroCompte),
-                                              ),
-                                              DataCell(Text(tiers.intitule)),
-                                              DataCell(
-                                                Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 12,
-                                                        vertical: 4,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: _getTypeColor(
-                                                      tiers.type,
-                                                    ).withOpacity(0.1),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          12,
-                                                        ),
-                                                    border: Border.all(
-                                                      color: _getTypeColor(
-                                                        tiers.type,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    tiers.type.toLabel(),
-                                                    style: TextStyle(
-                                                      color: _getTypeColor(
-                                                        tiers.type,
-                                                      ),
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.vertical,
+                                    child: LayoutBuilder(
+                                      builder: (context, innerConstraints) {
+                                        final double tableWidth =
+                                            innerConstraints.maxWidth;
+                                        final double columnSpacing =
+                                            (tableWidth * 0.02)
+                                                .clamp(10, 56)
+                                                .toDouble();
+
+                                        double clampWidth(
+                                          double value,
+                                          double min,
+                                          double preferredMaxFactor,
+                                        ) {
+                                          final double preferredMax =
+                                              tableWidth * preferredMaxFactor;
+                                          final double upper = math.max(
+                                            min,
+                                            preferredMax,
+                                          );
+                                          return value.clamp(min, upper);
+                                        }
+
+                                        final double numWidth = clampWidth(
+                                          tableWidth * 0.14,
+                                          120,
+                                          0.20,
+                                        );
+                                        final double intituleWidth = clampWidth(
+                                          tableWidth * 0.26,
+                                          150,
+                                          0.34,
+                                        );
+                                        final double typeWidth = clampWidth(
+                                          tableWidth * 0.20,
+                                          130,
+                                          0.28,
+                                        );
+                                        final double collectifWidth =
+                                            clampWidth(
+                                              tableWidth * 0.22,
+                                              140,
+                                              0.28,
+                                            );
+                                        final double actionsWidth = clampWidth(
+                                          tableWidth * 0.12,
+                                          120,
+                                          0.16,
+                                        );
+
+                                        return SizedBox(
+                                          width: tableWidth,
+                                          child: DataTable(
+                                            headingRowColor:
+                                                WidgetStateProperty.all(
+                                                  Colors.blue.shade700,
                                                 ),
+                                            headingTextStyle: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            dataRowMinHeight: 36,
+                                            dataRowMaxHeight: 48,
+                                            columnSpacing: columnSpacing,
+                                            horizontalMargin: 24,
+                                            columns: const [
+                                              DataColumn(
+                                                label: Text('N° Compte'),
                                               ),
-                                              DataCell(
-                                                Text(tiers.compteCollectif),
+                                              DataColumn(
+                                                label: Text('Intitulé'),
                                               ),
-                                              DataCell(
-                                                Row(
-                                                  children: [
-                                                    IconButton(
-                                                      icon: const Icon(
-                                                        Icons.edit,
-                                                      ),
-                                                      color: Colors.blue,
-                                                      onPressed:
-                                                          () =>
-                                                              _showTiersDialog(
-                                                                tiers: tiers,
-                                                              ),
-                                                      tooltip: 'Modifier',
-                                                    ),
-                                                    IconButton(
-                                                      icon: const Icon(
-                                                        Icons.delete,
-                                                      ),
-                                                      color: Colors.red,
-                                                      onPressed:
-                                                          () => _deleteTiers(
-                                                            tiers,
-                                                          ),
-                                                      tooltip: 'Supprimer',
-                                                    ),
-                                                  ],
-                                                ),
+                                              DataColumn(label: Text('Type')),
+                                              DataColumn(
+                                                label: Text('Compte Collectif'),
+                                              ),
+                                              DataColumn(
+                                                label: Text('Actions'),
                                               ),
                                             ],
-                                          );
-                                        }).toList(),
+                                            rows:
+                                                _filteredTiers.map((tiers) {
+                                                  return DataRow(
+                                                    cells: [
+                                                      DataCell(
+                                                        SizedBox(
+                                                          width: numWidth,
+                                                          child: Text(
+                                                            tiers.numeroCompte,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      DataCell(
+                                                        SizedBox(
+                                                          width: intituleWidth,
+                                                          child: Text(
+                                                            tiers.intitule,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      DataCell(
+                                                        SizedBox(
+                                                          width: typeWidth,
+                                                          child: Text(
+                                                            tiers.type
+                                                                .toLabel(),
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style: TextStyle(
+                                                              color:
+                                                                  _getTypeColor(
+                                                                    tiers.type,
+                                                                  ),
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      DataCell(
+                                                        SizedBox(
+                                                          width: collectifWidth,
+                                                          child: Text(
+                                                            tiers
+                                                                .compteCollectif,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      DataCell(
+                                                        SizedBox(
+                                                          width: actionsWidth,
+                                                          child: Row(
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              IconButton(
+                                                                icon:
+                                                                    const Icon(
+                                                                      Icons
+                                                                          .edit,
+                                                                      size: 22,
+                                                                    ),
+                                                                color:
+                                                                    Colors.blue,
+                                                                onPressed:
+                                                                    () => _showTiersDialog(
+                                                                      tiers:
+                                                                          tiers,
+                                                                    ),
+                                                                tooltip:
+                                                                    'Modifier',
+                                                              ),
+                                                              IconButton(
+                                                                icon: const Icon(
+                                                                  Icons.delete,
+                                                                  size: 22,
+                                                                ),
+                                                                color:
+                                                                    Colors.red,
+                                                                onPressed:
+                                                                    () =>
+                                                                        _deleteTiers(
+                                                                          tiers,
+                                                                        ),
+                                                                tooltip:
+                                                                    'Supprimer',
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  );
+                                                }).toList(),
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         ),
               ),
             ],

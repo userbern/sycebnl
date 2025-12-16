@@ -237,135 +237,159 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
               ),
               const SizedBox(height: 24),
 
-              // Barre de recherche
-              TextField(
-                onChanged: (value) => setState(() => _searchQuery = value),
-                decoration: InputDecoration(
-                  labelText: 'Rechercher un bailleur',
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 16),
+              // Barre de recherche et filtres sur une ligne responsive
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final double maxWidth = constraints.maxWidth;
+                  const double spacing = 12;
+                  const double resetWidth = 44;
 
-              // Filtres et tri
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 150,
-                      child: DropdownButtonFormField<String>(
-                        value: _sortBy,
-                        decoration: InputDecoration(
-                          labelText: 'Trier',
-                          prefixIcon: const Icon(Icons.sort),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          filled: true,
-                          fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
+                  final double dropdownWidth =
+                      maxWidth >= 1080
+                          ? 240
+                          : maxWidth >= 900
+                          ? 220
+                          : maxWidth >= 720
+                          ? 200
+                          : maxWidth >= 520
+                          ? 180
+                          : maxWidth;
+
+                  double searchWidth;
+                  if (maxWidth >= 720) {
+                    searchWidth =
+                        maxWidth -
+                        (dropdownWidth * 2 + resetWidth + spacing * 3);
+                    searchWidth = searchWidth.clamp(320, maxWidth).toDouble();
+                  } else {
+                    searchWidth = maxWidth;
+                  }
+
+                  return Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: searchWidth,
+                        child: TextField(
+                          onChanged:
+                              (value) => setState(() => _searchQuery = value),
+                          decoration: InputDecoration(
+                            labelText: 'Rechercher un bailleur',
+                            prefixIcon: const Icon(Icons.search),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
                           ),
                         ),
-                        isDense: true,
-                        isExpanded: true,
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'sigle',
-                            child: Text(
-                              'Sigle',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 'designation',
-                            child: Text(
-                              'Désignation',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          setState(() => _sortBy = value ?? 'sigle');
-                        },
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 150,
-                      child: DropdownButtonFormField<String>(
-                        value: _filterStatus,
-                        decoration: InputDecoration(
-                          labelText: 'Afficher',
-                          prefixIcon: const Icon(Icons.filter_alt),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          filled: true,
-                          fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                        ),
-                        isDense: true,
-                        isExpanded: true,
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'actifs',
-                            child: Text(
-                              'Actifs',
-                              overflow: TextOverflow.ellipsis,
+                      SizedBox(
+                        width: dropdownWidth,
+                        child: DropdownButtonFormField<String>(
+                          value: _sortBy,
+                          decoration: InputDecoration(
+                            labelText: 'Trier',
+                            prefixIcon: const Icon(Icons.sort),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
                             ),
                           ),
-                          DropdownMenuItem(
-                            value: 'inactifs',
-                            child: Text(
-                              'Inactifs',
-                              overflow: TextOverflow.ellipsis,
+                          isDense: true,
+                          isExpanded: true,
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'sigle',
+                              child: Text(
+                                'Sigle',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                          DropdownMenuItem(
-                            value: 'tous',
-                            child: Text(
-                              'Tous',
-                              overflow: TextOverflow.ellipsis,
+                            DropdownMenuItem(
+                              value: 'designation',
+                              child: Text(
+                                'Désignation',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          setState(() => _filterStatus = value ?? 'actifs');
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _searchQuery = '';
-                          _sortBy = 'sigle';
-                          _filterStatus = 'actifs';
-                        });
-                      },
-                      icon: const Icon(Icons.clear, size: 18),
-                      label: const Text('Réinit.'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
+                          ],
+                          onChanged: (value) {
+                            setState(() => _sortBy = value ?? 'sigle');
+                          },
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                      SizedBox(
+                        width: dropdownWidth,
+                        child: DropdownButtonFormField<String>(
+                          value: _filterStatus,
+                          decoration: InputDecoration(
+                            labelText: 'Afficher',
+                            prefixIcon: const Icon(Icons.filter_alt),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                          ),
+                          isDense: true,
+                          isExpanded: true,
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'actifs',
+                              child: Text(
+                                'Actifs',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            DropdownMenuItem(
+                              value: 'inactifs',
+                              child: Text(
+                                'Inactifs',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            DropdownMenuItem(
+                              value: 'tous',
+                              child: Text(
+                                'Tous',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setState(() => _filterStatus = value ?? 'actifs');
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: resetWidth,
+                        child: IconButton(
+                          tooltip: 'Réinitialiser',
+                          onPressed: () {
+                            setState(() {
+                              _searchQuery = '';
+                              _sortBy = 'sigle';
+                              _filterStatus = 'actifs';
+                            });
+                          },
+                          icon: const Icon(Icons.clear),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 24),
 
@@ -581,6 +605,47 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
     );
     final formKey = GlobalKey<FormState>();
 
+     Future<void> _submit() async {
+    if (formKey.currentState!.validate()) {
+      try {
+        if (isEdit) {
+          await AuthService.updateBailleur(
+            id: int.parse(bailleur['id'].toString()),
+            code: sigleController.text.trim(),
+            nom: designationController.text.trim(),
+          );
+        } else {
+          await AuthService.createBailleur(
+            code: sigleController.text.trim(),
+            nom: designationController.text.trim(),
+          );
+        }
+
+        if (!mounted) return;
+        _loadBailleurs();
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isEdit
+                  ? 'Bailleur modifié avec succès'
+                  : 'Bailleur créé avec succès',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -635,6 +700,11 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                             filled: true,
                             fillColor: Colors.grey.shade50,
                           ),
+                          textInputAction: TextInputAction.next,
+                          onFieldSubmitted: (_) {
+                            // Focus sur le champ suivant
+                            FocusScope.of(context).nextFocus();
+                          },
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
                               return 'Le sigle est requis';
@@ -670,6 +740,11 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                             filled: true,
                             fillColor: Colors.grey.shade50,
                           ),
+                          textInputAction: TextInputAction.go,
+                          onFieldSubmitted: (_) {
+                            // Ici, la touche Entrée déclenche la soumission
+                            _submit();
+                          },
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
                               return 'La désignation est requise';

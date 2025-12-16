@@ -210,7 +210,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: Row(
           children: [
             // Code
@@ -424,7 +424,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                       ),
                       const SizedBox(height: 24),
 
-                      // Barre de recherche et filtres
+                      // Barre de recherche et filtres responsive
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -439,109 +439,133 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                           ],
                           border: Border.all(color: Colors.grey.shade200),
                         ),
-                        child: Column(
-                          children: [
-                            TextField(
-                              onChanged: (value) {
-                                setState(() => _searchQuery = value);
-                              },
-                              decoration: InputDecoration(
-                                hintText: 'Rechercher un projet...',
-                                prefixIcon: const Icon(Icons.search),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  SizedBox(
-                                    width: 200,
-                                    child: DropdownButtonFormField<String>(
-                                      value: _sortBy,
-                                      decoration: InputDecoration(
-                                        labelText: 'Trier par',
-                                        prefixIcon: const Icon(Icons.sort),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 8,
-                                            ),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final double maxWidth = constraints.maxWidth;
+                            const double spacing = 12;
+                            const double resetWidth = 44;
+
+                            final double dropdownWidth =
+                                maxWidth >= 1080
+                                    ? 240
+                                    : maxWidth >= 900
+                                    ? 220
+                                    : maxWidth >= 720
+                                    ? 200
+                                    : maxWidth >= 520
+                                    ? 180
+                                    : maxWidth;
+
+                            double searchWidth;
+                            if (maxWidth >= 720) {
+                              searchWidth =
+                                  maxWidth -
+                                  (dropdownWidth * 2 +
+                                      resetWidth +
+                                      spacing * 3);
+                              searchWidth =
+                                  searchWidth.clamp(320, maxWidth).toDouble();
+                            } else {
+                              searchWidth = maxWidth;
+                            }
+
+                            return Wrap(
+                              spacing: spacing,
+                              runSpacing: spacing,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: searchWidth,
+                                  child: TextField(
+                                    onChanged: (value) {
+                                      setState(() => _searchQuery = value);
+                                    },
+                                    decoration: InputDecoration(
+                                      hintText: 'Rechercher un projet...',
+                                      prefixIcon: const Icon(Icons.search),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
-                                      items: const [
-                                        DropdownMenuItem(
-                                          value: 'code',
-                                          child: Text('Code'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: 'designation',
-                                          child: Text('Désignation'),
-                                        ),
-                                      ],
-                                      onChanged: (value) {
-                                        setState(
-                                          () => _sortBy = value ?? 'code',
-                                        );
-                                      },
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 12,
+                                          ),
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
-                                  SizedBox(
-                                    width: 200,
-                                    child: DropdownButtonFormField<String>(
-                                      value: _filterStatus,
-                                      decoration: InputDecoration(
-                                        labelText: 'Statut',
-                                        prefixIcon: const Icon(
-                                          Icons.filter_alt,
-                                        ),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 8,
-                                            ),
+                                ),
+                                SizedBox(
+                                  width: dropdownWidth,
+                                  child: DropdownButtonFormField<String>(
+                                    value: _sortBy,
+                                    decoration: InputDecoration(
+                                      labelText: 'Trier par',
+                                      prefixIcon: const Icon(Icons.sort),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
-                                      items: const [
-                                        DropdownMenuItem(
-                                          value: 'actifs',
-                                          child: Text('Actifs'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: 'inactifs',
-                                          child: Text('Inactifs'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: 'tous',
-                                          child: Text('Tous'),
-                                        ),
-                                      ],
-                                      onChanged: (value) {
-                                        setState(
-                                          () =>
-                                              _filterStatus = value ?? 'actifs',
-                                        );
-                                      },
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
                                     ),
+                                    items: const [
+                                      DropdownMenuItem(
+                                        value: 'code',
+                                        child: Text('Code'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'designation',
+                                        child: Text('Désignation'),
+                                      ),
+                                    ],
+                                    onChanged: (value) {
+                                      setState(() => _sortBy = value ?? 'code');
+                                    },
                                   ),
-                                  const SizedBox(width: 12),
-                                  OutlinedButton.icon(
+                                ),
+                                SizedBox(
+                                  width: dropdownWidth,
+                                  child: DropdownButtonFormField<String>(
+                                    value: _filterStatus,
+                                    decoration: InputDecoration(
+                                      labelText: 'Statut',
+                                      prefixIcon: const Icon(Icons.filter_alt),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                    ),
+                                    items: const [
+                                      DropdownMenuItem(
+                                        value: 'actifs',
+                                        child: Text('Actifs'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'inactifs',
+                                        child: Text('Inactifs'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'tous',
+                                        child: Text('Tous'),
+                                      ),
+                                    ],
+                                    onChanged: (value) {
+                                      setState(
+                                        () => _filterStatus = value ?? 'actifs',
+                                      );
+                                    },
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: resetWidth,
+                                  child: IconButton(
+                                    tooltip: 'Réinitialiser',
                                     onPressed: () {
                                       setState(() {
                                         _searchQuery = '';
@@ -550,12 +574,11 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                                       });
                                     },
                                     icon: const Icon(Icons.clear),
-                                    label: const Text('Réinitialiser'),
                                   ),
-                                ],
-                              ),
-                            ),
-                          ],
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ),
                       const SizedBox(height: 24),
