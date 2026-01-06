@@ -7,6 +7,7 @@ import '../services/database_service_new.dart' as db_service;
 import '../models/journal.dart';
 import '../models/compte.dart';
 import '../models/user_session.dart';
+import '../utils/form_enter_shortcut.dart';
 
 class JournauxPage extends StatefulWidget {
   final UserSession userSession;
@@ -23,21 +24,17 @@ class JournauxPage extends StatefulWidget {
 }
 
 class _JournauxPageState extends State<JournauxPage> {
+  final FocusNode _focusNode = FocusNode();
   List<Journal> journaux = [];
   List<Compte> comptes = [];
-  String searchQuery = '';
-  String? _selectedType; // null = tous, 'financier', 'non_financier'
-  String _filterStatus = 'actifs'; // 'actifs', 'inactifs', 'tous'
   bool isLoading = true;
-  late FocusNode _focusNode;
+  String searchQuery = '';
+  String? _selectedType;
+  String _filterStatus = 'actifs';
 
   @override
   void initState() {
     super.initState();
-    _focusNode = FocusNode();
-    Future.microtask(() {
-      _focusNode.requestFocus();
-    });
     _loadData();
   }
 
@@ -69,17 +66,18 @@ class _JournauxPageState extends State<JournauxPage> {
   List<Journal> get _filteredJournaux {
     var filtered = journaux;
 
-    // Filtrer par texte de recherche
     if (searchQuery.isNotEmpty) {
       final query = searchQuery.toLowerCase();
       filtered =
-          filtered.where((j) {
-            return j.code.toLowerCase().contains(query) ||
-                j.intitule.toLowerCase().contains(query);
-          }).toList();
+          filtered
+              .where(
+                (j) =>
+                    j.code.toLowerCase().contains(query) ||
+                    j.intitule.toLowerCase().contains(query),
+              )
+              .toList();
     }
 
-    // Filtrer par type
     if (_selectedType != null) {
       final typeFilter =
           _selectedType == 'financier'
@@ -88,7 +86,6 @@ class _JournauxPageState extends State<JournauxPage> {
       filtered = filtered.where((j) => j.type == typeFilter).toList();
     }
 
-    // Filtrer par statut
     if (_filterStatus == 'actifs') {
       filtered = filtered.where((j) => j.isActive).toList();
     } else if (_filterStatus == 'inactifs') {
@@ -131,9 +128,17 @@ class _JournauxPageState extends State<JournauxPage> {
         ).showSnackBar(const SnackBar(content: Text('Journal supprimé')));
       } catch (e) {
         if (!mounted) return;
+        final errorMessage = e.toString();
+        String displayMessage = 'Erreur: ${e.toString()}';
+
+        if (errorMessage.contains('ne peut pas être supprimé')) {
+          displayMessage =
+              'Ce journal contient des écritures et ne peut pas être supprimé';
+        }
+
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Erreur: ${e.toString()}')));
+        ).showSnackBar(SnackBar(content: Text(displayMessage)));
       }
     }
   }
@@ -145,6 +150,21 @@ class _JournauxPageState extends State<JournauxPage> {
       case TypeJournal.nonFinancier:
         return Colors.orange;
     }
+  }
+
+  void _showJournalDialog(Journal? journal) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => JournalDialog(
+            journal: journal,
+            comptes: comptes,
+            onSave: (updatedJournal) {
+              _loadData();
+              Navigator.pop(context);
+            },
+          ),
+    );
   }
 
   @override
@@ -162,7 +182,7 @@ class _JournauxPageState extends State<JournauxPage> {
             widget.showAppBar
                 ? AppBar(
                   title: const Text('Journaux comptables'),
-                  backgroundColor: Colors.indigo,
+                  backgroundColor: Colors.blue.shade400,
                   leading: IconButton(
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () {
@@ -178,7 +198,6 @@ class _JournauxPageState extends State<JournauxPage> {
                 ? const Center(child: CircularProgressIndicator())
                 : Column(
                   children: [
-                    // En-tête avec recherche et bouton nouveau
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -199,7 +218,7 @@ class _JournauxPageState extends State<JournauxPage> {
                                 icon: const Icon(Icons.add),
                                 label: const Text('Nouveau (Ctrl+N)'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.indigo,
+                                  backgroundColor: Colors.blue.shade400,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 24,
@@ -210,7 +229,6 @@ class _JournauxPageState extends State<JournauxPage> {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          // Filtres par type et statut
                           Row(
                             children: [
                               Expanded(
@@ -324,7 +342,6 @@ class _JournauxPageState extends State<JournauxPage> {
                         ],
                       ),
                     ),
-                    // Tableau des journaux
                     Expanded(
                       child:
                           _filteredJournaux.isEmpty
@@ -419,7 +436,7 @@ class _JournauxPageState extends State<JournauxPage> {
                                               dataRowMaxHeight: 40,
                                               headingRowColor:
                                                   MaterialStateProperty.all(
-                                                    Colors.indigo.shade600,
+                                                    Colors.blue.shade400,
                                                   ),
                                               headingTextStyle: const TextStyle(
                                                 color: Colors.white,
@@ -518,7 +535,8 @@ class _JournauxPageState extends State<JournauxPage> {
                                                             ),
                                                             DataCell(
                                                               SizedBox(
-                                                                width: actionsWidth,
+                                                                width:
+                                                                    actionsWidth,
                                                                 child: Align(
                                                                   alignment:
                                                                       Alignment
@@ -582,7 +600,6 @@ class _JournauxPageState extends State<JournauxPage> {
                                                                 ),
                                                               ),
                                                             ),
-                                                          
                                                           ],
                                                         ),
                                                       )
@@ -599,21 +616,6 @@ class _JournauxPageState extends State<JournauxPage> {
                   ],
                 ),
       ),
-    );
-  }
-
-  void _showJournalDialog(Journal? journal) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => JournalDialog(
-            journal: journal,
-            comptes: comptes,
-            onSave: (updatedJournal) {
-              _loadData();
-              Navigator.pop(context);
-            },
-          ),
     );
   }
 }
@@ -649,371 +651,406 @@ class _JournalDialogState extends State<JournalDialog> {
   Timer? _debounceTimer;
   bool _compteFieldInitialized = false;
 
-
   Future<void> _showCompteCreationDialog() async {
-  final numeroController = TextEditingController();
-  final intituleController = TextEditingController();
-  final descriptionController = TextEditingController();
-  TypeCompte selectedType = TypeCompte.detail;
-  NatureCompte? calculatedNature;
-  bool liaisonTiers = false;
-  final formKey = GlobalKey<FormState>();
+    final numeroController = TextEditingController();
+    final intituleController = TextEditingController();
+    final descriptionController = TextEditingController();
+    TypeCompte selectedType = TypeCompte.detail;
+    NatureCompte? calculatedNature;
+    bool liaisonTiers = false;
+    final formKey = GlobalKey<FormState>();
 
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            title: Row(
-              children: [
-                Icon(Icons.add_circle, color: Colors.indigo.shade700),
-                const SizedBox(width: 12),
-                const Text(
-                  'Nouveau compte de trésorerie',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            content: SizedBox(
-              width: 600,
-              child: Form(
-                key: formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Numéro de compte
-                      TextFormField(
-                        controller: numeroController,
-                        decoration: InputDecoration(
-                          labelText: 'N° Compte *',
-                          prefixIcon: const Icon(Icons.numbers),
-                          hintText: 'Ex: 52100, 57100, 53000...',
-                          helperText: 'Doit commencer par 52, 57 ou 50-59',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade400),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: Colors.indigo.shade700,
-                              width: 2,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                        ),
-                        keyboardType: TextInputType.number,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Champ requis';
-                          }
-                          if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
-                            return 'Seuls les chiffres sont autorisés';
-                          }
-                          // Vérifier que c'est un compte de trésorerie
-                          final isTresorerie = [
-                            '52', '57', '50', '51', '53',
-                            '55', '56', '58', '59'
-                          ].any((prefix) => value.startsWith(prefix));
-                          
-                          if (!isTresorerie) {
-                            return 'Le compte doit être de trésorerie (classe 5)';
-                          }
-                          return null;
-                        },
-                        onChanged: (value) {
-                          setDialogState(() {
-                            calculatedNature = calculateNatureFromNumeroCompte(value);
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Intitulé
-                      TextFormField(
-                        controller: intituleController,
-                        decoration: InputDecoration(
-                          labelText: 'Intitulé *',
-                          prefixIcon: const Icon(Icons.title),
-                          hintText: 'Ex: Caisse principale, Banque ABC...',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade400),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: Colors.indigo.shade700,
-                              width: 2,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Champ requis';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Type (fixé à "détail" pour les comptes de trésorerie)
-                      DropdownButtonFormField<TypeCompte>(
-                        value: selectedType,
-                        decoration: InputDecoration(
-                          labelText: 'Type',
-                          prefixIcon: const Icon(Icons.category),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade400),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: Colors.indigo.shade700,
-                              width: 2,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                        ),
-                        dropdownColor: Colors.white,
-                        icon: Icon(
-                          Icons.arrow_drop_down_circle,
-                          color: Colors.indigo.shade700,
-                        ),
-                        items: TypeCompte.values.map((type) {
-                          return DropdownMenuItem(
-                            value: type,
-                            child: Text(type.toLabel()),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setDialogState(() {
-                              selectedType = value;
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Nature (auto-détectée)
-                      DropdownButtonFormField<NatureCompte>(
-                        value: calculatedNature,
-                        decoration: InputDecoration(
-                          labelText: 'Nature *',
-                          prefixIcon: const Icon(Icons.layers),
-                          helperText: 'Auto-détecté du numéro de compte',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade400),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: Colors.indigo.shade700,
-                              width: 2,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                        ),
-                        dropdownColor: Colors.white,
-                        icon: Icon(
-                          Icons.arrow_drop_down_circle,
-                          color: Colors.indigo.shade700,
-                        ),
-                        items: NatureCompte.values.map((nature) {
-                          return DropdownMenuItem(
-                            value: nature,
-                            child: Text(nature.toLabel()),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setDialogState(() {
-                              calculatedNature = value;
-                            });
-                          }
-                        },
-                        validator: (value) {
-                          if (value == null) {
-                            return 'Sélectionnez une nature';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Description
-                      TextFormField(
-                        controller: descriptionController,
-                        decoration: InputDecoration(
-                          labelText: 'Description',
-                          prefixIcon: const Icon(Icons.notes),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade400),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: Colors.indigo.shade700,
-                              width: 2,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                        ),
-                        maxLines: 2,
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Rattachement de tiers
-                      CheckboxListTile(
-                        title: const Text('Rattachement de tiers'),
-                        subtitle: const Text(
-                          'Permet de rattacher un tiers à ce compte',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        value: liaisonTiers,
-                        onChanged: (value) {
-                          setDialogState(() {
-                            liaisonTiers = value ?? false;
-                          });
-                        },
-                        controlAffinity: ListTileControlAffinity.leading,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        tileColor: Colors.grey.shade50,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Annuler'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  if (formKey.currentState!.validate()) {
-                    if (calculatedNature == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Numéro de compte invalide'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                      return;
-                    }
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            // Fonction de soumission pour FormWithEnterShortcut
+            Future<void> handleSubmit() async {
+              if (formKey.currentState!.validate()) {
+                if (calculatedNature == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Numéro de compte invalide'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
 
-                    try {
-                      // Récupérer la longueur de compte depuis la config
-                      final config = await db_service.DatabaseService.getFileConfig();
-                      final longueurCompteGeneral = 
-                          config?['longueur_compte_general'] as int? ?? 7;
+                try {
+                  // Récupérer la longueur de compte depuis la config
+                  final config =
+                      await db_service.DatabaseService.getFileConfig();
+                  final longueurCompteGeneral =
+                      config?['longueur_compte_general'] as int? ?? 7;
 
-                      // Padding du numéro de compte
-                      String paddedNumero = numeroController.text.trim();
-                      if (selectedType == TypeCompte.detail && 
-                          paddedNumero.length < longueurCompteGeneral) {
-                        paddedNumero = paddedNumero.padRight(longueurCompteGeneral, '0');
-                      }
+                  // Padding du numéro de compte
+                  String paddedNumero = numeroController.text.trim();
+                  if (selectedType == TypeCompte.detail &&
+                      paddedNumero.length < longueurCompteGeneral) {
+                    paddedNumero = paddedNumero.padRight(
+                      longueurCompteGeneral,
+                      '0',
+                    );
+                  }
 
-                      // Créer le compte
-                      await db_service.DatabaseService.createCompte(
-                        numeroCompte: paddedNumero,
-                        intitule: intituleController.text.trim(),
-                        type: selectedType.toDbString(),
-                        nature: calculatedNature!.toDbString(),
-                        liaisonTiers: liaisonTiers,
-                        description: descriptionController.text.trim().isEmpty
+                  // Créer le compte
+                  await db_service.DatabaseService.createCompte(
+                    numeroCompte: paddedNumero,
+                    intitule: intituleController.text.trim(),
+                    type: selectedType.toDbString(),
+                    nature: calculatedNature!.toDbString(),
+                    liaisonTiers: liaisonTiers,
+                    description:
+                        descriptionController.text.trim().isEmpty
                             ? null
                             : descriptionController.text.trim(),
-                      );
+                  );
 
-                      // Récupérer le nouveau compte créé
-                      final allComptes = await db_service.DatabaseService.getAllComptes();
-                      final newCompte = allComptes.firstWhere(
-                        (c) => c.numeroCompte == paddedNumero,
-                        orElse: () => allComptes.firstWhere(
-                          (c) => c.numeroCompte.startsWith(numeroController.text.trim()),
+                  // Récupérer le nouveau compte créé
+                  final allComptes =
+                      await db_service.DatabaseService.getAllComptes();
+                  final newCompte = allComptes.firstWhere(
+                    (c) => c.numeroCompte == paddedNumero,
+                    orElse:
+                        () => allComptes.firstWhere(
+                          (c) => c.numeroCompte.startsWith(
+                            numeroController.text.trim(),
+                          ),
                         ),
-                      );
+                  );
 
-                      // Mettre à jour l'état local et le parent
-                      if (!mounted) return;
-                      
-                      setState(() {
-                        widget.comptes.add(newCompte);
-                        _selectedCompteFresorerie = newCompte;
-                        _compteFresorerieController.text = 
-                            '${newCompte.numeroCompte} - ${newCompte.intitule}';
-                        _compteError = null;
-                      });
+                  // Mettre à jour l'état local et le parent
+                  if (!context.mounted) return;
 
-                      // Fermer le dialogue
-                      Navigator.pop(context);
+                  setState(() {
+                    widget.comptes.add(newCompte);
+                    _selectedCompteFresorerie = newCompte;
+                    _compteFresorerieController.text =
+                        '${newCompte.numeroCompte} - ${newCompte.intitule}';
+                    _compteError = null;
+                  });
 
-                      // Confirmation
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Compte $paddedNumero créé avec succès'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    } catch (e) {
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Erreur: ${e.toString()}'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo,
-                  foregroundColor: Colors.white,
+                  // Fermer le dialogue
+                  Navigator.pop(context);
+
+                  // Confirmation
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Compte $paddedNumero créé avec succès'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Erreur: ${e.toString()}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            }
+
+            return FormWithEnterShortcut(
+              formKey: formKey,
+              onSubmit: handleSubmit,
+              child: AlertDialog(
+                title: Row(
+                  children: [
+                    Icon(Icons.add_circle, color: Colors.indigo.shade700),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Nouveau compte de trésorerie',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
                 ),
-                child: const Text('Créer le compte'),
+                content: SizedBox(
+                  width: 600,
+                  child: Form(
+                    key: formKey,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Numéro de compte
+                          TextFormField(
+                            controller: numeroController,
+                            decoration: InputDecoration(
+                              labelText: 'N° Compte *',
+                              prefixIcon: const Icon(Icons.numbers),
+                              hintText: 'Ex: 52100, 57100, 53000...',
+                              helperText: 'Doit commencer par 52, 57 ou 50-59',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade400,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.indigo.shade700,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                            ),
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Champ requis';
+                              }
+                              if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                                return 'Seuls les chiffres sont autorisés';
+                              }
+                              // Vérifier que c'est un compte de trésorerie
+                              final isTresorerie = [
+                                '52',
+                                '57',
+                                '50',
+                                '51',
+                                '53',
+                                '55',
+                                '56',
+                                '58',
+                                '59',
+                              ].any((prefix) => value.startsWith(prefix));
+
+                              if (!isTresorerie) {
+                                return 'Le compte doit être de trésorerie (classe 5)';
+                              }
+                              return null;
+                            },
+                            onChanged: (value) {
+                              setDialogState(() {
+                                calculatedNature =
+                                    calculateNatureFromNumeroCompte(value);
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Intitulé
+                          TextFormField(
+                            controller: intituleController,
+                            decoration: InputDecoration(
+                              labelText: 'Intitulé *',
+                              prefixIcon: const Icon(Icons.title),
+                              hintText: 'Ex: Caisse principale, Banque ABC...',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade400,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.indigo.shade700,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Champ requis';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Type (fixé à "détail" pour les comptes de trésorerie)
+                          DropdownButtonFormField<TypeCompte>(
+                            value: selectedType,
+                            decoration: InputDecoration(
+                              labelText: 'Type',
+                              prefixIcon: const Icon(Icons.category),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade400,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.indigo.shade700,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                            ),
+                            dropdownColor: Colors.white,
+                            icon: Icon(
+                              Icons.arrow_drop_down_circle,
+                              color: Colors.indigo.shade700,
+                            ),
+                            items:
+                                TypeCompte.values.map((type) {
+                                  return DropdownMenuItem(
+                                    value: type,
+                                    child: Text(type.toLabel()),
+                                  );
+                                }).toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setDialogState(() {
+                                  selectedType = value;
+                                });
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Nature (auto-détectée)
+                          DropdownButtonFormField<NatureCompte>(
+                            value: calculatedNature,
+                            decoration: InputDecoration(
+                              labelText: 'Nature *',
+                              prefixIcon: const Icon(Icons.layers),
+                              helperText: 'Auto-détecté du numéro de compte',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade400,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.indigo.shade700,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                            ),
+                            dropdownColor: Colors.white,
+                            icon: Icon(
+                              Icons.arrow_drop_down_circle,
+                              color: Colors.indigo.shade700,
+                            ),
+                            items:
+                                NatureCompte.values.map((nature) {
+                                  return DropdownMenuItem(
+                                    value: nature,
+                                    child: Text(nature.toLabel()),
+                                  );
+                                }).toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setDialogState(() {
+                                  calculatedNature = value;
+                                });
+                              }
+                            },
+                            validator: (value) {
+                              if (value == null) {
+                                return 'Sélectionnez une nature';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Description
+                          TextFormField(
+                            controller: descriptionController,
+                            decoration: InputDecoration(
+                              labelText: 'Description',
+                              prefixIcon: const Icon(Icons.notes),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade400,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.indigo.shade700,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                            ),
+                            maxLines: 2,
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Rattachement de tiers
+                          CheckboxListTile(
+                            title: const Text('Rattachement de tiers'),
+                            subtitle: const Text(
+                              'Permet de rattacher un tiers à ce compte',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                            value: liaisonTiers,
+                            onChanged: (value) {
+                              setDialogState(() {
+                                liaisonTiers = value ?? false;
+                              });
+                            },
+                            controlAffinity: ListTileControlAffinity.leading,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            tileColor: Colors.grey.shade50,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Annuler'),
+                  ),
+                  ElevatedButton(
+                    onPressed: handleSubmit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade400,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Créer le compte'),
+                  ),
+                ],
               ),
-            ],
-          );
-        },
-      );
-    },
-  );
-}
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -1027,21 +1064,21 @@ class _JournalDialogState extends State<JournalDialog> {
 
     // DEBUG
     print('📝 DEBUG initState - Journal: ${journal?.code}');
-    print('📝 DEBUG - compteFresorerie value: "${journal?.compteFresorerie}"');
+    print('📝 DEBUG - compteTresorerie value: "${journal?.compteTresorerie}"');
     print(
-      '📝 DEBUG - compteFresorerie null: ${journal?.compteFresorerie == null}',
+      '📝 DEBUG - compteTresorerie null: ${journal?.compteTresorerie == null}',
     );
     print(
-      '📝 DEBUG - compteFresorerie empty: ${journal?.compteFresorerie?.isEmpty}',
+      '📝 DEBUG - compteTresorerie empty: ${journal?.compteTresorerie?.isEmpty}',
     );
 
     // Chercher le compte de trésorerie si édition
-    if (journal?.compteFresorerie != null &&
-        journal!.compteFresorerie!.isNotEmpty) {
+    if (journal?.compteTresorerie != null &&
+        journal!.compteTresorerie!.isNotEmpty) {
       try {
-        print('📝 DEBUG - Cherchant compte: "${journal.compteFresorerie}"');
+        print('📝 DEBUG - Cherchant compte: "${journal.compteTresorerie}"');
         _selectedCompteFresorerie = widget.comptes.firstWhere(
-          (c) => c.numeroCompte == journal.compteFresorerie,
+          (c) => c.numeroCompte == journal.compteTresorerie,
         );
         print(
           '📝 DEBUG - Compte trouvé: ${_selectedCompteFresorerie!.numeroCompte}',
@@ -1155,7 +1192,7 @@ class _JournalDialogState extends State<JournalDialog> {
               code: _codeController.text,
               intitule: _intituleController.text,
               type: _selectedType!,
-              compteFresorerie: _selectedCompteFresorerie?.numeroCompte,
+              compteTresorerie: _selectedCompteFresorerie?.numeroCompte,
               saisieAnalytique: _saisieAnalytique,
               isActive: true,
               createdAt: DateTime.now(),
@@ -1178,381 +1215,403 @@ class _JournalDialogState extends State<JournalDialog> {
   Widget build(BuildContext context) {
     final isEditing = widget.journal != null;
 
-    return AlertDialog(
-      title: Row(
-        children: [
-          Icon(
-            isEditing ? Icons.edit : Icons.add_circle,
-            color: Colors.indigo.shade700,
-          ),
-          const SizedBox(width: 12),
-          Text(
-            isEditing ? 'Modifier le journal' : 'Nouveau journal',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-      content: SizedBox(
-        width: 550,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Code et Intitulé
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _codeController,
-                        decoration: InputDecoration(
-                          labelText: 'Code *',
-                          prefixIcon: const Icon(Icons.code),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade400),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: Colors.indigo.shade700,
-                              width: 2,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                        ),
-                        enabled: !_isSaving,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Champ requis';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      flex: 2,
-                      child: TextFormField(
-                        controller: _intituleController,
-                        decoration: InputDecoration(
-                          labelText: 'Intitulé *',
-                          prefixIcon: const Icon(Icons.title),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade400),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: Colors.indigo.shade700,
-                              width: 2,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                        ),
-                        enabled: !_isSaving,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Champ requis';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                // Type de Journal
-                DropdownButtonFormField<TypeJournal>(
-                  value: _selectedType,
-                  decoration: InputDecoration(
-                    labelText: 'Type *',
-                    prefixIcon: const Icon(Icons.category),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade400),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: Colors.indigo.shade700,
-                        width: 2,
-                      ),
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                  ),
-                  dropdownColor: Colors.white,
-                  icon: Icon(
-                    Icons.arrow_drop_down_circle,
-                    color: Colors.indigo.shade700,
-                  ),
-                  items:
-                      TypeJournal.values
-                          .map(
-                            (type) => DropdownMenuItem(
-                              value: type,
-                              child: Text(type.toLabel()),
-                            ),
-                          )
-                          .toList(),
-                  onChanged:
-                      _isSaving
-                          ? null
-                          : (value) {
-                            setState(() => _selectedType = value);
-                          },
-                  validator: (value) {
-                    if (value == null) {
-                      return 'Sélectionnez un type';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                // Compte de Trésorerie (seulement si financier)
-                if (_selectedType == TypeJournal.financier)
-                  Column(
+    return FormWithEnterShortcut(
+      formKey: _formKey,
+      onSubmit: _save,
+      enabled: !_isSaving,
+      child: AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              isEditing ? Icons.edit : Icons.add_circle,
+              color: Colors.indigo.shade700,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              isEditing ? 'Modifier le journal' : 'Nouveau journal',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 550,
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Code et Intitulé
+                  Row(
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Autocomplete<Compte>(
-                              optionsBuilder: (
-                                TextEditingValue textEditingValue,
-                              ) {
-                                if (textEditingValue.text.isEmpty) {
-                                  return const Iterable<Compte>.empty();
-                                }
-                                final comptesFresorerie = _getFilteredComptes();
-                                return comptesFresorerie.where(
-                                  (c) =>
-                                      c.numeroCompte.toLowerCase().startsWith(
-                                        textEditingValue.text.toLowerCase(),
-                                      ),
-                                );
-                              },
-                              onSelected: (Compte selection) {
-                                setState(() {
-                                  _selectedCompteFresorerie = selection;
-                                  _compteFresorerieController.text =
-                                      '${selection.numeroCompte} - ${selection.intitule}';
-                                  _compteError = null;
-                                });
-                              },
-                              fieldViewBuilder: (
-                                BuildContext context,
-                                TextEditingController textEditingController,
-                                FocusNode focusNode,
-                                VoidCallback onFieldSubmitted,
-                              ) {
-                                // Initialiser le texte la première fois si on a un compte sélectionné
-                                if (!_compteFieldInitialized &&
-                                    _selectedCompteFresorerie != null) {
-                                  _compteFieldInitialized = true;
-                                  WidgetsBinding.instance.addPostFrameCallback((
-                                    _,
-                                  ) {
-                                    textEditingController.text =
-                                        '${_selectedCompteFresorerie!.numeroCompte} - ${_selectedCompteFresorerie!.intitule}';
-                                  });
-                                }
-
-                                return TextFormField(
-                                  controller: textEditingController,
-                                  focusNode: focusNode,
-                                  onChanged: (String value) {
-                                    _searchCompteFresorerie(value);
-                                  },
-                                  decoration: InputDecoration(
-                                    labelText: 'Compte de Trésorerie *',
-                                    hintText: 'Tapez le numéro de compte...',
-                                    prefixIcon: const Icon(
-                                      Icons.account_balance,
-                                    ),
-                                    errorText: _compteError,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(
-                                        color:
-                                            _compteError != null
-                                                ? Colors.red
-                                                : (_selectedCompteFresorerie !=
-                                                        null
-                                                    ? Colors.green
-                                                    : Colors.grey.shade400),
-                                      ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(
-                                        color: Colors.indigo.shade700,
-                                        width: 2,
-                                      ),
-                                    ),
-                                    filled: true,
-                                    fillColor: Colors.grey.shade50,
-                                  ),
-                                  enabled: !_isSaving,
-                                  validator: (value) {
-                                    if (_selectedType ==
-                                            TypeJournal.financier &&
-                                        _selectedCompteFresorerie == null) {
-                                      return _compteError ??
-                                          'Sélectionnez un compte de trésorerie valide';
-                                    }
-                                    return null;
-                                  },
-                                );
-                              },
-                              optionsViewBuilder: (
-                                BuildContext context,
-                                AutocompleteOnSelected<Compte> onSelected,
-                                Iterable<Compte> options,
-                              ) {
-                                return Align(
-                                  alignment: Alignment.topLeft,
-                                  child: Material(
-                                    elevation: 4.0,
-                                    child: SizedBox(
-                                      width: 400,
-                                      child: ListView.builder(
-                                        padding: EdgeInsets.zero,
-                                        shrinkWrap: true,
-                                        itemCount: options.length,
-                                        itemBuilder: (
-                                          BuildContext context,
-                                          int index,
-                                        ) {
-                                          final Compte option = options
-                                              .elementAt(index);
-                                          return InkWell(
-                                            onTap: () {
-                                              onSelected(option);
-                                            },
-                                            child: Container(
-                                              color:
-                                                  index.isEven
-                                                      ? Colors.grey.shade50
-                                                      : Colors.white,
-                                              padding: const EdgeInsets.all(12),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    option.numeroCompte,
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 14,
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    option.intitule,
-                                                    style: TextStyle(
-                                                      color:
-                                                          Colors.grey.shade600,
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
+                      Expanded(
+                        child: TextFormField(
+                          controller: _codeController,
+                          decoration: InputDecoration(
+                            labelText: 'Code *',
+                            prefixIcon: const Icon(Icons.code),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade400,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.indigo.shade700,
+                                width: 2,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
                           ),
-                          const SizedBox(width: 12),
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: ElevatedButton.icon(
-                              onPressed:
-                                  _isSaving
-                                      ? null
-                                      : _showCompteCreationDialog,
-                              icon: const Icon(Icons.add_circle, color: Colors.white,),
-                              label: const Text('Créer'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.indigo,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 16,
+                          enabled: !_isSaving,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Champ requis';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          controller: _intituleController,
+                          decoration: InputDecoration(
+                            labelText: 'Intitulé *',
+                            prefixIcon: const Icon(Icons.title),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade400,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.indigo.shade700,
+                                width: 2,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                          ),
+                          enabled: !_isSaving,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Champ requis';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Type de Journal
+                  DropdownButtonFormField<TypeJournal>(
+                    value: _selectedType,
+                    decoration: InputDecoration(
+                      labelText: 'Type *',
+                      prefixIcon: const Icon(Icons.category),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade400),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Colors.indigo.shade700,
+                          width: 2,
+                        ),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                    ),
+                    dropdownColor: Colors.white,
+                    icon: Icon(
+                      Icons.arrow_drop_down_circle,
+                      color: Colors.indigo.shade700,
+                    ),
+                    items:
+                        TypeJournal.values
+                            .map(
+                              (type) => DropdownMenuItem(
+                                value: type,
+                                child: Text(type.toLabel()),
+                              ),
+                            )
+                            .toList(),
+                    onChanged:
+                        _isSaving
+                            ? null
+                            : (value) {
+                              setState(() => _selectedType = value);
+                            },
+                    validator: (value) {
+                      if (value == null) {
+                        return 'Sélectionnez un type';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // Compte de Trésorerie (seulement si financier)
+                  if (_selectedType == TypeJournal.financier)
+                    Column(
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Autocomplete<Compte>(
+                                displayStringForOption:
+                                    (Compte option) =>
+                                        '${option.numeroCompte} - ${option.intitule}',
+                                optionsBuilder: (
+                                  TextEditingValue textEditingValue,
+                                ) {
+                                  if (textEditingValue.text.isEmpty) {
+                                    return const Iterable<Compte>.empty();
+                                  }
+                                  final comptesFresorerie =
+                                      _getFilteredComptes();
+                                  return comptesFresorerie.where(
+                                    (c) =>
+                                        c.numeroCompte.toLowerCase().startsWith(
+                                          textEditingValue.text.toLowerCase(),
+                                        ),
+                                  );
+                                },
+                                onSelected: (Compte selection) {
+                                  setState(() {
+                                    _selectedCompteFresorerie = selection;
+                                    _compteFresorerieController.text =
+                                        '${selection.numeroCompte} - ${selection.intitule}';
+                                    _compteError = null;
+                                  });
+                                },
+                                fieldViewBuilder: (
+                                  BuildContext context,
+                                  TextEditingController textEditingController,
+                                  FocusNode focusNode,
+                                  VoidCallback onFieldSubmitted,
+                                ) {
+                                  // Initialiser le texte la première fois si on a un compte sélectionné
+                                  if (!_compteFieldInitialized &&
+                                      _selectedCompteFresorerie != null) {
+                                    _compteFieldInitialized = true;
+                                    WidgetsBinding.instance.addPostFrameCallback((
+                                      _,
+                                    ) {
+                                      textEditingController.text =
+                                          '${_selectedCompteFresorerie!.numeroCompte} - ${_selectedCompteFresorerie!.intitule}';
+                                    });
+                                  }
+
+                                  return TextFormField(
+                                    controller: textEditingController,
+                                    focusNode: focusNode,
+                                    onChanged: (String value) {
+                                      _searchCompteFresorerie(value);
+                                    },
+                                    decoration: InputDecoration(
+                                      labelText: 'Compte de Trésorerie *',
+                                      hintText: 'Tapez le numéro de compte...',
+                                      prefixIcon: const Icon(
+                                        Icons.account_balance,
+                                      ),
+                                      errorText: _compteError,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                          color:
+                                              _compteError != null
+                                                  ? Colors.red
+                                                  : (_selectedCompteFresorerie !=
+                                                          null
+                                                      ? Colors.green
+                                                      : Colors.grey.shade400),
+                                        ),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                          color: Colors.indigo.shade700,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      filled: true,
+                                      fillColor: Colors.grey.shade50,
+                                    ),
+                                    enabled: !_isSaving,
+                                    validator: (value) {
+                                      if (_selectedType ==
+                                              TypeJournal.financier &&
+                                          _selectedCompteFresorerie == null) {
+                                        return _compteError ??
+                                            'Sélectionnez un compte de trésorerie valide';
+                                      }
+                                      return null;
+                                    },
+                                  );
+                                },
+                                optionsViewBuilder: (
+                                  BuildContext context,
+                                  AutocompleteOnSelected<Compte> onSelected,
+                                  Iterable<Compte> options,
+                                ) {
+                                  return Align(
+                                    alignment: Alignment.topLeft,
+                                    child: Material(
+                                      elevation: 4.0,
+                                      child: SizedBox(
+                                        width: 400,
+                                        child: ListView.builder(
+                                          padding: EdgeInsets.zero,
+                                          shrinkWrap: true,
+                                          itemCount: options.length,
+                                          itemBuilder: (
+                                            BuildContext context,
+                                            int index,
+                                          ) {
+                                            final Compte option = options
+                                                .elementAt(index);
+                                            return InkWell(
+                                              onTap: () {
+                                                onSelected(option);
+                                              },
+                                              child: Container(
+                                                color:
+                                                    index.isEven
+                                                        ? Colors.grey.shade50
+                                                        : Colors.white,
+                                                padding: const EdgeInsets.all(
+                                                  12,
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      option.numeroCompte,
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 14,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      option.intitule,
+                                                      style: TextStyle(
+                                                        color:
+                                                            Colors
+                                                                .grey
+                                                                .shade600,
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: ElevatedButton.icon(
+                                onPressed:
+                                    _isSaving
+                                        ? null
+                                        : _showCompteCreationDialog,
+                                icon: const Icon(
+                                  Icons.add_circle,
+                                  color: Colors.white,
+                                ),
+                                label: const Text('Créer'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue.shade400,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 16,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                    ],
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  // Saisie Analytique
+                  CheckboxListTile(
+                    title: const Text('Saisie Analytique'),
+                    value: _saisieAnalytique,
+                    onChanged:
+                        _isSaving
+                            ? null
+                            : (value) {
+                              setState(
+                                () => _saisieAnalytique = value ?? false,
+                              );
+                            },
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: Colors.indigo.shade700,
                   ),
-                // Saisie Analytique
-                CheckboxListTile(
-                  title: const Text('Saisie Analytique'),
-                  value: _saisieAnalytique,
-                  onChanged:
-                      _isSaving
-                          ? null
-                          : (value) {
-                            setState(() => _saisieAnalytique = value ?? false);
-                          },
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: Colors.indigo.shade700,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isSaving ? null : () => Navigator.pop(context),
-          child: const Text('Annuler'),
-        ),
-        ElevatedButton(
-          onPressed: _isSaving ? null : _save,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.indigo,
-            foregroundColor: Colors.white,
+        actions: [
+          TextButton(
+            onPressed: _isSaving ? null : () => Navigator.pop(context),
+            child: const Text('Annuler'),
           ),
-          child:
-              _isSaving
-                  ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation(Colors.white),
-                    ),
-                  )
-                  : Text(isEditing ? 'Modifier' : 'Créer'),
-        ),
-      ],
+          ElevatedButton(
+            onPressed: _isSaving ? null : _save,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade400,
+              foregroundColor: Colors.white,
+            ),
+            child:
+                _isSaving
+                    ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(Colors.white),
+                      ),
+                    )
+                    : Text(isEditing ? 'Modifier' : 'Créer'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1771,7 +1830,7 @@ class _JournalDialogState extends State<JournalDialog> {
                               icon: const Icon(Icons.add),
                               label: Text('Créer compte $numericSearch'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.indigo,
+                                backgroundColor: Colors.blue.shade400,
                                 foregroundColor: Colors.white,
                               ),
                             ),
@@ -1949,7 +2008,7 @@ class _JournalDialogState extends State<JournalDialog> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo,
+                    backgroundColor: Colors.blue.shade400,
                     foregroundColor: Colors.white,
                   ),
                   child: const Text('Créer'),
@@ -2082,7 +2141,7 @@ class _JournalDialogState extends State<JournalDialog> {
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.indigo,
+                backgroundColor: Colors.blue.shade400,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Créer'),

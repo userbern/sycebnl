@@ -246,7 +246,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                     height: 2,
                     color:
                         _currentStep >= 1
-                            ? Colors.blue.shade700
+                            ? Colors.blue.shade400
                             : Colors.grey.shade300,
                   ),
                 ),
@@ -256,7 +256,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                     height: 2,
                     color:
                         _currentStep >= 2
-                            ? Colors.blue.shade700
+                            ? Colors.blue.shade400
                             : Colors.grey.shade300,
                   ),
                 ),
@@ -266,7 +266,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                     height: 2,
                     color:
                         _currentStep >= 3
-                            ? Colors.blue.shade700
+                            ? Colors.blue.shade400
                             : Colors.grey.shade300,
                   ),
                 ),
@@ -334,7 +334,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                     _currentStep == 3 ? 'Créer le fichier' : 'Suivant',
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade700,
+                    backgroundColor: Colors.blue.shade400,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 32,
@@ -363,7 +363,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
             shape: BoxShape.circle,
             color:
                 isCompleted || isCurrent
-                    ? Colors.blue.shade700
+                    ? Colors.blue.shade400
                     : Colors.grey.shade300,
             border: Border.all(
               color: isCurrent ? Colors.blue.shade900 : Colors.transparent,
@@ -467,7 +467,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
               ),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.all(24),
-                backgroundColor: Colors.blue.shade700,
+                backgroundColor: Colors.blue.shade400,
                 foregroundColor: Colors.white,
               ),
             ),
@@ -576,7 +576,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(
-                          color: Colors.blue.shade700,
+                          color: Colors.blue.shade400,
                           width: 2,
                         ),
                       ),
@@ -590,7 +590,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                     dropdownColor: Colors.white,
                     icon: Icon(
                       Icons.arrow_drop_down_circle,
-                      color: Colors.blue.shade700,
+                      color: Colors.blue.shade400,
                     ),
                     items: const [
                       DropdownMenuItem(
@@ -978,7 +978,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                       color:
                           _dureeMois > 18
                               ? Colors.red.shade700
-                              : Colors.blue.shade700,
+                              : Colors.blue.shade400,
                     ),
                     const SizedBox(width: 12),
                     Text(
@@ -987,7 +987,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                         color:
                             _dureeMois > 18
                                 ? Colors.red.shade700
-                                : Colors.blue.shade700,
+                                : Colors.blue.shade400,
                         fontWeight: FontWeight.bold,
                       ),
                     ),

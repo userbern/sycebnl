@@ -118,6 +118,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
             widget.journalPeriode.codeJournal,
             widget.journalPeriode.annee,
             widget.journalPeriode.mois,
+            widget.journalPeriode.exerciceId ?? 0,
           );
 
       setState(() {
@@ -1119,12 +1120,14 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
           ),
           const SizedBox(width: 8),
 
-          // Débit
+           // Crédit
           SizedBox(
             width: 80,
             child: TextField(
-              controller: _debitController,
+              controller: _creditController,
               keyboardType: TextInputType.numberWithOptions(decimal: true),
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _submitForm(),
               decoration: InputDecoration(
                 labelText: 'Débit',
                 border: OutlineInputBorder(
@@ -1139,14 +1142,12 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
           ),
           const SizedBox(width: 8),
 
-          // Crédit
+          // Débit
           SizedBox(
             width: 80,
             child: TextField(
-              controller: _creditController,
+              controller: _debitController,
               keyboardType: TextInputType.numberWithOptions(decimal: true),
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _submitForm(),
               decoration: InputDecoration(
                 labelText: 'Crédit',
                 border: OutlineInputBorder(
@@ -1159,6 +1160,9 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               ),
             ),
           ),
+        
+
+         
           const SizedBox(width: 16),
 
           // Boutons
@@ -1299,9 +1303,10 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
             ),
             numeric: false,
           ),
+          
           DataColumn(
             label: Text(
-              'Débit',
+              'Crédit',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Colors.blue.shade600,
@@ -1311,7 +1316,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
           ),
           DataColumn(
             label: Text(
-              'Crédit',
+              'Débit',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Colors.blue.shade600,

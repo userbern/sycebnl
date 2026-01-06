@@ -40,7 +40,7 @@ class Journal {
   final String code;
   final String intitule;
   final TypeJournal type;
-  final String? compteFresorerie; // Compte de trésorerie (si type financier)
+  final String? compteTresorerie; // Compte de trésorerie (si type financier)
   final bool saisieAnalytique;
   final bool isActive;
 
@@ -53,7 +53,7 @@ class Journal {
     required this.code,
     required this.intitule,
     required this.type,
-    this.compteFresorerie,
+    this.compteTresorerie,
     required this.saisieAnalytique,
     required this.isActive,
     required this.createdAt,
@@ -67,7 +67,7 @@ class Journal {
       code: json['code'] as String,
       intitule: json['intitule'] as String,
       type: stringToTypeJournal(json['type'] as String),
-      compteFresorerie: json['compte_fresorerie'] as String?,
+      compteTresorerie: json['compte_tresorerie'] as String?,
       saisieAnalytique: json['saisie_analytique'] as bool? ?? false,
       isActive: json['is_active'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -82,7 +82,7 @@ class Journal {
       code: (map['code'] ?? '') as String,
       intitule: (map['libelle'] ?? map['intitule'] ?? '') as String,
       type: stringToTypeJournal((map['type'] ?? 'financier') as String),
-      compteFresorerie: map['numero_compte_tresorerie'] as String?,
+      compteTresorerie: map['numero_compte_tresorerie'] as String?,
       saisieAnalytique: (map['saisie_analytique'] as int?) == 1,
       isActive: (map['is_active'] ?? 1 as int?) == 1,
       createdAt:
@@ -102,7 +102,7 @@ class Journal {
       'code': code,
       'intitule': intitule,
       'type': type.toDbString(),
-      'compte_fresorerie': compteFresorerie,
+      'compte_tresorerie': compteTresorerie,
       'saisie_analytique': saisieAnalytique,
       'is_active': isActive,
     };
@@ -113,7 +113,7 @@ class Journal {
     String? code,
     String? intitule,
     TypeJournal? type,
-    String? compteFresorerie,
+    String? compteTresorerie,
     bool? saisieAnalytique,
     bool? isActive,
   }) {
@@ -122,7 +122,7 @@ class Journal {
       code: code ?? this.code,
       intitule: intitule ?? this.intitule,
       type: type ?? this.type,
-      compteFresorerie: compteFresorerie ?? this.compteFresorerie,
+      compteTresorerie: compteTresorerie ?? this.compteTresorerie,
       saisieAnalytique: saisieAnalytique ?? this.saisieAnalytique,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt,

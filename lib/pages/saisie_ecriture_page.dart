@@ -51,6 +51,9 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
   late TextEditingController _compteController;
   FocusNode? _compteFocusNode;
 
+  // Contrôleur utilisé par le champ Autocomplete pour pouvoir le nettoyer / compléter
+  TextEditingController? _compteFieldController;
+
   String? _selectedCompteNumero;
   String? _selectedTiersNumero;
   bool _showTiersField = false;
@@ -71,9 +74,12 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
   void initState() {
     super.initState();
     _initializeControllers();
+    _compteFocusNode = FocusNode();
     _loadData();
   }
 
+  @override
+  // (dispose centralisé plus bas dans la classe)
   void _initializeControllers() {
     _jourController = TextEditingController();
     _numeroDocController = TextEditingController();
@@ -84,9 +90,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     _compteController = TextEditingController();
 
     // Écouter les changements pour filtrer les comptes
-    _compteController.addListener(() {
-      _filterComptes();
-    });
+    _compteController.addListener(_filterComptes);
   }
 
   void _filterComptes() {
@@ -123,14 +127,41 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     });
   }
 
+  void _autoCompleteCompteIfPrefix(String value) {
+    final query = value.trim();
+    if (query.isEmpty) return;
+
+    try {
+      final compte = _comptes.firstWhere(
+        (c) => c.numeroCompte.startsWith(query),
+      );
+
+      _compteController.text = compte.numeroCompte;
+      _compteFieldController?.text = compte.numeroCompte;
+      _selectedCompteNumero = compte.numeroCompte;
+      _showTiersField = _isTiersRequired(compte.liaisonTiers);
+
+      if (_showTiersField) {
+        _filteredTiers =
+            _tiers
+                .where((tier) => tier.compteCollectif == compte.numeroCompte)
+                .toList();
+      } else {
+        _filteredTiers = [];
+      }
+    } catch (_) {
+      // Aucun compte ne correspond: ne rien faire
+    }
+  }
+
   List<Compte> _applyJournalCompteFilter(List<Compte> comptes) {
     if (_journal == null) return comptes;
 
     // Pour journal financier: exclure le compte de trésorerie
     if (_journal!.type == TypeJournal.financier) {
-      return comptes
-          .where((c) => c.numeroCompte != _journal!.compteFresorerie)
-          .toList();
+      return comptes;
+      /*   .where((c) => c.numeroCompte != _journal!.compteTresorerie)
+          .toList(); */
     }
 
     // Pour journal non-financier: exclure les comptes commençant par '5'
@@ -153,7 +184,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
             widget.journalPeriode.codeJournal,
             widget.journalPeriode.annee,
             widget.journalPeriode.mois,
-            widget.journalPeriode.id,
+            widget.journalPeriode.exerciceId ?? 0,
           );
 
       setState(() {
@@ -168,6 +199,9 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         // Initialiser le numéro d'enregistrement courant
         _initializeCurrentEnregistrement();
       });
+
+      // Recalcule la ventilation automatique des lignes d'équilibre à l'affichage
+      await _recomputeAllEquilibrageVentilations();
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -189,13 +223,10 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     return liaisonTiers ?? false;
   }
 
-  String formatMontantCFA(double montant) {
-    return montant
-        .toStringAsFixed(0)
-        .replaceAllMapped(
-          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (Match m) => '${m[1]} ',
-        );
+  bool _isCompteEquilibrage(String numeroCompte) {
+    final compteTresorerie = _journal?.compteTresorerie;
+    if (compteTresorerie == null || compteTresorerie.isEmpty) return false;
+    return compteTresorerie == numeroCompte;
   }
 
   int get _nombreEnregistrementsUniques {
@@ -242,6 +273,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     _debitController.clear();
     _creditController.clear();
     _compteController.clear();
+    _compteFieldController?.clear();
     _selectedCompteNumero = null;
     _selectedTiersNumero = null;
     _showTiersField = false;
@@ -249,7 +281,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     _editingEcriture = null;
   }
 
-  Widget _buildVentilationBadge(LigneEcriture ecriture) {
+  /*  Widget _buildVentilationBadge(LigneEcriture ecriture) {
     final bool isVentilee =
         _hasVentilationFlag(ecriture) || ecriture.ventilation != null;
     final Color borderColor =
@@ -273,6 +305,145 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         child: Icon(iconData, color: iconColor, size: 18),
       ),
     );
+  } */
+
+  /*   Widget _buildVentilationBadge(LigneEcriture ecriture) {
+    // Récupérer toutes les lignes de cet enregistrement
+    final lignesEnregistrement =
+        _ecritures
+            .where(
+              (e) => e.numeroEnregistrement == ecriture.numeroEnregistrement,
+            )
+            .toList();
+
+    final bool isLigneEquilibre = _isLigneEquilibrage(
+      ecriture,
+      lignesEnregistrement,
+    );
+    final bool isVentileeManuellement =
+        _hasVentilationFlag(ecriture) || ecriture.ventilation != null;
+    final bool hasVentilationAuto = isLigneEquilibre && !isVentileeManuellement;
+
+    // Vérifier s'il y a des ventilations à agréger
+    final bool hasVentilationsAutresLignes =
+        lignesEnregistrement
+            .where(
+              (e) =>
+                  e.id != ecriture.id &&
+                  (_hasVentilationFlag(e) || e.ventilation != null),
+            )
+            .isNotEmpty;
+
+    Color borderColor;
+    Color backgroundColor;
+    Color iconColor;
+    IconData iconData;
+    String tooltipMessage;
+
+    if (hasVentilationAuto && hasVentilationsAutresLignes) {
+      // Ligne d'équilibre avec ventilation automatique
+      borderColor = Colors.green.shade600;
+      backgroundColor = Colors.green.shade50;
+      iconColor = Colors.green.shade700;
+      iconData = Icons.check_circle;
+      tooltipMessage = 'Ventilation automatique (agrégée)';
+    } else if (isVentileeManuellement) {
+      // Ligne ventilée manuellement
+      borderColor = Colors.green.shade600;
+      backgroundColor = Colors.green.shade50;
+      iconColor = Colors.green.shade700;
+      iconData = Icons.check_circle;
+      tooltipMessage = 'Ventilé manuellement';
+    } else {
+      // Non ventilé
+      borderColor = Colors.red.shade600;
+      backgroundColor = Colors.red.shade50;
+      iconColor = Colors.red.shade700;
+      iconData = Icons.cancel_outlined;
+      tooltipMessage = 'Non ventilé';
+    }
+
+    return Tooltip(
+      message: tooltipMessage,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          border: Border.all(color: borderColor),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Icon(iconData, color: iconColor, size: 18),
+      ),
+    );
+  } */
+
+  Widget _buildVentilationBadge(LigneEcriture ecriture) {
+    // Récupérer toutes les lignes de cet enregistrement
+    final lignesEnregistrement =
+        _ecritures
+            .where(
+              (e) => e.numeroEnregistrement == ecriture.numeroEnregistrement,
+            )
+            .toList();
+
+    final bool isLigneEquilibre = _isLigneEquilibrage(
+      ecriture,
+      lignesEnregistrement,
+    );
+
+    final bool isVentileeManuellement = ecriture.hasVentilation == true;
+
+    // Pour les lignes d'équilibre, vérifier s'il y a des ventilations à agréger
+    bool hasVentilationAuto = false;
+    if (isLigneEquilibre) {
+      // Vérifier s'il y a des ventilations sur les autres lignes
+      hasVentilationAuto = lignesEnregistrement.any((e) {
+        if (_isLigneEquilibrage(e, lignesEnregistrement)) return false;
+        return e.hasVentilation == true;
+      });
+    }
+
+    Color borderColor;
+    Color backgroundColor;
+    Color iconColor;
+    IconData iconData;
+    String tooltipMessage;
+
+    if (isLigneEquilibre && hasVentilationAuto) {
+      // Ligne d'équilibre avec ventilation automatique
+      borderColor = Colors.green.shade600;
+      backgroundColor = Colors.green.shade50;
+      iconColor = Colors.green.shade700;
+      iconData = Icons.check_circle;
+      tooltipMessage = 'Ventilation automatique (agrégée)';
+    } else if (isVentileeManuellement) {
+      // Ligne ventilée manuellement
+      borderColor = Colors.green.shade600;
+      backgroundColor = Colors.green.shade50;
+      iconColor = Colors.green.shade700;
+      iconData = Icons.check_circle;
+      tooltipMessage = 'Ventilé manuellement';
+    } else {
+      // Non ventilé
+      borderColor = Colors.red.shade600;
+      backgroundColor = Colors.red.shade50;
+      iconColor = Colors.red.shade700;
+      iconData = Icons.cancel_outlined;
+      tooltipMessage = 'Non ventilé';
+    }
+
+    return Tooltip(
+      message: tooltipMessage,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          border: Border.all(color: borderColor),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Icon(iconData, color: iconColor, size: 18),
+      ),
+    );
   }
 
   void _clearAmountsOnly() {
@@ -281,18 +452,26 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     _debitController.clear();
     _creditController.clear();
     _compteController.clear();
+    _compteFieldController?.clear();
     _selectedCompteNumero = null;
     _selectedTiersNumero = null;
     _showTiersField = false;
 
-    // Replacer le curseur sur le champ compte
-    _compteFocusNode?.requestFocus();
+    // Utiliser addPostFrameCallback pour s'assurer que le widget est construit
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_compteFocusNode?.context != null) {
+          _compteFocusNode?.requestFocus();
+        }
+      });
+    }
   }
 
   void _onCompteSelected(String numeroCompte) {
     setState(() {
       _selectedCompteNumero = numeroCompte;
       _compteController.text = numeroCompte;
+      _compteFieldController?.text = numeroCompte;
       _selectedTiersNumero = null;
 
       final compte = _comptes.firstWhere(
@@ -319,6 +498,12 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     int numeroEnregistrement,
     bool isDebit,
   ) {
+    if (_selectedCompteNumero != null &&
+        _isCompteEquilibrage(_selectedCompteNumero!)) {
+      // Pas de ventilation manuelle sur le compte d'équilibre
+      return null;
+    }
+
     if (isDebit) {
       // Pour un débit, utiliser la ventilation stockée
       return _currentVentilation;
@@ -335,6 +520,201 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       return null;
     }
   }
+
+
+  Future<void> _recomputeVentilationEquilibrage(
+    int numeroEnregistrement,
+    int? balanceLigneId,
+  ) async {
+    // Pour tous les journaux (avec ou sans compte de trésorerie)
+    final lignesDuNumero =
+        _ecritures
+            .where((e) => e.numeroEnregistrement == numeroEnregistrement)
+            .toList();
+
+    if (lignesDuNumero.isEmpty) return;
+
+    // Identifier la(les) ligne(s) d'équilibre
+    List<LigneEcriture> lignesEquilibre = [];
+
+    // Chercher d'abord par compte de trésorerie
+    final compteTresorerie = _journal?.compteTresorerie;
+
+    if (compteTresorerie != null && compteTresorerie.isNotEmpty) {
+      // Journal avec compte de trésorerie
+      lignesEquilibre =
+          lignesDuNumero
+              .where((e) => e.numeroCompte == compteTresorerie)
+              .toList();
+    } else {
+      // Journal sans compte de trésorerie : dernière ligne
+      final derniereLigne = lignesDuNumero.last;
+      lignesEquilibre = [derniereLigne];
+    }
+
+    if (lignesEquilibre.isEmpty) return;
+
+    // Agrégation des ventilations des autres lignes
+    final agregats = await _aggregateVentilationsForEquilibre(
+      numeroEnregistrement,
+      balanceLigneId,
+    );
+
+    // Mettre à jour l'affichage (en mémoire uniquement)
+    for (final cible in lignesEquilibre) {
+      setState(() {
+        _ecritures =
+            _ecritures.map((e) {
+              if (e.id == cible.id) {
+                // Ne pas créer de ventilation si aucun agrégat
+                // Le badge vert sera affiché via _buildVentilationBadge()
+                return e.copyWith(
+                  ventilation: agregats.isNotEmpty ? agregats.first : null,
+                  hasVentilation: agregats.isNotEmpty,
+                );
+              }
+              return e;
+            }).toList();
+      });
+    }
+  }
+
+  Future<void> _recomputeAllEquilibrageVentilations() async {
+    final compteTresorerie = _journal?.compteTresorerie;
+    if (compteTresorerie == null || compteTresorerie.isEmpty) return;
+
+    // Traiter chaque numéro d'enregistrement contenant au moins une ligne d'équilibre
+    final numeros =
+        _ecritures
+            .where((e) => e.numeroCompte == compteTresorerie)
+            .map((e) => e.numeroEnregistrement)
+            .toSet();
+
+    for (final numero in numeros) {
+      await _recomputeVentilationEquilibrage(numero, null);
+    }
+  }
+
+  Future<List<VentilationAnalytique>> _computeAggregatedVentilations(
+    int numeroEnregistrement, {
+    String? balanceCompte,
+  }) async {
+    final compteEquilibre = balanceCompte ?? _journal?.compteTresorerie;
+    if (compteEquilibre == null || compteEquilibre.isEmpty) return [];
+
+    final lignesDuNumero =
+        _ecritures
+            .where((e) => e.numeroEnregistrement == numeroEnregistrement)
+            .toList();
+
+    // Agréger les ventilations des comptes métiers (hors compte d'équilibre)
+    final Map<String, Map<String, dynamic>> agregats = {};
+
+    for (final ligne in lignesDuNumero) {
+      if (ligne.numeroCompte == compteEquilibre) continue;
+      if (ligne.id == null) continue;
+
+      final ventilations = await SaisieComptableService.getVentilations(
+        ligne.id!,
+      );
+
+      for (final v in ventilations) {
+        final key =
+            '${v.type}|${v.idProjet ?? ''}|${v.typeActivite ?? ''}|${v.idBailleur ?? ''}|${v.postebudgetaire ?? ''}|${v.ligneBudgetaire ?? ''}';
+
+        final current = agregats.putIfAbsent(key, () {
+          return {
+            'type': v.type,
+            'idProjet': v.idProjet,
+            'typeActivite': v.typeActivite,
+            'idBailleur': v.idBailleur,
+            'posteBudgetaire': v.postebudgetaire,
+            'ligneBudgetaire': v.ligneBudgetaire,
+            'montant': 0.0,
+          };
+        });
+
+        current['montant'] = (current['montant'] as double) + v.montantVentrle;
+      }
+    }
+
+    return agregats.values.map((entry) {
+      return VentilationAnalytique(
+        ligneEcritureId: 0, // non persisté
+        type: (entry['type'] as String?) ?? 'fonctionnement',
+        idProjet: entry['idProjet'] as String?,
+        typeActivite: entry['typeActivite'] as String?,
+        idBailleur: entry['idBailleur'] as String?,
+        postebudgetaire: entry['posteBudgetaire'] as String?,
+        ligneBudgetaire: entry['ligneBudgetaire'] as String?,
+        montantVentrle: (entry['montant'] as double?) ?? 0.0,
+      );
+    }).toList();
+  }
+
+  Future<void> _showBalanceVentilationPreview(LigneEcriture ligne) async {
+    final aggregats = await _computeAggregatedVentilations(
+      ligne.numeroEnregistrement,
+      balanceCompte: ligne.numeroCompte,
+    );
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Ventilation automatique (compte d\'équilibre)'),
+          content:
+              aggregats.isEmpty
+                  ? const Text(
+                    'Aucune ventilation trouvée sur les lignes métiers',
+                  )
+                  : SizedBox(
+                    width: 420,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children:
+                          aggregats.map((v) {
+                            return ListTile(
+                              dense: true,
+                              title: Text(
+                                v.type == 'projet'
+                                    ? 'Projet ${v.idProjet ?? ''}'
+                                    : 'Fonctionnement',
+                              ),
+                              subtitle: Text(
+                                [
+                                      v.typeActivite,
+                                      v.idBailleur,
+                                      v.postebudgetaire,
+                                      v.ligneBudgetaire,
+                                    ]
+                                    .where((e) => e != null && e!.isNotEmpty)
+                                    .join(' · '),
+                              ),
+                              trailing: Text(
+                                formatMontantCFA(v.montantVentrle),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                    ),
+                  ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Fermer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  
 
   void _submitForm() async {
     final compteNumero = _selectedCompteNumero;
@@ -396,6 +776,9 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       );
     }
 
+    final bool isCompteEquilibrage =
+        compteNumero != null && _isCompteEquilibrage(compteNumero);
+
     var ligne = LigneEcriture(
       id: _editingEcriture?.id,
       journalPeriodeId: widget.journalPeriode.id,
@@ -411,9 +794,15 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       libelle: _libelleController.text,
       montantDebit: debit,
       montantCredit: credit,
-      // Ventilation: chercher si une ventilation existe dans le même enregistrement
-      ventilation: _getVentilationForEcriture(numeroEnregistrement, debit > 0),
-      hasVentilation: _editingEcriture?.hasVentilation ?? false,
+      // Ventilation: interdite sur le compte d'équilibre
+      ventilation:
+          isCompteEquilibrage
+              ? null
+              : _getVentilationForEcriture(numeroEnregistrement, debit > 0),
+      hasVentilation:
+          isCompteEquilibrage
+              ? false
+              : _editingEcriture?.hasVentilation ?? false,
     );
 
     try {
@@ -453,11 +842,11 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         ).showSnackBar(const SnackBar(content: Text('Écriture enregistrée')));
       }
 
-      await _refreshPeriodeData();
-
-      if (_requiresVentilation && ligne.montantDebit > 0) {
-        _showVentilationDialog(ligne);
+      if (ligne.id != null) {
+        await _recomputeVentilationEquilibrage(numeroEnregistrement, ligne.id!);
       }
+
+      await _refreshPeriodeData();
 
       if (_isCurrentEnregistrementBalanced) {
         _clearForm();
@@ -471,23 +860,238 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     }
   }
 
-  void _showVentilationDialog(LigneEcriture ligne) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  /*  void _showVentilationDialog(LigneEcriture ligne) {
+    // Pour le compte d'équilibre: afficher la ventilation auto calculée (non persistée)
+    if (_isCompteEquilibrage(ligne.numeroCompte)) {
+      _showBalanceVentilationPreview(ligne);
+      return;
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder:
           (context) => VentilationDialog(
             ligne: ligne,
-            onSaved:
-                (ventilation) => _handleVentilationSaved(ligne, ventilation),
+            onSaved: (ventilation) async {
+              await _handleVentilationSaved(ligne, ventilation);
+            },
+          ),
+    );
+  } */
+
+  void _showVentilationDialog(LigneEcriture ligne) {
+    // Récupérer toutes les lignes de cet enregistrement
+    final lignesEnregistrement =
+        _ecritures
+            .where((e) => e.numeroEnregistrement == ligne.numeroEnregistrement)
+            .toList();
+
+    final bool isLigneEquilibre = _isLigneEquilibrage(
+      ligne,
+      lignesEnregistrement,
+    );
+
+    /* if (isLigneEquilibre) {
+      // Pour les journaux sans compte de trésorerie, vérifier la colonne
+      final compteTresorerie = _journal?.compteTresorerie;
+      if (compteTresorerie == null || compteTresorerie.isEmpty) {
+        // Si c'est une ligne d'équilibre sans compte de trésorerie
+        // Ouvrir directement le dialogue de ventilation
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder:
+              (context) => VentilationDialog(
+                ligne: ligne,
+                onSaved: (ventilation) async {
+                  await _handleVentilationSaved(ligne, ventilation);
+                },
+              ),
+        );
+        return;
+      } else {
+        // Pour les journaux avec compte de trésorerie: afficher la ventilation agrégée
+        _showAggregatedVentilationPreview(ligne);
+        return;
+      }
+    } */
+
+    if (isLigneEquilibre) {
+      // Pour TOUTES les lignes d'équilibre (avec ou sans compte de trésorerie)
+      // Afficher la ventilation agrégée
+      _showAggregatedVentilationPreview(ligne);
+      return;
+    }
+
+    // Pour les autres lignes : dialog normal
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => VentilationDialog(
+            ligne: ligne,
+            onSaved: (ventilation) async {
+              await _handleVentilationSaved(ligne, ventilation);
+            },
           ),
     );
   }
 
-  void _handleVentilationSaved(
+  Future<void> _showAggregatedVentilationPreview(LigneEcriture ligne) async {
+    final agregats = await _aggregateVentilationsForEquilibre(
+      ligne.numeroEnregistrement,
+      ligne.id,
+    );
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(
+            'Ventilation automatique - Enregistrement ${ligne.numeroEnregistrement}',
+          ),
+          content:
+              agregats.isEmpty
+                  ? const Text(
+                    'Aucune ventilation trouvée sur les autres lignes de cet enregistrement',
+                  )
+                  : SizedBox(
+                    width: 500,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Résumé
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Total agrégé:',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade400,
+                                  ),
+                                ),
+                                Text(
+                                  formatMontantCFA(
+                                    agregats.fold(
+                                      0.0,
+                                      (sum, v) => sum + v.montantVentrle,
+                                    ),
+                                  ),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade400,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Liste des ventilations
+                          ...agregats.map((v) {
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          v.type == 'projet'
+                                              ? 'Projet ${v.idProjet ?? ''}'
+                                              : 'Fonctionnement',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        if (v.typeActivite != null &&
+                                            v.typeActivite!.isNotEmpty)
+                                          Text(
+                                            'Volet: ${v.typeActivite}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                        if (v.idBailleur != null &&
+                                            v.idBailleur!.isNotEmpty)
+                                          Text(
+                                            'Bailleur: ${v.idBailleur}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    formatMontantCFA(v.montantVentrle),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ],
+                      ),
+                    ),
+                  ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Fermer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _handleVentilationSaved(
     LigneEcriture ligne,
     VentilationAnalytique? ventilation,
-  ) {
+  ) async {
     final hasVentilation = ventilation != null;
 
     setState(() {
@@ -507,6 +1111,10 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
             return e;
           }).toList();
     });
+
+    if (!hasVentilation || _isCompteEquilibrage(ligne.numeroCompte)) return;
+
+    await _recomputeVentilationEquilibrage(ligne.numeroEnregistrement, null);
   }
 
   Future<void> _refreshPeriodeData() async {
@@ -630,6 +1238,16 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       });
 
       await _refreshPeriodeData();
+
+      // Si on supprime une ligne ventilée ou la ligne d'équilibre, recalculer la ventilation auto
+      /*  await _recomputeVentilationEquilibrage(
+        ecriture.numeroEnregistrement,
+        null,
+      ); */
+      await _recomputeVentilationEquilibrage(
+        ecriture.numeroEnregistrement,
+        null,
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -638,6 +1256,86 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       }
     }
   }
+
+  /*  void _balanceEnregistrement() {
+    if (_currentNumeroEnregistrement == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucun enregistrement en cours')),
+      );
+      return;
+    }
+
+    final ecrituresActuelles =
+        _ecritures
+            .where(
+              (e) => e.numeroEnregistrement == _currentNumeroEnregistrement,
+            )
+            .toList();
+
+    final totaux = SaisieComptableService.calculateTotaux(ecrituresActuelles);
+    final difference = totaux.totalDebit - totaux.totalCredit;
+
+    if (difference.abs() < 0.01) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cet enregistrement est déjà équilibré')),
+      );
+      return;
+    }
+
+    setState(() {
+      if (ecrituresActuelles.isNotEmpty) {
+        final derniere = ecrituresActuelles.last;
+        _jourController.text = derniere.jour.toString();
+        _numeroDocController.text = derniere.numeroDocument;
+        _referenceController.text = derniere.reference ?? '';
+        _libelleController.text = derniere.libelle;
+
+        // Utilise le compte de trésorerie s'il est défini sur le journal, sinon le dernier compte
+        final compteTresorerie = _journal?.compteTresorerie;
+
+        final compteEquilibrage =
+            (compteTresorerie != null && compteTresorerie.isNotEmpty)
+                ? compteTresorerie
+                : derniere.numeroCompte;
+
+        _compteController.text = compteEquilibrage;
+        _selectedCompteNumero = compteEquilibrage;
+        _selectedTiersNumero = null;
+
+        if (difference > 0) {
+          _creditController.text = difference.toStringAsFixed(2);
+          _debitController.clear();
+        } else {
+          _debitController.text = (-difference).toStringAsFixed(2);
+          _creditController.clear();
+        }
+
+        final compte = _comptes.firstWhere(
+          (c) => c.numeroCompte == compteEquilibrage,
+          orElse: () => _comptes.first,
+        );
+        _showTiersField = _isTiersRequired(compte.liaisonTiers);
+
+        if (_showTiersField) {
+          _filteredTiers =
+              _tiers
+                  .where((tier) => tier.compteCollectif == compteEquilibrage)
+                  .toList();
+        } else {
+          _filteredTiers = [];
+        }
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Ligne d\'équilibrage pré-remplie: ${formatMontantCFA(difference.abs())} CFA',
+        ),
+      ),
+    );
+  }
+ */
 
   void _balanceEnregistrement() {
     if (_currentNumeroEnregistrement == null) {
@@ -672,9 +1370,31 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         _referenceController.text = derniere.reference ?? '';
         _libelleController.text = derniere.libelle;
 
-        _compteController.text = derniere.numeroCompte;
-        _selectedCompteNumero = derniere.numeroCompte;
-        _selectedTiersNumero = derniere.numeroTiers;
+        // Utilise le compte de trésorerie s'il est défini sur le journal
+        final compteTresorerie = _journal?.compteTresorerie;
+
+        if (compteTresorerie != null && compteTresorerie.isNotEmpty) {
+          // Chercher le compte de trésorerie; s'il manque, laisser vide
+          try {
+            final compte = _comptes.firstWhere(
+              (c) => c.numeroCompte == compteTresorerie,
+            );
+            _compteController.text = compte.numeroCompte;
+            _compteFieldController?.text = compte.numeroCompte;
+            _selectedCompteNumero = compte.numeroCompte;
+          } catch (_) {
+            _compteController.clear();
+            _compteFieldController?.clear();
+            _selectedCompteNumero = null;
+          }
+        } else {
+          // Pas de trésorerie : ne pré-remplit pas le compte
+          _compteController.clear();
+          _compteFieldController?.clear();
+          _selectedCompteNumero = null;
+        }
+
+        _selectedTiersNumero = null;
 
         if (difference > 0) {
           _creditController.text = difference.toStringAsFixed(2);
@@ -684,19 +1404,26 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
           _creditController.clear();
         }
 
-        final compte = _comptes.firstWhere(
-          (c) => c.numeroCompte == derniere.numeroCompte,
-          orElse: () => _comptes.first,
-        );
-        _showTiersField = _isTiersRequired(compte.liaisonTiers);
+        // Mettre à jour le champ tiers uniquement si un compte est présent
+        if (_selectedCompteNumero != null) {
+          final compteNumero = _selectedCompteNumero!;
+          final compte = _comptes.firstWhere(
+            (c) => c.numeroCompte == compteNumero,
+            orElse: () => _comptes.first,
+          );
+          _showTiersField = _isTiersRequired(compte.liaisonTiers);
 
-        if (_showTiersField) {
-          _filteredTiers =
-              _tiers
-                  .where(
-                    (tier) => tier.compteCollectif == derniere.numeroCompte,
-                  )
-                  .toList();
+          if (_showTiersField) {
+            _filteredTiers =
+                _tiers
+                    .where((tier) => tier.compteCollectif == compteNumero)
+                    .toList();
+          } else {
+            _filteredTiers = [];
+          }
+        } else {
+          _showTiersField = false;
+          _filteredTiers = [];
         }
       }
     });
@@ -704,11 +1431,169 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Ligne d\'équilibrage pré-remplie: ${formatMontantCFA(difference.abs())} CFA',
+          'Ligne d\'équilibrage pré-remplie: ${formatMontantCFA(difference.abs())} FCFA',
         ),
       ),
     );
   }
+
+  ///Détermine si une ligne est la ligne d'équilibre d'un enregistrement
+  /// Une ligne d'équilibre = celle qui équilibre la somme des autres
+  /// Détection par le montant, indépendante du compte de trésorerie
+  bool _isLigneEquilibrage(
+    LigneEcriture ligne,
+    List<LigneEcriture> lignesEnregistrement,
+  ) {
+    if (lignesEnregistrement.length <= 1) return false;
+
+    // Calculer la somme signée de toutes les autres lignes
+    double totalAutres = 0;
+    for (final l in lignesEnregistrement) {
+      if (l.id != ligne.id) {
+        final montantSigne = l.montantDebit - l.montantCredit;
+        totalAutres += montantSigne;
+      }
+    }
+
+    // La ligne d'équilibre est celle dont le montant compense exactement les autres
+    final montantSigneLigne = ligne.montantDebit - ligne.montantCredit;
+    final difference = (montantSigneLigne + totalAutres).abs();
+
+    return difference < 0.01;
+  }
+
+  //Agrège les ventilations de toutes les lignes SAUF la ligne d'équilibre
+  Future<List<VentilationAnalytique>> _aggregateVentilationsForEquilibre(
+    int numeroEnregistrement,
+    int? excludedLigneId,
+  ) async {
+    final lignesDuNumero =
+        _ecritures
+            .where((e) => e.numeroEnregistrement == numeroEnregistrement)
+            .toList();
+
+    // Identifier le compte d'équilibre
+    final compteEquilibre = _journal?.compteTresorerie;
+
+    final Map<String, Map<String, dynamic>> agregats = {};
+
+    for (final ligne in lignesDuNumero) {
+      //Exclure la ligne d'équilibre
+      if (ligne.id == excludedLigneId) continue;
+      if (ligne.id == null) continue;
+
+      //Récupérer les ventilations de cette ligne
+
+      final ventilations = await SaisieComptableService.getVentilations(
+        ligne.id!,
+      );
+
+      for (final v in ventilations) {
+        final key =
+            '${v.type}|${v.idProjet ?? ''}|${v.typeActivite ?? ''}|${v.idBailleur ?? ''}|${v.postebudgetaire ?? ''}|${v.ligneBudgetaire ?? ''}';
+
+        final current = agregats.putIfAbsent(key, () {
+          return {
+            'type': v.type,
+            'idProjet': v.idProjet,
+            'typeActivite': v.typeActivite,
+            'idBailleur': v.idBailleur,
+            'posteBudgetaire': v.postebudgetaire,
+            'ligneBudgetaire': v.ligneBudgetaire,
+            'montant': 0.0,
+          };
+        });
+
+        current['montant'] = (current['montant'] as double) + v.montantVentrle;
+      }
+    }
+
+    //Convertir en ligne de ventilationAnalytique
+    return agregats.values.map((entry) {
+      return VentilationAnalytique(
+        ligneEcritureId: 0, // non persisté
+        type: (entry['type'] as String?) ?? 'fonctionnement',
+        idProjet: entry['idProjet'] as String?,
+        typeActivite: entry['typeActivite'] as String?,
+        idBailleur: entry['idBailleur'] as String?,
+        postebudgetaire: entry['posteBudgetaire'] as String?,
+        ligneBudgetaire: entry['ligneBudgetaire'] as String?,
+        montantVentrle: (entry['montant'] as double?) ?? 0.0,
+      );
+    }).toList();
+  }
+
+  /*   // Agrège les ventilations de toutes les lignes SAUF la ligne d'équilibre
+  Future<List<VentilationAnalytique>> _aggregateVentilationsForEquilibre(
+    int numeroEnregistrement,
+    int? excludedLigneId,
+  ) async {
+    final lignesDuNumero =
+        _ecritures
+            .where((e) => e.numeroEnregistrement == numeroEnregistrement)
+            .toList();
+
+    // Identifier le compte d'équilibre
+    final compteEquilibre = _journal?.compteTresorerie;
+
+    final Map<String, Map<String, dynamic>> agregats = {};
+
+    for (final ligne in lignesDuNumero) {
+      // Exclure les lignes d'équilibre (par compte ou par ID)
+      if ((compteEquilibre != null && ligne.numeroCompte == compteEquilibre) ||
+          ligne.id == excludedLigneId) {
+        continue;
+      }
+
+      // Utiliser la ventilation en mémoire si elle existe (cas non persisté)
+      List<VentilationAnalytique> ventilations = [];
+      if (ligne.ventilation != null) {
+        ventilations = [ligne.ventilation!];
+      } else if (ligne.id != null) {
+        // Sinon, récupérer en base si la ligne est persistée
+        ventilations = await SaisieComptableService.getVentilations(ligne.id!);
+      }
+
+      if (ventilations.isEmpty) continue;
+
+      for (final v in ventilations) {
+        // Créer une clé unique pour chaque combinaison de paramètres
+        final key =
+            '${v.type}|${v.idProjet ?? ''}|${v.typeActivite ?? ''}|${v.idBailleur ?? ''}|${v.postebudgetaire ?? ''}|${v.ligneBudgetaire ?? ''}';
+
+        final current = agregats.putIfAbsent(key, () {
+          return {
+            'type': v.type,
+            'idProjet': v.idProjet,
+            'typeActivite': v.typeActivite,
+            'idBailleur': v.idBailleur,
+            'posteBudgetaire': v.postebudgetaire,
+            'ligneBudgetaire': v.ligneBudgetaire,
+            'montant': 0.0,
+          };
+        });
+
+        // Ajouter le montant
+        current['montant'] = (current['montant'] as double) + v.montantVentrle;
+      }
+    }
+
+    // Convertir en liste de VentilationAnalytique
+    return agregats.values.map((entry) {
+      return VentilationAnalytique(
+        ligneEcritureId: 0, // non persisté (c'est un agrégat)
+        type: (entry['type'] as String?) ?? 'fonctionnement',
+        idProjet: entry['idProjet'] as String?,
+        typeActivite: entry['typeActivite'] as String?,
+        idBailleur: entry['idBailleur'] as String?,
+        postebudgetaire: entry['posteBudgetaire'] as String?,
+        ligneBudgetaire: entry['ligneBudgetaire'] as String?,
+        montantVentrle: (entry['montant'] as double?) ?? 0.0,
+      );
+    }).toList();
+  }
+
+ */
 
   @override
   void dispose() {
@@ -778,6 +1663,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             color: Colors.blue.shade400,
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               spacing: 12,
               children: [
                 // Ligne 1: Journal et nombre d'écritures
@@ -861,7 +1747,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                             child: Icon(
                               Icons.arrow_downward,
                               size: 14,
-                              color: Colors.blue.shade700,
+                              color: Colors.blue.shade400,
                             ),
                           ),
                           Column(
@@ -1077,7 +1963,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: Colors.blue.shade700,
+                color: Colors.blue.shade400,
               ),
             ),
           ),
@@ -1118,23 +2004,27 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
           _buildHeaderRow(),
 
           // LIGNES 3+: Données (scrollable)
-          if (_ecritures.isNotEmpty)
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(_ecritures.length, (index) {
-                final ecriture = _ecritures[index];
-                final isEvenRow = index % 2 == 0;
-                return _buildDataRow(index, ecriture, isEvenRow);
-              }),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.all(32),
-              child: Text(
-                'Aucune écriture saisie',
-                style: TextStyle(color: Colors.grey.shade600),
-              ),
+          Expanded(
+            child: SingleChildScrollView(
+              child:
+                  _ecritures.isNotEmpty
+                      ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: List.generate(_ecritures.length, (index) {
+                          final ecriture = _ecritures[index];
+                          final isEvenRow = index % 2 == 0;
+                          return _buildDataRow(index, ecriture, isEvenRow);
+                        }),
+                      )
+                      : Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Text(
+                          'Aucune écriture saisie',
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                      ),
             ),
+          ),
         ],
       ),
     );
@@ -1241,6 +2131,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               padding: const EdgeInsets.all(4),
               child: Autocomplete<Compte>(
                 initialValue: TextEditingValue(text: _compteController.text),
+                displayStringForOption: (Compte option) => option.numeroCompte,
                 optionsBuilder: (TextEditingValue textEditingValue) {
                   if (textEditingValue.text.isEmpty) {
                     return const Iterable<Compte>.empty();
@@ -1255,8 +2146,6 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                       }).toList();
                   return _applyJournalCompteFilter(matches);
                 },
-                // Ensure the text displayed for a selected option is the account number
-                displayStringForOption: (Compte option) => option.numeroCompte,
                 onSelected: (Compte selection) {
                   _compteController.text = selection.numeroCompte;
                   _onCompteSelected(selection.numeroCompte);
@@ -1269,10 +2158,14 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                 ) {
                   // Stocker le FocusNode pour pouvoir l'utiliser dans _clearAmountsOnly()
                   _compteFocusNode = focusNode;
+                  _compteFieldController = textEditingController;
 
                   return TextField(
                     controller: textEditingController,
                     focusNode: focusNode,
+                    onTapOutside: (_) {
+                      _autoCompleteCompteIfPrefix(textEditingController.text);
+                    },
                     onChanged: (value) {
                       _compteController.text = value;
                       setState(() {
@@ -1286,6 +2179,9 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                           _showTiersField = false;
                         }
                       });
+                    },
+                    onEditingComplete: () {
+                      _autoCompleteCompteIfPrefix(textEditingController.text);
                     },
                     decoration: InputDecoration(
                       hintText: 'Compte (code/nom)',
@@ -1618,18 +2514,18 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
           _buildDataCell(ecriture.numeroTiers ?? '-', 120),
           _buildDataCell(ecriture.libelle, 200),
           _buildDataCell(
-            ecriture.montantCredit > 0
-                ? formatMontantCFA(ecriture.montantCredit)
-                : '-',
-            110,
-            isCredit: true,
-          ),
-          _buildDataCell(
             ecriture.montantDebit > 0
                 ? formatMontantCFA(ecriture.montantDebit)
                 : '-',
             110,
             isDebit: true,
+          ),
+          _buildDataCell(
+            ecriture.montantCredit > 0
+                ? formatMontantCFA(ecriture.montantCredit)
+                : '-',
+            110,
+            isCredit: true,
           ),
           // Colonne Ventilation
           _buildCell(
@@ -1854,7 +2750,7 @@ class _VentilationDialogState extends State<VentilationDialog> {
         _rows = existingRows;
       });
     } catch (e) {
-      debugPrint('❌ Erreur chargement projets: $e');
+      debugPrint('Erreur chargement projets: $e');
     }
   }
 
@@ -1923,9 +2819,7 @@ class _VentilationDialogState extends State<VentilationDialog> {
             (row) =>
                 row.axe != null && row.axe!.toLowerCase() == 'fonctionnement',
           )) {
-        _rows.add(
-          _VentilationRow(axe: 'Fonctionnement', montant: _montantLigne),
-        );
+        _rows.add(_VentilationRow(axe: 'Fonctionnement', montant: _solde));
       }
 
       if (_rows.isEmpty) {
@@ -1942,7 +2836,7 @@ class _VentilationDialogState extends State<VentilationDialog> {
                 ? VentilationAnalytique(
                   ligneEcritureId: ligneId,
                   type: 'fonctionnement',
-                  montantVentrle: row.montant ?? _montantLigne,
+                  montantVentrle: row.montant ?? _solde,
                 )
                 : VentilationAnalytique(
                   ligneEcritureId: ligneId,
@@ -2066,9 +2960,7 @@ class _VentilationDialogState extends State<VentilationDialog> {
     if (_selectedAxe == 'Fonctionnement') {
       setState(() {
         _rows.removeWhere((row) => row.axe == 'Fonctionnement');
-        _rows.add(
-          _VentilationRow(axe: 'Fonctionnement', montant: _montantLigne),
-        );
+        _rows.add(_VentilationRow(axe: 'Fonctionnement', montant: _solde));
       });
       return;
     }
@@ -2760,17 +3652,17 @@ class _VentilationDialogState extends State<VentilationDialog> {
       );
     }
 
-    menuItems.addAll(
-      items.map<DropdownMenuItem<int?>>((item) {
-        final dynamic rawId = item[idField];
-        final int? itemId = rawId is int ? rawId : int.tryParse('$rawId');
-        final String labelText =
-            (item[displayField] ?? '').toString().isEmpty
-                ? '—'
-                : item[displayField].toString();
-        return DropdownMenuItem<int?>(value: itemId, child: Text(labelText));
-      }),
-    );
+    for (final item in items) {
+      final dynamic rawId = item[idField];
+      final int? itemId = rawId is int ? rawId : int.tryParse('$rawId');
+      final String labelText =
+          (item[displayField] ?? '').toString().isEmpty
+              ? '—'
+              : item[displayField].toString();
+      menuItems.add(
+        DropdownMenuItem<int?>(value: itemId, child: Text(labelText)),
+      );
+    }
 
     return DropdownButtonFormField<int?>(
       value: value,
@@ -2784,8 +3676,8 @@ class _VentilationDialogState extends State<VentilationDialog> {
           vertical: 12,
         ),
       ),
-      items: menuItems,
-      onChanged: onChanged,
+      items: menuItems.isEmpty ? null : menuItems,
+      onChanged: menuItems.isEmpty ? null : onChanged,
     );
   }
 }

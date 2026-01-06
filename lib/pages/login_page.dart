@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service_local.dart';
+import '../utils/form_enter_shortcut.dart';
 import 'home_page.dart';
 import 'database_setup_page.dart';
 
@@ -80,9 +81,13 @@ class _LoginPageState extends State<LoginPage> {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 450),
               padding: const EdgeInsets.all(40),
-              child: Form(
-                key: _formKey,
-                child: Column(
+              child: FormWithEnterShortcut(
+                formKey: _formKey,
+                onSubmit: _login,
+                enabled: !_isLoading,
+                child: Form(
+                  key: _formKey,
+                  child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -104,12 +109,13 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 8),
                     const Text(
                       'Connexion',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                      style: TextStyle(fontSize: 16, color: Colors.white),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 32),
                     TextFormField(
                       controller: _loginController,
+                      autofocus: true,
                       decoration: InputDecoration(
                         labelText: 'Login',
                         prefixIcon: const Icon(Icons.person),
@@ -195,6 +201,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

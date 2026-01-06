@@ -604,7 +604,7 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
                                   Icon(
                                     Icons.info_outline,
                                     size: 20,
-                                    color: Colors.blue.shade700,
+                                    color: Colors.blue.shade400,
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
@@ -668,7 +668,7 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
                             : 'Se connecter',
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo,
+                        backgroundColor: Colors.blue.shade400,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 32,

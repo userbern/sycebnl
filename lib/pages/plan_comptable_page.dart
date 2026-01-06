@@ -269,7 +269,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                   children: [
                     Icon(
                       isEdit ? Icons.edit : Icons.add_circle,
-                      color: Colors.blue.shade700,
+                      color: Colors.blue.shade400,
                     ),
                     const SizedBox(width: 12),
                     Text(
@@ -361,7 +361,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                       borderSide: BorderSide(
-                                        color: Colors.blue.shade700,
+                                        color: Colors.blue.shade400,
                                         width: 2,
                                       ),
                                     ),
@@ -374,7 +374,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                   dropdownColor: Colors.white,
                                   icon: Icon(
                                     Icons.arrow_drop_down_circle,
-                                    color: Colors.blue.shade700,
+                                    color: Colors.blue.shade400,
                                   ),
                                   items:
                                       TypeCompte.values.map((type) {
@@ -419,7 +419,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: Colors.blue.shade700,
+                                  color: Colors.blue.shade400,
                                   width: 2,
                                 ),
                               ),
@@ -429,7 +429,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                             dropdownColor: Colors.white,
                             icon: Icon(
                               Icons.arrow_drop_down_circle,
-                              color: Colors.blue.shade700,
+                              color: Colors.blue.shade400,
                             ),
                             items:
                                 NatureCompte.values.map((nature) {
@@ -496,7 +496,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                 children: [
                                   Icon(
                                     Icons.info,
-                                    color: Colors.blue.shade700,
+                                    color: Colors.blue.shade400,
                                     size: 20,
                                   ),
                                   const SizedBox(width: 8),
@@ -608,7 +608,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                     icon: Icon(isEdit ? Icons.save : Icons.check),
                     label: Text(isEdit ? 'Enregistrer' : 'Ajouter'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade700,
+                      backgroundColor: Colors.blue.shade400,
                       foregroundColor: Colors.white,
                     ),
                   ),
@@ -725,7 +725,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+          borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
         ),
         filled: true,
         fillColor: enabled ? Colors.grey.shade50 : Colors.grey.shade200,
@@ -767,7 +767,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                   Icon(
                     Icons.account_balance_wallet,
                     size: 32,
-                    color: Colors.blue.shade700,
+                    color: Colors.blue.shade400,
                   ),
                   const SizedBox(width: 12),
                   const Text(
@@ -784,7 +784,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                     icon: const Icon(Icons.add),
                     label: const Text('Nouveau compte (Ctrl+N)'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade700,
+                      backgroundColor: Colors.blue.shade400,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
@@ -970,7 +970,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                     width: availableWidth,
                                     child: DataTable(
                                       headingRowColor: WidgetStateProperty.all(
-                                        Colors.blue.shade700,
+                                        Colors.blue.shade400,
                                       ),
                                       headingTextStyle: const TextStyle(
                                         color: Colors.white,
@@ -1122,7 +1122,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
   Color _getNatureColor(NatureCompte nature) {
     switch (nature) {
       case NatureCompte.bilanRessourcesDurables:
-        return Colors.blue.shade700;
+        return Colors.blue.shade400;
       case NatureCompte.bilanActifImmobilise:
         return Colors.blue.shade600;
       case NatureCompte.bilanStocks:

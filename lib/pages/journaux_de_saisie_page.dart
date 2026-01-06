@@ -283,7 +283,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
           widget.showAppBar
               ? AppBar(
                 title: const Text('Journaux de saisie'),
-                backgroundColor: Colors.indigo.shade900,
+                backgroundColor: Colors.blue.shade200,
                 elevation: 0,
               )
               : null,
@@ -306,7 +306,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
 
     return Container(
       padding: const EdgeInsets.all(24),
-      color: Colors.indigo.shade900,
+      color: Colors.blue.shade200,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -683,7 +683,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
         final table = DataTable(
           showCheckboxColumn: false,
           headingRowColor: WidgetStateProperty.resolveWith(
-            (states) => Colors.blue.shade50,
+            (states) => Colors.blue.shade400,
           ),
           dataRowMinHeight: 32,
           dataRowMaxHeight: 40,

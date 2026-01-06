@@ -282,7 +282,7 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                                               'Monnaie actuelle',
                                               style: TextStyle(
                                                 fontSize: 11,
-                                                color: Colors.blue.shade700,
+                                                color: Colors.blue.shade400,
                                                 fontWeight: FontWeight.w500,
                                               ),
                                             ),
@@ -310,7 +310,7 @@ class _MonnaiePageEditState extends State<MonnaiePageEdit> {
                                         style: TextStyle(
                                           fontSize: 24,
                                           fontWeight: FontWeight.bold,
-                                          color: Colors.blue.shade700,
+                                          color: Colors.blue.shade400,
                                         ),
                                       ),
                                     ],

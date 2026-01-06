@@ -13,8 +13,8 @@ class DatabaseService {
 
   /// Initialiser SQLite FFI pour Windows/Desktop
   static Future<void> initializeFfi() async {
+    // Factory already initialized in main.dart
     sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
   }
 
   /// Créer une nouvelle base de données à l'emplacement spécifié

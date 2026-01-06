@@ -371,6 +371,11 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
             backgroundColor: Colors.green,
           ),
         );
+
+        // Retourner true pour signaler la création réussie
+        if (widget.showAppBar && mounted) {
+          Navigator.of(context).pop(true);
+        }
       } catch (e) {
         if (!mounted) return;
         setState(() => isLoading = false);
@@ -646,7 +651,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                             children: [
                               Icon(
                                 Icons.info_outline,
-                                color: Colors.blue.shade700,
+                                color: Colors.blue.shade400,
                                 size: 24,
                               ),
                               const SizedBox(width: 12),
@@ -703,7 +708,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
             color: Colors.blue.shade50,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, color: Colors.blue.shade700, size: 20),
+          child: Icon(icon, color: Colors.blue.shade400, size: 20),
         ),
         const SizedBox(width: 12),
         Expanded(

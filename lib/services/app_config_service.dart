@@ -13,9 +13,8 @@ class AppConfigService {
   static Future<void> initialize() async {
     if (_database != null) return;
 
-    // Initialiser sqflite_ffi pour Windows
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+    // Factory already initialized in main.dart
+    // sqfliteFfiInit() already called in main.dart
 
     // Obtenir le chemin AppData/Local/SYCEBNL
     final appDir = await getApplicationSupportDirectory();

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/database_service_new.dart';
+import '../utils/form_enter_shortcut.dart';
 
 class EntiteIdentificationPage extends StatefulWidget {
   final VoidCallback? onDataUpdated;
@@ -164,238 +165,251 @@ class _EntiteIdentificationPageState extends State<EntiteIdentificationPage> {
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // En-tête
-            Row(
-              children: [
-                Icon(Icons.business, size: 32, color: Colors.blue[700]),
-                const SizedBox(width: 12),
-                const Text(
-                  'Identification de l\'entité',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+      child: FormWithEnterShortcut(
+        formKey: _formKey,
+        onSubmit: _saveEntiteData,
+        enabled: !_isSaving,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // En-tête
+              Row(
+                children: [
+                  Icon(Icons.business, size: 32, color: Colors.blue.shade400),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Identification de l\'entité',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Modifiez les informations de votre entité',
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 32),
+
+              // Informations générales
+              _buildSection('Informations générales', Icons.info_outline, [
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: _buildTextField(
+                        controller: _denominationController,
+                        label: 'Dénomination sociale *',
+                        icon: Icons.business_center,
+                        required: true,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _sigleController,
+                        label: 'Sigle usuel',
+                        icon: Icons.short_text,
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: _buildTextField(
+                        controller: _domaineController,
+                        label: 'Domaine d\'intervention',
+                        icon: Icons.category,
+                        maxLines: 2,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _formeJuridiqueController,
+                        label: 'Forme juridique',
+                        icon: Icons.account_balance,
+                      ),
+                    ),
+                  ],
+                ),
+              ]),
+
+              const SizedBox(height: 24),
+
+              // Localisation
+              _buildSection('Localisation', Icons.location_on, [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _paysController,
+                        label: 'Pays',
+                        icon: Icons.flag,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _regionController,
+                        label: 'Région',
+                        icon: Icons.map,
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _villeController,
+                        label: 'Ville',
+                        icon: Icons.location_city,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _quartierController,
+                        label: 'Quartier',
+                        icon: Icons.home,
+                      ),
+                    ),
+                  ],
+                ),
+              ]),
+
+              const SizedBox(height: 24),
+
+              // Contact
+              _buildSection('Coordonnées', Icons.contact_phone, [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _emailController,
+                        label: 'Email',
+                        icon: Icons.email,
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _telephoneController,
+                        label: 'Téléphone',
+                        icon: Icons.phone,
+                        keyboardType: TextInputType.phone,
+                      ),
+                    ),
+                  ],
+                ),
+                _buildTextField(
+                  controller: _fixeFaxController,
+                  label: 'Fixe / Fax',
+                  icon: Icons.phone_in_talk,
+                  keyboardType: TextInputType.phone,
+                ),
+              ]),
+
+              const SizedBox(height: 24),
+
+              // Informations administratives
+              _buildSection(
+                'Monnaie et informations complémentaires',
+                Icons.description,
+                [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildTextField(
+                          controller: _numeroFiscalController,
+                          label: 'Numéro fiscal',
+                          icon: Icons.receipt_long,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildTextField(
+                          controller: _numeroCnssController,
+                          label: 'Numéro CNSS',
+                          icon: Icons.badge,
+                        ),
+                      ),
+                    ],
+                  ),
+                  _buildTextField(
+                    controller: _numeroRecepisseController,
+                    label: 'Numéro de récépissé',
+                    icon: Icons.document_scanner,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Autres informations
+              _buildSection(
+                'Monnaie et informations complémentaires',
+                Icons.more_horiz,
+                [
+                  _buildTextField(
+                    controller: _currencyController,
+                    label: 'Monnaie',
+                    icon: Icons.attach_money,
+                  ),
+                  _buildTextField(
+                    controller: _infosComplementairesController,
+                    label: 'Informations complémentaires',
+                    icon: Icons.notes,
+                    maxLines: 4,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 32),
+
+              // Bouton Enregistrer
+              Center(
+                child: SizedBox(
+                  width: 300,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _saveEntiteData,
+                    icon:
+                        _isSaving
+                            ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                            : const Icon(Icons.save),
+                    label: Text(
+                      _isSaving ? 'Enregistrement...' : 'Enregistrer',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade400,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Modifiez les informations de votre entité',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 32),
-
-            // Informations générales
-            _buildSection('Informations générales', Icons.info_outline, [
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: _buildTextField(
-                      controller: _denominationController,
-                      label: 'Dénomination sociale *',
-                      icon: Icons.business_center,
-                      required: true,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildTextField(
-                      controller: _sigleController,
-                      label: 'Sigle usuel',
-                      icon: Icons.short_text,
-                    ),
-                  ),
-                ],
               ),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: _buildTextField(
-                      controller: _domaineController,
-                      label: 'Domaine d\'intervention',
-                      icon: Icons.category,
-                      maxLines: 2,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildTextField(
-                      controller: _formeJuridiqueController,
-                      label: 'Forme juridique',
-                      icon: Icons.account_balance,
-                    ),
-                  ),
-                ],
-              ),
-            ]),
-
-            const SizedBox(height: 24),
-
-            // Localisation
-            _buildSection('Localisation', Icons.location_on, [
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTextField(
-                      controller: _paysController,
-                      label: 'Pays',
-                      icon: Icons.flag,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildTextField(
-                      controller: _regionController,
-                      label: 'Région',
-                      icon: Icons.map,
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTextField(
-                      controller: _villeController,
-                      label: 'Ville',
-                      icon: Icons.location_city,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildTextField(
-                      controller: _quartierController,
-                      label: 'Quartier',
-                      icon: Icons.home,
-                    ),
-                  ),
-                ],
-              ),
-            ]),
-
-            const SizedBox(height: 24),
-
-            // Contact
-            _buildSection('Coordonnées', Icons.contact_phone, [
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTextField(
-                      controller: _emailController,
-                      label: 'Email',
-                      icon: Icons.email,
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildTextField(
-                      controller: _telephoneController,
-                      label: 'Téléphone',
-                      icon: Icons.phone,
-                      keyboardType: TextInputType.phone,
-                    ),
-                  ),
-                ],
-              ),
-              _buildTextField(
-                controller: _fixeFaxController,
-                label: 'Fixe / Fax',
-                icon: Icons.phone_in_talk,
-                keyboardType: TextInputType.phone,
-              ),
-            ]),
-
-            const SizedBox(height: 24),
-
-            // Informations administratives
-            _buildSection('Monnaie et informations complémentaires', Icons.description, [
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTextField(
-                      controller: _numeroFiscalController,
-                      label: 'Numéro fiscal',
-                      icon: Icons.receipt_long,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildTextField(
-                      controller: _numeroCnssController,
-                      label: 'Numéro CNSS',
-                      icon: Icons.badge,
-                    ),
-                  ),
-                ],
-              ),
-              _buildTextField(
-                controller: _numeroRecepisseController,
-                label: 'Numéro de récépissé',
-                icon: Icons.document_scanner,
-              ),
-            ]),
-
-            const SizedBox(height: 24),
-
-            // Autres informations
-            _buildSection('Monnaie et informations complémentaires', Icons.more_horiz, [
-              _buildTextField(
-                controller: _currencyController,
-                label: 'Monnaie',
-                icon: Icons.attach_money,
-              ),
-              _buildTextField(
-                controller: _infosComplementairesController,
-                label: 'Informations complémentaires',
-                icon: Icons.notes,
-                maxLines: 4,
-              ),
-            ]),
-
-            const SizedBox(height: 32),
-
-            // Bouton Enregistrer
-            Center(
-              child: SizedBox(
-                width: 300,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: _isSaving ? null : _saveEntiteData,
-                  icon:
-                      _isSaving
-                          ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                          : const Icon(Icons.save),
-                  label: Text(
-                    _isSaving ? 'Enregistrement...' : 'Enregistrer',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[700],
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -421,7 +435,7 @@ class _EntiteIdentificationPageState extends State<EntiteIdentificationPage> {
         children: [
           Row(
             children: [
-              Icon(icon, color: Colors.blue[700], size: 24),
+              Icon(icon, color: Colors.blue.shade400, size: 24),
               const SizedBox(width: 12),
               Text(
                 title,
@@ -454,7 +468,7 @@ class _EntiteIdentificationPageState extends State<EntiteIdentificationPage> {
         controller: controller,
         decoration: InputDecoration(
           labelText: label,
-          prefixIcon: Icon(icon, color: Colors.blue[700]),
+          prefixIcon: Icon(icon, color: Colors.blue.shade400),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
@@ -462,7 +476,7 @@ class _EntiteIdentificationPageState extends State<EntiteIdentificationPage> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+            borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
           ),
           filled: true,
           fillColor: Colors.grey.shade50,

@@ -162,7 +162,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                 children: [
                   Icon(
                     isEdit ? Icons.edit : Icons.add,
-                    color: Colors.blue.shade700,
+                    color: Colors.blue.shade400,
                   ),
                   const SizedBox(width: 12),
                   Text(isEdit ? 'Modifier le tiers' : 'Nouveau tiers'),
@@ -342,7 +342,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                               color:
                                   isEdit
                                       ? Colors.grey.shade400
-                                      : Colors.blue.shade700,
+                                      : Colors.blue.shade400,
                             ),
                             tooltip: 'Créer un nouveau compte',
                             onPressed:
@@ -577,7 +577,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
             return AlertDialog(
               title: Row(
                 children: [
-                  Icon(Icons.add_circle, color: Colors.blue.shade700),
+                  Icon(Icons.add_circle, color: Colors.blue.shade400),
                   const SizedBox(width: 12),
                   const Text(
                     'Nouveau compte',
@@ -660,7 +660,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                     borderSide: BorderSide(
-                                      color: Colors.blue.shade700,
+                                      color: Colors.blue.shade400,
                                       width: 2,
                                     ),
                                   ),
@@ -670,7 +670,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                 dropdownColor: Colors.white,
                                 icon: Icon(
                                   Icons.arrow_drop_down_circle,
-                                  color: Colors.blue.shade700,
+                                  color: Colors.blue.shade400,
                                 ),
                                 items:
                                     TypeCompte.values.map((type) {
@@ -711,7 +711,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                       Icons.info_outline,
                                       color:
                                           calculatedNature != null
-                                              ? Colors.blue.shade700
+                                              ? Colors.blue.shade400
                                               : Colors.grey.shade600,
                                       size: 20,
                                     ),
@@ -996,7 +996,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+          borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
         ),
         filled: true,
         fillColor: enabled ? Colors.grey.shade50 : Colors.grey.shade200,
@@ -1099,7 +1099,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
               // En-tête
               Row(
                 children: [
-                  Icon(Icons.people, size: 32, color: Colors.blue.shade700),
+                  Icon(Icons.people, size: 32, color: Colors.blue.shade400),
                   const SizedBox(width: 12),
                   const Text(
                     'Liste des tiers',
@@ -1115,7 +1115,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                     icon: const Icon(Icons.add),
                     label: const Text('Nouveau tiers (Ctrl+N)'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade700,
+                      backgroundColor: Colors.blue.shade400,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
@@ -1329,7 +1329,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                           child: DataTable(
                                             headingRowColor:
                                                 WidgetStateProperty.all(
-                                                  Colors.blue.shade700,
+                                                  Colors.blue.shade400,
                                                 ),
                                             headingTextStyle: const TextStyle(
                                               color: Colors.white,

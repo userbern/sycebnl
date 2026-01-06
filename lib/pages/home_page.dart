@@ -16,6 +16,7 @@ import 'gestion_budgets_page.dart';
 import 'journal_periode_selection_page.dart';
 import 'journaux_de_saisie_page.dart';
 import 'saisie_ecriture_page.dart';
+import 'balance_comptes_page.dart';
 import '../models/saisie_comptable.dart';
 
 class HomePage extends StatefulWidget {
@@ -102,9 +103,30 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _showPage(int index) {
+  Future<void> _refreshExercices() async {
+    try {
+      final exercices = await DatabaseService.getExercices();
+      final activeExercice = exercices.firstWhere(
+        (e) => e['is_active'] == 1,
+        orElse: () => exercices.isNotEmpty ? exercices.first : {},
+      );
+      setState(() {
+        _exercices = exercices;
+        _activeExerciceId = activeExercice['id'];
+      });
+    } catch (e) {
+      print('❌ Erreur lors du rafraîchissement des exercices: $e');
+    }
+  }
+
+  void _showPage(int index) async {
     _saisieCompleter?.complete(false);
     _saisieCompleter = null;
+
+    // Si on revient de la page Nouvel Exercice (index 12), rafraîchir la liste
+    if (_currentPageIndex == 12 && index != 12) {
+      await _refreshExercices();
+    }
 
     setState(() {
       _currentPageIndex = index;
@@ -196,7 +218,14 @@ class _HomePageState extends State<HomePage> {
           (context) => AlertDialog(
             title: Row(
               children: [
-                Icon(Icons.storage, color: Colors.blue.shade700),
+                /* Icon(Icons.storage, color: Colors.blue.shade400), */
+                IconButton(
+                  icon: Icon(Icons.storage, color: Colors.blue.shade400),
+                  onPressed: () {
+                    print('Bouton stockage cliqué');
+                  },
+                  tooltip: 'Stockage', // texte d'aide au survol
+                ),
                 const SizedBox(width: 12),
                 const Text('Informations sur la base de données'),
               ],
@@ -310,7 +339,7 @@ class _HomePageState extends State<HomePage> {
           (context) => AlertDialog(
             title: Row(
               children: [
-                Icon(Icons.calendar_today, color: Colors.blue.shade700),
+                Icon(Icons.calendar_today, color: Colors.blue.shade400),
                 const SizedBox(width: 12),
                 const Text('Changer d\'exercice'),
               ],
@@ -428,7 +457,7 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(width: 100), // Espace pour équilibrer
           ],
         ),
-        backgroundColor: Colors.blue[700],
+        backgroundColor: Colors.blue.shade400,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -530,7 +559,7 @@ class _HomePageState extends State<HomePage> {
                                   child: Text(
                                     'Exercice: ${_exercices.firstWhere((e) => e['id'] == _activeExerciceId, orElse: () => {'code': 'N/A'})['code']}',
                                     style: TextStyle(
-                                      color: Colors.blue.shade700,
+                                      color: Colors.blue.shade400,
                                       fontSize: 9,
                                     ),
                                     overflow: TextOverflow.ellipsis,
@@ -636,7 +665,7 @@ class _HomePageState extends State<HomePage> {
                           color:
                               isActive
                                   ? Colors.blue.shade900
-                                  : Colors.blue.shade700,
+                                  : Colors.blue.shade400,
                         ),
                       ),
                     ),
@@ -693,7 +722,7 @@ class _HomePageState extends State<HomePage> {
                         color:
                             isActive
                                 ? Colors.blue.shade900
-                                : Colors.blue.shade700,
+                                : Colors.blue.shade400,
                         size: 18,
                       ),
                       const SizedBox(width: 10),
@@ -704,7 +733,7 @@ class _HomePageState extends State<HomePage> {
                             color:
                                 isActive
                                     ? Colors.blue.shade900
-                                    : Colors.blue.shade700,
+                                    : Colors.blue.shade400,
                             fontWeight:
                                 isActive ? FontWeight.w700 : FontWeight.w500,
                             fontSize: 12.5,
@@ -744,7 +773,7 @@ class _HomePageState extends State<HomePage> {
               alignment: Alignment.center,
               child: Icon(
                 icon,
-                color: isActive ? Colors.blue.shade900 : Colors.blue.shade700,
+                color: isActive ? Colors.blue.shade900 : Colors.blue.shade400,
                 size: 22,
               ),
             ),
@@ -766,7 +795,7 @@ class _HomePageState extends State<HomePage> {
               color: isExpanded ? Colors.blue.shade100 : Colors.transparent,
               border: Border(
                 left: BorderSide(
-                  color: isExpanded ? Colors.blue.shade700 : Colors.transparent,
+                  color: isExpanded ? Colors.blue.shade400 : Colors.transparent,
                   width: 3,
                 ),
               ),
@@ -777,11 +806,11 @@ class _HomePageState extends State<HomePage> {
                   isExpanded
                       ? Icons.keyboard_arrow_down
                       : Icons.keyboard_arrow_right,
-                  color: Colors.blue.shade700,
+                  color: Colors.blue.shade400,
                   size: 18,
                 ),
                 const SizedBox(width: 10),
-                Icon(icon, color: Colors.blue.shade700, size: 20),
+                Icon(icon, color: Colors.blue.shade400, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -816,7 +845,7 @@ class _HomePageState extends State<HomePage> {
                     color:
                         _currentPageIndex == subItem.index
                             ? Colors.blue.shade900
-                            : Colors.blue.shade700,
+                            : Colors.blue.shade400,
                     fontSize: 12.5,
                     fontWeight:
                         _currentPageIndex == subItem.index
@@ -847,7 +876,7 @@ class _HomePageState extends State<HomePage> {
               alignment: Alignment.center,
               child: Icon(
                 Icons.calendar_today,
-                color: isActive ? Colors.blue.shade900 : Colors.blue.shade700,
+                color: isActive ? Colors.blue.shade900 : Colors.blue.shade400,
                 size: 22,
               ),
             ),
@@ -869,7 +898,7 @@ class _HomePageState extends State<HomePage> {
               color: isExpanded ? Colors.blue.shade100 : Colors.transparent,
               border: Border(
                 left: BorderSide(
-                  color: isExpanded ? Colors.blue.shade700 : Colors.transparent,
+                  color: isExpanded ? Colors.blue.shade400 : Colors.transparent,
                   width: 3,
                 ),
               ),
@@ -880,13 +909,13 @@ class _HomePageState extends State<HomePage> {
                   isExpanded
                       ? Icons.keyboard_arrow_down
                       : Icons.keyboard_arrow_right,
-                  color: Colors.blue.shade700,
+                  color: Colors.blue.shade400,
                   size: 18,
                 ),
                 const SizedBox(width: 10),
                 Icon(
                   Icons.calendar_today,
-                  color: Colors.blue.shade700,
+                  color: Colors.blue.shade400,
                   size: 20,
                 ),
                 const SizedBox(width: 12),
@@ -934,7 +963,7 @@ class _HomePageState extends State<HomePage> {
                         color:
                             _activeExerciceId == exercice['id']
                                 ? Colors.green.shade900
-                                : Colors.blue.shade700,
+                                : Colors.blue.shade400,
                         fontSize: 12.5,
                         fontWeight:
                             _activeExerciceId == exercice['id']
@@ -962,7 +991,7 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   Icon(
                     Icons.add_circle_outline,
-                    color: Colors.blue.shade700,
+                    color: Colors.blue.shade400,
                     size: 16,
                   ),
                   const SizedBox(width: 6),
@@ -972,7 +1001,7 @@ class _HomePageState extends State<HomePage> {
                       color:
                           _currentPageIndex == 12
                               ? Colors.blue.shade900
-                              : Colors.blue.shade700,
+                              : Colors.blue.shade400,
                       fontSize: 12.5,
                       fontWeight:
                           _currentPageIndex == 12
@@ -1073,7 +1102,10 @@ class _HomePageState extends State<HomePage> {
           showAppBar: false,
         );
       case 13:
-        return _buildPlaceholderPage('Balance des comptes');
+        return BalanceComptesPage(
+          exerciceId: _activeExerciceId,
+          showAppBar: false,
+        );
       case 14:
         return _buildPlaceholderPage('Grand livre');
       case 15:
@@ -1129,7 +1161,7 @@ class _HomePageState extends State<HomePage> {
           // En-tête
           Row(
             children: [
-              Icon(Icons.dashboard, size: 32, color: Colors.blue[700]),
+              Icon(Icons.dashboard, size: 32, color: Colors.blue.shade400),
               const SizedBox(width: 12),
               const Text(
                 'Tableau de bord',

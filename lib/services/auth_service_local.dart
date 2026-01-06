@@ -529,6 +529,38 @@ class AuthService {
 
   static Future<void> deleteJournal(int id) async {
     try {
+      // Récupérer le code du journal
+      final results = await _db.query(
+        'journal',
+        where: 'id = ?',
+        whereArgs: [id],
+        columns: ['code'],
+      );
+
+      if (results.isEmpty) {
+        throw Exception('Journal non trouvé');
+      }
+
+      final codeJournal = results.first['code'] as String;
+
+      // Vérifier s'il y a des périodes avec des écritures
+      final periodResults = await _db.rawQuery(
+        '''
+        SELECT jp.id FROM journaux_periodes jp
+        LEFT JOIN ecritures e ON jp.id = e.journal_periode_id
+        WHERE jp.code_journal = ? AND e.id IS NOT NULL
+        LIMIT 1
+      ''',
+        [codeJournal],
+      );
+
+      if (periodResults.isNotEmpty) {
+        throw Exception(
+          'Ce journal contient des écritures et ne peut pas être supprimé',
+        );
+      }
+
+      // Supprimer le journal
       await _db.delete('journal', where: 'id = ?', whereArgs: [id]);
     } catch (e) {
       throw Exception('Erreur lors de la suppression du journal: $e');

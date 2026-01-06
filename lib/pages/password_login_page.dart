@@ -14,6 +14,7 @@ class PasswordLoginPage extends StatefulWidget {
 class _PasswordLoginPageState extends State<PasswordLoginPage> {
   final _loginController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _loginFocusNode = FocusNode();
   bool _isLoading = false;
   bool _obscurePassword = true;
   List<Map<String, dynamic>> _users = [];
@@ -59,6 +60,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
   void dispose() {
     _loginController.dispose();
     _passwordController.dispose();
+    _loginFocusNode.dispose();
     super.dispose();
   }
 
@@ -145,7 +147,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                   Icon(
                     Icons.lock_outline,
                     size: 64,
-                    color: Colors.blue.shade700,
+                    color: Colors.blue.shade400,
                   ),
                   const SizedBox(height: 24),
                   Text(
@@ -211,6 +213,8 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                   else
                     TextField(
                       controller: _loginController,
+                      focusNode: _loginFocusNode,
+                      autofocus: true,
                       decoration: const InputDecoration(
                         labelText: 'Login',
                         border: OutlineInputBorder(),
@@ -224,6 +228,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                     const SizedBox(height: 16),
                     TextField(
                       controller: _loginController,
+                      autofocus: true,
                       decoration: const InputDecoration(
                         labelText: 'Entrez votre login',
                         border: OutlineInputBorder(),
@@ -278,7 +283,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                       style: TextStyle(fontSize: 16),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade700,
+                      backgroundColor: Colors.blue.shade400,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.all(16),
                       shape: RoundedRectangleBorder(

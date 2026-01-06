@@ -329,7 +329,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
             widget.showAppBar
                 ? AppBar(
                   title: const Text('Projets'),
-                  backgroundColor: Colors.indigo,
+                  backgroundColor: Colors.blue.shade400,
                   leading: IconButton(
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () {
@@ -407,7 +407,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                                 icon: const Icon(Icons.add, size: 20),
                                 label: const Text('Nouveau projet'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.indigo,
+                                  backgroundColor: Colors.blue.shade400,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 20,
@@ -590,7 +590,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.indigo.shade700,
+                          color: Colors.blue.shade400,
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(10),
                             topRight: Radius.circular(10),
@@ -811,6 +811,29 @@ class _ProjetDialogState extends State<_ProjetDialog> {
     }
   }
 
+  Future<void> _reloadBailleurs() async {
+    try {
+      setState(() => _loadingBailleurs = true);
+      final bailleurs = await AuthService.getBailleurs();
+      setState(() {
+        _availableBailleurs =
+            bailleurs
+                .map(
+                  (b) => {
+                    'id': b.id,
+                    'sigle': b.sigle,
+                    'designation': b.designation,
+                  },
+                )
+                .toList();
+        _loadingBailleurs = false;
+      });
+    } catch (e) {
+      debugPrint('Erreur lors du rechargement des bailleurs: $e');
+      setState(() => _loadingBailleurs = false);
+    }
+  }
+
   @override
   void dispose() {
     _codeController.dispose();
@@ -1018,7 +1041,7 @@ class _ProjetDialogState extends State<_ProjetDialog> {
                             'year': year,
                           }),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade600,
+                        backgroundColor: Colors.blue.shade400,
                         foregroundColor: Colors.white,
                       ),
                       child: const Text('Confirmer'),
@@ -1046,6 +1069,74 @@ class _ProjetDialogState extends State<_ProjetDialog> {
         controller.text = formattedDate;
       });
     }
+  }
+
+  Widget _buildBailleurSection() {
+    if (_loadingBailleurs) {
+      return const SizedBox(
+        height: 50,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_availableBailleurs.isEmpty) {
+      return Container(
+        height: 50,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Center(child: Text('Aucun bailleur disponible')),
+      );
+    }
+
+    return Autocomplete<Map<String, dynamic>>(
+      optionsBuilder: (TextEditingValue textEditingValue) {
+        if (textEditingValue.text.isEmpty) {
+          return _availableBailleurs;
+        }
+        return _availableBailleurs.where((bailleur) {
+          final code = (bailleur['code'] ?? '').toString().toLowerCase();
+          final sigle = (bailleur['sigle'] ?? '').toString().toLowerCase();
+          final designation =
+              (bailleur['designation'] ?? '').toString().toLowerCase();
+          final searchText = textEditingValue.text.toLowerCase();
+          return code.contains(searchText) ||
+              sigle.contains(searchText) ||
+              designation.contains(searchText);
+        }).toList();
+      },
+      displayStringForOption:
+          (Map<String, dynamic> option) =>
+              '${option['code']} - ${option['sigle']}',
+      fieldViewBuilder: (
+        context,
+        textEditingController,
+        focusNode,
+        onFieldSubmitted,
+      ) {
+        return TextFormField(
+          controller: textEditingController,
+          focusNode: focusNode,
+          decoration: InputDecoration(
+            labelText: 'Sélectionner un bailleur',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          validator:
+              (value) =>
+                  _selectedBailleurs.isEmpty && (value?.isEmpty ?? true)
+                      ? 'Au moins un bailleur est requis'
+                      : null,
+        );
+      },
+      onSelected: (Map<String, dynamic> selection) {
+        if (!_selectedBailleurs.any((b) => b['id'] == selection['id'])) {
+          setState(() {
+            _selectedBailleurs.add(selection);
+          });
+        }
+      },
+    );
   }
 
   Future<void> _save() async {
@@ -1104,6 +1195,124 @@ class _ProjetDialogState extends State<_ProjetDialog> {
       );
       setState(() => _isSaving = false);
     }
+  }
+
+  void _showCreateBailleurDialog() {
+    final sigController = TextEditingController();
+    final designationController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isCreating = false;
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => StatefulBuilder(
+            builder: (context, setState) {
+              return AlertDialog(
+                title: const Text('Créer un nouveau bailleur'),
+                content: SizedBox(
+                  width: 400,
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextFormField(
+                          controller: sigController,
+                          decoration: InputDecoration(
+                            labelText: 'Sigle *',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          validator:
+                              (value) =>
+                                  value?.isEmpty ?? true
+                                      ? 'Le sigle est requis'
+                                      : null,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: designationController,
+                          decoration: InputDecoration(
+                            labelText: 'Désignation *',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          validator:
+                              (value) =>
+                                  value?.isEmpty ?? true
+                                      ? 'La désignation est requise'
+                                      : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: isCreating ? null : () => Navigator.pop(context),
+                    child: const Text('Annuler'),
+                  ),
+                  ElevatedButton(
+                    onPressed:
+                        isCreating
+                            ? null
+                            : () async {
+                              if (!formKey.currentState!.validate()) return;
+
+                              setState(() => isCreating = true);
+                              try {
+                                await AuthService.createBailleur(
+                                  code: sigController.text,
+                                  nom: designationController.text,
+                                );
+
+                                // Recharger la liste des bailleurs
+                                await _reloadBailleurs();
+
+                                if (!mounted) return;
+                                Navigator.pop(context);
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Bailleur créé avec succès'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              } catch (e) {
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Erreur: ${e.toString()}'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                setState(() => isCreating = false);
+                              }
+                            },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade600,
+                      foregroundColor: Colors.white,
+                    ),
+                    child:
+                        isCreating
+                            ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                            : const Text('Créer'),
+                  ),
+                ],
+              );
+            },
+          ),
+    );
   }
 
   @override
@@ -1196,173 +1405,67 @@ class _ProjetDialogState extends State<_ProjetDialog> {
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                _loadingBailleurs
-                    ? const SizedBox(
-                      height: 50,
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                    : _availableBailleurs.isEmpty
-                    ? Container(
-                      height: 50,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Center(
-                        child: Text(
-                          'Aucun bailleur disponible',
-                          style: TextStyle(color: Colors.grey.shade500),
-                        ),
-                      ),
-                    )
-                    : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Champ d'autocomplete
-                        Autocomplete<Map<String, dynamic>>(
-                          optionsBuilder: (TextEditingValue textEditingValue) {
-                            if (textEditingValue.text.isEmpty) {
-                              return _availableBailleurs
-                                  .where(
-                                    (b) =>
-                                        !_selectedBailleurs.any(
-                                          (sb) => sb['id'] == b['id'],
-                                        ),
-                                  )
-                                  .toList();
-                            }
-                            final query = textEditingValue.text.toLowerCase();
-                            return _availableBailleurs
-                                .where(
-                                  (b) =>
-                                      !_selectedBailleurs.any(
-                                        (sb) => sb['id'] == b['id'],
-                                      ) &&
-                                      ((b['sigle'] ?? '')
-                                              .toString()
-                                              .toLowerCase()
-                                              .contains(query) ||
-                                          (b['designation'] ?? '')
-                                              .toString()
-                                              .toLowerCase()
-                                              .contains(query)),
-                                )
-                                .toList();
-                          },
-                          onSelected: (Map<String, dynamic> selection) {
-                            setState(() {
-                              final newList = List<Map<String, dynamic>>.from(
-                                _selectedBailleurs,
-                              );
-                              newList.add(selection);
-                              _selectedBailleurs = newList;
-                            });
-                          },
-                          displayStringForOption:
-                              (option) =>
-                                  '${option['sigle']} - ${option['designation']}',
-                          fieldViewBuilder: (
-                            BuildContext context,
-                            TextEditingController textEditingController,
-                            FocusNode focusNode,
-                            VoidCallback onFieldSubmitted,
-                          ) {
-                            return TextFormField(
-                              controller: textEditingController,
-                              focusNode: focusNode,
-                              decoration: InputDecoration(
-                                hintText: 'Chercher et ajouter un bailleur...',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                prefixIcon: const Icon(Icons.search),
-                                suffixIcon:
-                                    textEditingController.text.isNotEmpty
-                                        ? IconButton(
-                                          icon: const Icon(Icons.clear),
-                                          onPressed: () {
-                                            textEditingController.clear();
-                                            focusNode.requestFocus();
-                                          },
-                                        )
-                                        : null,
-                              ),
-                            );
-                          },
-                          optionsViewBuilder: (
-                            BuildContext context,
-                            AutocompleteOnSelected<Map<String, dynamic>>
-                            onSelected,
-                            Iterable<Map<String, dynamic>> options,
-                          ) {
-                            return Material(
-                              elevation: 4,
-                              child: SizedBox(
-                                width: 400,
-                                child: ListView.builder(
-                                  padding: EdgeInsets.zero,
-                                  itemCount: options.length,
-                                  itemBuilder: (
-                                    BuildContext context,
-                                    int index,
-                                  ) {
-                                    final option = options.elementAt(index);
-                                    return ListTile(
-                                      title: Text(option['sigle'] ?? ''),
-                                      subtitle: Text(
-                                        option['designation'] ?? '',
-                                      ),
-                                      onTap: () {
-                                        onSelected(option);
-                                      },
-                                    );
-                                  },
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        // Afficher les bailleurs sélectionnés comme chips
-                        if (_selectedBailleurs.isNotEmpty)
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children:
-                                _selectedBailleurs.map((bailleur) {
-                                  return Chip(
-                                    label: Text(
-                                      '${bailleur['sigle']} - ${bailleur['designation']}',
-                                    ),
-                                    deleteIcon: const Icon(Icons.close),
-                                    onDeleted: () {
-                                      setState(() {
-                                        final newList =
-                                            List<Map<String, dynamic>>.from(
-                                              _selectedBailleurs,
-                                            );
-                                        newList.removeWhere(
-                                          (b) => b['id'] == bailleur['id'],
-                                        );
-                                        _selectedBailleurs = newList;
-                                      });
-                                    },
-                                    backgroundColor: Colors.indigo.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                    labelStyle: TextStyle(
-                                      color: Colors.indigo.shade700,
-                                    ),
-                                  );
-                                }).toList(),
+                Row(
+                  children: [
+                    Expanded(child: _buildBailleurSection()),
+                    const SizedBox(width: 8),
+                    Tooltip(
+                      message: 'Créer un nouveau bailleur',
+                      child: ElevatedButton.icon(
+                        onPressed: _isSaving ? null : _showCreateBailleurDialog,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Nouveau'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade600,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
                           ),
-                      ],
+                        ),
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Afficher les bailleurs sélectionnés comme chips
+                if (_selectedBailleurs.isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children:
+                        _selectedBailleurs.map((bailleur) {
+                          return Chip(
+                            label: Text(
+                              '${bailleur['sigle']} - ${bailleur['designation']}',
+                            ),
+                            deleteIcon: const Icon(Icons.close),
+                            onDeleted: () {
+                              setState(() {
+                                final newList = List<Map<String, dynamic>>.from(
+                                  _selectedBailleurs,
+                                );
+                                newList.removeWhere(
+                                  (b) => b['id'] == bailleur['id'],
+                                );
+                                _selectedBailleurs = newList;
+                              });
+                            },
+                            backgroundColor: Colors.indigo.withValues(
+                              alpha: 0.2,
+                            ),
+                            labelStyle: TextStyle(
+                              color: Colors.indigo.shade700,
+                            ),
+                          );
+                        }).toList(),
+                  ),
               ],
             ),
           ),
         ),
       ),
+
       actions: [
         TextButton(
           onPressed: _isSaving ? null : () => Navigator.pop(context),
@@ -1371,7 +1474,7 @@ class _ProjetDialogState extends State<_ProjetDialog> {
         ElevatedButton(
           onPressed: _isSaving ? null : _save,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.indigo,
+            backgroundColor: Colors.blue.shade400,
             foregroundColor: Colors.white,
           ),
           child:

@@ -146,7 +146,7 @@ class _WelcomePageState extends State<WelcomePage> {
             end: Alignment.bottomRight,
             colors: [
               Colors.blue.shade900,
-              Colors.blue.shade700,
+              Colors.blue.shade400,
               Colors.blue.shade500,
             ],
           ),
@@ -178,7 +178,7 @@ class _WelcomePageState extends State<WelcomePage> {
                           ),
                           const SizedBox(width: 16),
                           Text(
-                            'SYCEBNL Accounting',
+                            'SYCEBNL ACCOUNTING',
                             style: TextStyle(
                               fontSize: 32,
                               fontWeight: FontWeight.bold,
@@ -212,7 +212,7 @@ class _WelcomePageState extends State<WelcomePage> {
                                 style: TextStyle(fontSize: 16),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue.shade700,
+                                backgroundColor: Colors.blue.shade400,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.all(20),
                                 shape: RoundedRectangleBorder(
@@ -233,7 +233,7 @@ class _WelcomePageState extends State<WelcomePage> {
                               style: OutlinedButton.styleFrom(
                                 padding: const EdgeInsets.all(20),
                                 side: BorderSide(
-                                  color: Colors.blue.shade700,
+                                  color: Colors.blue.shade400,
                                   width: 2,
                                 ),
                                 shape: RoundedRectangleBorder(
@@ -298,7 +298,7 @@ class _WelcomePageState extends State<WelcomePage> {
                                         leading: Icon(
                                           Icons.description,
                                           size: 36,
-                                          color: Colors.blue.shade700,
+                                          color: Colors.blue.shade400,
                                         ),
                                         title: Text(
                                           file['file_name'] as String,

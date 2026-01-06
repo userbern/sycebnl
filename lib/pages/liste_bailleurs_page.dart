@@ -225,7 +225,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                       icon: const Icon(Icons.add),
                       label: const Text('Nouveau bailleur (Ctrl+N)'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo,
+                        backgroundColor: Colors.blue.shade400,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 24,
@@ -430,7 +430,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                                   vertical: 12,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.indigo.shade700,
+                                  color: Colors.blue.shade400,
                                   borderRadius: const BorderRadius.only(
                                     topLeft: Radius.circular(10),
                                     topRight: Radius.circular(10),
@@ -605,46 +605,46 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
     );
     final formKey = GlobalKey<FormState>();
 
-     Future<void> _submit() async {
-    if (formKey.currentState!.validate()) {
-      try {
-        if (isEdit) {
-          await AuthService.updateBailleur(
-            id: int.parse(bailleur['id'].toString()),
-            code: sigleController.text.trim(),
-            nom: designationController.text.trim(),
+    Future<void> _submit() async {
+      if (formKey.currentState!.validate()) {
+        try {
+          if (isEdit) {
+            await AuthService.updateBailleur(
+              id: int.parse(bailleur['id'].toString()),
+              code: sigleController.text.trim(),
+              nom: designationController.text.trim(),
+            );
+          } else {
+            await AuthService.createBailleur(
+              code: sigleController.text.trim(),
+              nom: designationController.text.trim(),
+            );
+          }
+
+          if (!mounted) return;
+          _loadBailleurs();
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isEdit
+                    ? 'Bailleur modifié avec succès'
+                    : 'Bailleur créé avec succès',
+              ),
+              backgroundColor: Colors.green,
+            ),
           );
-        } else {
-          await AuthService.createBailleur(
-            code: sigleController.text.trim(),
-            nom: designationController.text.trim(),
+        } catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
-
-        if (!mounted) return;
-        _loadBailleurs();
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isEdit
-                  ? 'Bailleur modifié avec succès'
-                  : 'Bailleur créé avec succès',
-            ),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
     }
-  }
 
     showDialog(
       context: context,

@@ -258,7 +258,7 @@ class _EntiteListPageState extends State<EntiteListPage> {
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                     borderSide: BorderSide(
-                                      color: Colors.blue.shade700,
+                                      color: Colors.blue.shade400,
                                       width: 2,
                                     ),
                                   ),
@@ -272,7 +272,7 @@ class _EntiteListPageState extends State<EntiteListPage> {
                                 dropdownColor: Colors.white,
                                 icon: Icon(
                                   Icons.arrow_drop_down_circle,
-                                  color: Colors.blue.shade700,
+                                  color: Colors.blue.shade400,
                                 ),
                                 items:
                                     OngType.values.map((type) {
@@ -600,7 +600,7 @@ class _EntiteListPageState extends State<EntiteListPage> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo,
+                    backgroundColor: Colors.blue.shade400,
                     foregroundColor: Colors.white,
                   ),
                   child: Text(entite == null ? 'Créer' : 'Modifier'),
@@ -696,14 +696,14 @@ class _EntiteListPageState extends State<EntiteListPage> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Identification'),
-          backgroundColor: Colors.blue.shade900,
+          backgroundColor: Colors.blue.shade400,
           elevation: 0,
         ),
         floatingActionButton:
             widget.userSession.isAdmin
                 ? FloatingActionButton(
                   onPressed: _openCreateForm,
-                  backgroundColor: Colors.blue.shade900,
+                  backgroundColor: Colors.blue.shade400,
                   tooltip: 'Créer une entité (Ctrl+N)',
                   child: const Icon(Icons.add),
                 )
@@ -916,7 +916,7 @@ class _EntiteListPageState extends State<EntiteListPage> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+          borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
         ),
         filled: true,
         fillColor: Colors.grey.shade50,

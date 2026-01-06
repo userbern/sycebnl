@@ -216,7 +216,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
               ),
               child: Icon(
                 Icons.account_balance_wallet,
-                color: Colors.blue.shade700,
+                color: Colors.blue.shade400,
                 size: 20,
               ),
             ),
@@ -288,7 +288,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                           budget['bailleur_sigle'] ?? 'N/A',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.blue.shade700,
+                            color: Colors.blue.shade400,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -323,7 +323,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                       icon: Icon(
                         Icons.edit,
                         size: 18,
-                        color: Colors.blue.shade700,
+                        color: Colors.blue.shade400,
                       ),
                       onPressed: () => _showBudgetDetails(budget),
                       tooltip: 'Modifier',
@@ -400,7 +400,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                   icon: const Icon(Icons.add),
                   label: const Text('Créer un budget'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade600,
+                    backgroundColor: Colors.blue.shade400,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
@@ -438,7 +438,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
             widget.showAppBar
                 ? AppBar(
                   title: const Text('Gestion des Budgets'),
-                  backgroundColor: Colors.blue.shade700,
+                  backgroundColor: Colors.blue.shade400,
                   leading: IconButton(
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () {
@@ -483,7 +483,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                               child: Icon(
                                 Icons.account_balance_wallet,
                                 size: 28,
-                                color: Colors.blue.shade700,
+                                color: Colors.blue.shade400,
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -516,7 +516,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                                 icon: const Icon(Icons.add, size: 20),
                                 label: const Text('Nouveau budget'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue.shade600,
+                                  backgroundColor: Colors.blue.shade400,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 20,
@@ -597,7 +597,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
+                          color: Colors.blue.shade400,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: Colors.blue.shade100),
                         ),
@@ -613,7 +613,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.blue,
+                                    color: Colors.white,
                                     letterSpacing: 0.5,
                                   ),
                                 ),
@@ -628,7 +628,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.blue,
+                                    color: Colors.white,
                                     letterSpacing: 0.5,
                                   ),
                                 ),
@@ -641,7 +641,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.blue,
+                                  color: Colors.white,
                                   letterSpacing: 0.5,
                                 ),
                               ),
@@ -972,7 +972,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
           ),
           child: Icon(
             Icons.folder,
-            color: isSelected ? Colors.blue.shade700 : Colors.grey.shade600,
+            color: isSelected ? Colors.blue.shade400 : Colors.grey.shade600,
             size: 20,
           ),
         ),
@@ -2122,7 +2122,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
             ),
           ],
         ),
-        backgroundColor: Colors.blue.shade700,
+        backgroundColor: Colors.blue.shade400,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -2204,7 +2204,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
                             icon: const Icon(Icons.add, size: 18),
                             label: const Text('Nouveau poste'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
+                              backgroundColor: Colors.blue.shade400,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
