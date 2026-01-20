@@ -4,6 +4,10 @@ import '../models/saisie_comptable.dart';
 
 class SaisieComptableService {
   static Database get database => DatabaseService.database;
+  static String _formatDateYMD(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}'
+      '-${date.month.toString().padLeft(2, '0')}'
+      '-${date.day.toString().padLeft(2, '0')}';
 
   /// Creer ou recuperer une periode de journal
   static Future<JournalPeriode?> createJournalPeriode({
@@ -176,6 +180,7 @@ class SaisieComptableService {
         'journal_periode_id': ligne.journalPeriodeId,
         'numero_enregistrement': ligne.numeroEnregistrement,
         'jour': ligne.jour,
+        'date_comptable': _formatDateYMD(ligne.dateComptable),
         'numero_document': ligne.numeroDocument,
         'reference': ligne.reference,
         'numero_compte': ligne.numeroCompte,
@@ -200,6 +205,7 @@ class SaisieComptableService {
         'journal_periode_id': ligne.journalPeriodeId,
         'numero_enregistrement': ligne.numeroEnregistrement,
         'jour': ligne.jour,
+        'date_comptable': _formatDateYMD(ligne.dateComptable),
         'numero_document': ligne.numeroDocument,
         'reference': ligne.reference,
         'numero_compte': ligne.numeroCompte,

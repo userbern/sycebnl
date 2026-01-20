@@ -652,164 +652,175 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Row(
-                children: [
-                  Icon(
-                    isEdit ? Icons.edit : Icons.add_circle,
-                    color: Colors.indigo.shade700,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    isEdit ? 'Modifier le bailleur' : 'Nouveau bailleur',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: 600,
-                child: Form(
-                  key: formKey,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Sigle
-                        TextFormField(
-                          controller: sigleController,
-                          decoration: InputDecoration(
-                            labelText: 'Sigle *',
-                            prefixIcon: const Icon(Icons.label),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Colors.grey.shade400,
+            return Focus(
+              autofocus: true,
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    event.logicalKey == LogicalKeyboardKey.escape) {
+                  Navigator.pop(context);
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: AlertDialog(
+                title: Row(
+                  children: [
+                    Icon(
+                      isEdit ? Icons.edit : Icons.add_circle,
+                      color: Colors.indigo.shade700,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      isEdit ? 'Modifier le bailleur' : 'Nouveau bailleur',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                content: SizedBox(
+                  width: 600,
+                  child: Form(
+                    key: formKey,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Sigle
+                          TextFormField(
+                            controller: sigleController,
+                            decoration: InputDecoration(
+                              labelText: 'Sigle *',
+                              prefixIcon: const Icon(Icons.label),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Colors.indigo.shade700,
-                                width: 2,
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade400,
+                                ),
                               ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.indigo.shade700,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
                             ),
-                            filled: true,
-                            fillColor: Colors.grey.shade50,
+                            textInputAction: TextInputAction.next,
+                            onFieldSubmitted: (_) {
+                              // Focus sur le champ suivant
+                              FocusScope.of(context).nextFocus();
+                            },
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Le sigle est requis';
+                              }
+                              return null;
+                            },
                           ),
-                          textInputAction: TextInputAction.next,
-                          onFieldSubmitted: (_) {
-                            // Focus sur le champ suivant
-                            FocusScope.of(context).nextFocus();
-                          },
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Le sigle est requis';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
+                          const SizedBox(height: 16),
 
-                        // Désignation
-                        TextFormField(
-                          controller: designationController,
-                          maxLines: 1,
-                          decoration: InputDecoration(
-                            labelText: 'Désignation *',
-                            prefixIcon: const Icon(Icons.description),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Colors.grey.shade400,
+                          // Désignation
+                          TextFormField(
+                            controller: designationController,
+                            maxLines: 1,
+                            decoration: InputDecoration(
+                              labelText: 'Désignation *',
+                              prefixIcon: const Icon(Icons.description),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Colors.indigo.shade700,
-                                width: 2,
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade400,
+                                ),
                               ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.indigo.shade700,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
                             ),
-                            filled: true,
-                            fillColor: Colors.grey.shade50,
+                            textInputAction: TextInputAction.go,
+                            onFieldSubmitted: (_) {
+                              // Ici, la touche Entrée déclenche la soumission
+                              _submit();
+                            },
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'La désignation est requise';
+                              }
+                              return null;
+                            },
                           ),
-                          textInputAction: TextInputAction.go,
-                          onFieldSubmitted: (_) {
-                            // Ici, la touche Entrée déclenche la soumission
-                            _submit();
-                          },
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'La désignation est requise';
-                            }
-                            return null;
-                          },
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Annuler'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (formKey.currentState!.validate()) {
-                      try {
-                        if (isEdit) {
-                          await AuthService.updateBailleur(
-                            id: int.parse(bailleur['id'].toString()),
-                            code: sigleController.text.trim(),
-                            nom: designationController.text.trim(),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Annuler'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      if (formKey.currentState!.validate()) {
+                        try {
+                          if (isEdit) {
+                            await AuthService.updateBailleur(
+                              id: int.parse(bailleur['id'].toString()),
+                              code: sigleController.text.trim(),
+                              nom: designationController.text.trim(),
+                            );
+                          } else {
+                            await AuthService.createBailleur(
+                              code: sigleController.text.trim(),
+                              nom: designationController.text.trim(),
+                            );
+                          }
+
+                          if (!mounted) return;
+                          _loadBailleurs();
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                isEdit
+                                    ? 'Bailleur modifié avec succès'
+                                    : 'Bailleur créé avec succès',
+                              ),
+                              backgroundColor: Colors.green,
+                            ),
                           );
-                        } else {
-                          await AuthService.createBailleur(
-                            code: sigleController.text.trim(),
-                            nom: designationController.text.trim(),
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Erreur: ${e.toString()}'),
+                              backgroundColor: Colors.red,
+                            ),
                           );
                         }
-
-                        if (!mounted) return;
-                        _loadBailleurs();
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              isEdit
-                                  ? 'Bailleur modifié avec succès'
-                                  : 'Bailleur créé avec succès',
-                            ),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      } catch (e) {
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Erreur: ${e.toString()}'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
                       }
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo,
-                    foregroundColor: Colors.white,
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text(isEdit ? 'Modifier' : 'Créer'),
                   ),
-                  child: Text(isEdit ? 'Modifier' : 'Créer'),
-                ),
-              ],
+                ],
+              ),
             );
           },
         );

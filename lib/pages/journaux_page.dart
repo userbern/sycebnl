@@ -171,6 +171,7 @@ class _JournauxPageState extends State<JournauxPage> {
   Widget build(BuildContext context) {
     return RawKeyboardListener(
       focusNode: _focusNode,
+      autofocus: true,
       onKey: (event) {
         if (event.logicalKey == LogicalKeyboardKey.keyN &&
             HardwareKeyboard.instance.isControlPressed) {

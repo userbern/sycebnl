@@ -147,6 +147,7 @@ class LigneEcriture {
   final int journalPeriodeId;
   final int numeroEnregistrement;
   final int jour;
+  final DateTime dateComptable;
   final String numeroDocument;
   final String? reference;
   final String numeroCompte;
@@ -163,6 +164,7 @@ class LigneEcriture {
     required this.journalPeriodeId,
     required this.numeroEnregistrement,
     required this.jour,
+    required this.dateComptable,
     required this.numeroDocument,
     this.reference,
     required this.numeroCompte,
@@ -196,6 +198,7 @@ class LigneEcriture {
     'montantDebit': montantDebit,
     'montantCredit': montantCredit,
     'ventilation': ventilation?.toJson(),
+    'dateComptable': dateComptable.toIso8601String(),
     'dateCreation': dateCreation.toIso8601String(),
     'hasVentilation': hasVentilation,
   };
@@ -216,6 +219,12 @@ class LigneEcriture {
         json['ventilation'] != null
             ? VentilationAnalytique.fromJson(json['ventilation'])
             : null,
+    dateComptable: _mapDateComptable(
+      rawDate: json['dateComptable'] ?? json['date_comptable'],
+      jour: json['jour'],
+      annee: json['annee'],
+      mois: json['mois'],
+    ),
     dateCreation: DateTime.parse(json['dateCreation']),
     hasVentilation: _mapToBool(json['hasVentilation']),
   );
@@ -232,6 +241,12 @@ class LigneEcriture {
     libelle: map['libelle'] ?? '',
     montantDebit: (map['montant_debit'] as num?)?.toDouble() ?? 0.0,
     montantCredit: (map['montant_credit'] as num?)?.toDouble() ?? 0.0,
+    dateComptable: _mapDateComptable(
+      rawDate: map['date_comptable'],
+      jour: map['jour'],
+      annee: map['annee'] ?? map['periode_annee'],
+      mois: map['mois'] ?? map['periode_mois'],
+    ),
     dateCreation:
         map['created_at'] != null
             ? DateTime.parse(map['created_at'])
@@ -246,6 +261,7 @@ class LigneEcriture {
     int? journalPeriodeId,
     int? numeroEnregistrement,
     int? jour,
+    DateTime? dateComptable,
     String? numeroDocument,
     String? reference,
     String? numeroCompte,
@@ -262,6 +278,7 @@ class LigneEcriture {
       journalPeriodeId: journalPeriodeId ?? this.journalPeriodeId,
       numeroEnregistrement: numeroEnregistrement ?? this.numeroEnregistrement,
       jour: jour ?? this.jour,
+      dateComptable: dateComptable ?? this.dateComptable,
       numeroDocument: numeroDocument ?? this.numeroDocument,
       reference: reference ?? this.reference,
       numeroCompte: numeroCompte ?? this.numeroCompte,
@@ -395,6 +412,30 @@ class TotauxSaisie {
   }) : solde = solde ?? (totalDebit - totalCredit),
        isEquilibre = isEquilibre ?? ((totalDebit - totalCredit).abs() < 0.01),
        isSoldeNegatif = isSoldeNegatif ?? ((totalDebit - totalCredit) < 0);
+}
+
+DateTime _mapDateComptable({
+  dynamic rawDate,
+  dynamic jour,
+  dynamic annee,
+  dynamic mois,
+}) {
+  if (rawDate is String && rawDate.isNotEmpty) {
+    final parsed = DateTime.tryParse(rawDate);
+    if (parsed != null) return parsed;
+  }
+
+  final int day = (jour as num?)?.toInt() ?? 1;
+  final int? year = (annee as num?)?.toInt();
+  final int? month = (mois as num?)?.toInt();
+
+  if (year != null && month != null && month >= 1 && month <= 12) {
+    final lastDay = DateTime(year, month + 1, 0).day;
+    final safeDay = day.clamp(1, lastDay).toInt();
+    return DateTime(year, month, safeDay);
+  }
+
+  return DateTime.now();
 }
 
 /// Convertit des valeurs issues de SQLite en booléen fiable

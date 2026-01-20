@@ -271,11 +271,6 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
     return '$label ${date.year}';
   }
 
-  String _formatFullMonthName(int month) {
-    final index = month.clamp(1, _monthFullNames.length).toInt() - 1;
-    return _monthFullNames[index];
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

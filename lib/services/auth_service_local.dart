@@ -199,6 +199,7 @@ class AuthService {
     try {
       final results = await _db.query(
         'entite',
+        where: 'deleted_at IS NULL',
         orderBy: 'denomination_sociale ASC',
       );
       return results.map((e) => Entite.fromMap(e)).toList();
@@ -309,7 +310,15 @@ class AuthService {
 
   static Future<void> deleteEntite(int id) async {
     try {
-      await _db.delete('entite', where: 'id = ?', whereArgs: [id]);
+      await _db.update(
+        'entite',
+        {
+          'deleted_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
     } catch (e) {
       throw Exception('Erreur lors de la suppression de l\'entité: $e');
     }
@@ -321,7 +330,7 @@ class AuthService {
     try {
       final results = await _db.query(
         'compte',
-        where: 'is_active = ?',
+        where: 'is_active = ? AND deleted_at IS NULL',
         whereArgs: [1],
         orderBy: 'numero_compte ASC',
       );
@@ -377,7 +386,59 @@ class AuthService {
 
   static Future<void> deleteCompte(int id) async {
     try {
-      await _db.delete('compte', where: 'id = ?', whereArgs: [id]);
+      // Récupérer le numéro du compte
+      final results = await _db.query(
+        'compte',
+        where: 'id = ?',
+        whereArgs: [id],
+        columns: ['numero_compte'],
+      );
+
+      if (results.isEmpty) {
+        throw Exception('Compte non trouvé');
+      }
+
+      final numeroCompte = results.first['numero_compte'] as String;
+
+      // Vérifier s'il y a des écritures liées à ce compte
+      final ecrituresResults = await _db.rawQuery(
+        '''
+        SELECT le.id FROM ligne_ecriture le
+        WHERE le.numero_compte = ? AND le.id IS NOT NULL
+        LIMIT 1
+      ''',
+        [numeroCompte],
+      );
+
+      if (ecrituresResults.isNotEmpty) {
+        throw Exception(
+          'Ce compte a des écritures et ne peut pas être supprimé',
+        );
+      }
+
+      // Vérifier s'il y a des tiers liés à ce compte
+      final tiersResults = await _db.query(
+        'tiers',
+        where: 'compte_collectif = ?',
+        whereArgs: [numeroCompte],
+      );
+
+      if (tiersResults.isNotEmpty) {
+        throw Exception(
+          'Ce compte a des tiers associés et ne peut pas être supprimé',
+        );
+      }
+
+      // Soft delete le compte
+      await _db.update(
+        'compte',
+        {
+          'deleted_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
     } catch (e) {
       throw Exception('Erreur lors de la suppression du compte: $e');
     }
@@ -389,7 +450,7 @@ class AuthService {
     try {
       final results = await _db.query(
         'tiers',
-        where: 'is_active = ?',
+        where: 'is_active = ? AND deleted_at IS NULL',
         whereArgs: [1],
         orderBy: 'intitule ASC',
       );
@@ -453,7 +514,48 @@ class AuthService {
 
   static Future<void> deleteTiers(int id) async {
     try {
-      await _db.delete('tiers', where: 'id = ?', whereArgs: [id]);
+      // Récupérer le numéro du compte du tiers
+      final results = await _db.query(
+        'tiers',
+        where: 'id = ?',
+        whereArgs: [id],
+        columns: ['numero_compte'],
+      );
+
+      if (results.isEmpty) {
+        throw Exception('Tiers non trouvé');
+      }
+
+      final numeroCompte = results.first['numero_compte'] as String?;
+
+      // Vérifier s'il y a des écritures liées à ce tiers
+      if (numeroCompte != null && numeroCompte.isNotEmpty) {
+        final ecrituresResults = await _db.rawQuery(
+          '''
+          SELECT le.id FROM ligne_ecriture le
+          WHERE le.numero_compte = ? AND le.id IS NOT NULL
+          LIMIT 1
+        ''',
+          [numeroCompte],
+        );
+
+        if (ecrituresResults.isNotEmpty) {
+          throw Exception(
+            'Ce tiers a des écritures et ne peut pas être supprimé',
+          );
+        }
+      }
+
+      // Soft delete le tiers
+      await _db.update(
+        'tiers',
+        {
+          'deleted_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
     } catch (e) {
       throw Exception('Erreur lors de la suppression du tiers: $e');
     }
@@ -465,7 +567,7 @@ class AuthService {
     try {
       final results = await _db.query(
         'journal',
-        where: 'is_active = ?',
+        where: 'is_active = ? AND deleted_at IS NULL',
         whereArgs: [1],
         orderBy: 'code ASC',
       );
@@ -560,8 +662,16 @@ class AuthService {
         );
       }
 
-      // Supprimer le journal
-      await _db.delete('journal', where: 'id = ?', whereArgs: [id]);
+      // Soft delete le journal
+      await _db.update(
+        'journal',
+        {
+          'deleted_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
     } catch (e) {
       throw Exception('Erreur lors de la suppression du journal: $e');
     }

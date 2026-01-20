@@ -45,7 +45,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
   DateTime? _dateDebut = DateTime.now();
   DateTime? _dateFin = DateTime(DateTime.now().year, 12, 31);
   int _dureeMois = 0;
-  final _longueurGeneralController = TextEditingController(text: '6');
+  final _longueurGeneralController = TextEditingController(text: '8');
   final _longueurTiersController = TextEditingController(text: '8');
 
   bool _isCreating = false;

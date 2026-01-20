@@ -251,6 +251,7 @@ class DatabaseService {
                     journal_periode_id INTEGER NOT NULL,
                     numero_enregistrement INTEGER NOT NULL,
                     jour INTEGER NOT NULL,
+                    date_comptable TEXT,
                     numero_document TEXT,
                     reference TEXT,
                     numero_compte TEXT NOT NULL,
@@ -278,8 +279,9 @@ class DatabaseService {
                     id_poste_budgetaire INTEGER,
                     id_ligne_budgetaire INTEGER,
                     montant_ventile REAL DEFAULT 0,
-                    created_at TEXT,
-                    updated_at TEXT,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    deleted_at TEXT,
                     FOREIGN KEY (ecriture_id) REFERENCES ecritures(id) ON DELETE CASCADE,
                     FOREIGN KEY (id_projet) REFERENCES projet(id) ON DELETE CASCADE,
                     FOREIGN KEY (id_poste_budgetaire) REFERENCES poste_budgetaire(id) ON DELETE CASCADE,
@@ -291,6 +293,8 @@ class DatabaseService {
               } else {
                 await _ensureJournalPeriodeSchema(db);
               }
+
+              await _ensureEcrituresDateComptable(db);
             } catch (e) {
               print('⚠️ Erreur création tables saisie comptable: $e');
             }
@@ -350,8 +354,8 @@ class DatabaseService {
         login TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         role TEXT DEFAULT 'utilisateur',
-        created_at TEXT,
-        updated_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
         deleted_at TEXT
       )
     ''');
@@ -374,6 +378,9 @@ class DatabaseService {
         ajout INTEGER DEFAULT 0,
         modification INTEGER DEFAULT 0,
         suppression INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        deleted_at TEXT,
         FOREIGN KEY (utilisateur_id) REFERENCES utilisateur(id) ON DELETE CASCADE,
         FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE,
         UNIQUE (utilisateur_id, module_id)
@@ -402,8 +409,9 @@ class DatabaseService {
         informations_complementaires TEXT,
         currency TEXT DEFAULT 'XOF',
         created_by INTEGER,
-        created_at TEXT,
-        updated_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        deleted_at TEXT,
         is_active INTEGER DEFAULT 1,
         FOREIGN KEY (created_by) REFERENCES utilisateur(id)
       )
@@ -419,8 +427,9 @@ class DatabaseService {
         nature TEXT NOT NULL,
         liaison_tiers INTEGER DEFAULT 0,
         is_active INTEGER DEFAULT 1,
-        created_at TEXT,
-        updated_at TEXT
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        deleted_at TEXT
       )
     ''');
 
@@ -435,8 +444,9 @@ class DatabaseService {
         nif TEXT,
         adresse TEXT,
         is_active INTEGER DEFAULT 1,
-        created_at TEXT,
-        updated_at TEXT
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        deleted_at TEXT
       )
     ''');
 
@@ -450,8 +460,9 @@ class DatabaseService {
         numero_compte_tresorerie TEXT,
         saisie_analytique INTEGER DEFAULT 0,
         is_active INTEGER DEFAULT 1,
-        created_at TEXT,
-        updated_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        deleted_at TEXT,
         FOREIGN KEY (numero_compte_tresorerie) REFERENCES compte(numero_compte)
       )
     ''');
@@ -462,8 +473,8 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         sigle TEXT UNIQUE NOT NULL,
         designation TEXT NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
         deleted_at TEXT
       )
     ''');
@@ -476,8 +487,8 @@ class DatabaseService {
         designation TEXT NOT NULL,
         date_debut TEXT NOT NULL,
         date_fin TEXT NOT NULL,
-        created_at TEXT,
-        updated_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
         deleted_at TEXT
       )
     ''');
@@ -488,8 +499,8 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         projet_id INTEGER NOT NULL,
         bailleur_id INTEGER NOT NULL,
-        created_at TEXT,
-        updated_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
         FOREIGN KEY (projet_id) REFERENCES projet(id) ON DELETE CASCADE,
         FOREIGN KEY (bailleur_id) REFERENCES bailleur(id),
         UNIQUE (projet_id, bailleur_id)
@@ -503,8 +514,8 @@ class DatabaseService {
         projet_id INTEGER NOT NULL,
         bailleur_id INTEGER NOT NULL,
         exercice_id INTEGER NOT NULL,
-        created_at TEXT,
-        updated_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
         deleted_at TEXT,
         FOREIGN KEY (projet_id) REFERENCES projet(id) ON DELETE CASCADE,
         FOREIGN KEY (bailleur_id) REFERENCES bailleur(id) ON DELETE CASCADE,
@@ -519,8 +530,8 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         budget_id INTEGER NOT NULL,
         intitule TEXT NOT NULL,
-        created_at TEXT,
-        updated_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
         deleted_at TEXT,
         FOREIGN KEY (budget_id) REFERENCES budget(id) ON DELETE CASCADE
       )
@@ -533,8 +544,8 @@ class DatabaseService {
         poste_budgetaire_id INTEGER NOT NULL,
         code TEXT NOT NULL,
         intitule TEXT NOT NULL,
-        created_at TEXT,
-        updated_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
         deleted_at TEXT,
         FOREIGN KEY (poste_budgetaire_id) REFERENCES poste_budgetaire(id) ON DELETE CASCADE
       )
@@ -548,8 +559,8 @@ class DatabaseService {
         intitule TEXT NOT NULL,
         montant REAL NOT NULL DEFAULT 0,
         compte_id INTEGER,
-        created_at TEXT,
-        updated_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
         deleted_at TEXT,
         FOREIGN KEY (ligne_budgetaire_id) REFERENCES ligne_budgetaire(id) ON DELETE CASCADE,
         FOREIGN KEY (compte_id) REFERENCES compte(id)
@@ -566,8 +577,9 @@ class DatabaseService {
         duree_mois INTEGER,
         is_active INTEGER DEFAULT 1,
         is_cloture INTEGER DEFAULT 0,
-        created_at TEXT,
-        updated_at TEXT
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        deleted_at TEXT
       )
     ''');
 
@@ -577,8 +589,9 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         longueur_compte_general INTEGER NOT NULL,
         longueur_compte_tiers INTEGER NOT NULL,
-        created_at TEXT,
-        updated_at TEXT
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        deleted_at TEXT
       )
     ''');
 
@@ -596,8 +609,7 @@ class DatabaseService {
         solde_final REAL DEFAULT 0,
         is_equilibre INTEGER DEFAULT 0,
         is_closed INTEGER DEFAULT 0,
-        created_at TEXT,
-        updated_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
         FOREIGN KEY (code_journal) REFERENCES journal(code),
         FOREIGN KEY (exercice_id) REFERENCES exercice(id),
         UNIQUE (code_journal, annee, mois, exercice_id)
@@ -611,6 +623,7 @@ class DatabaseService {
         journal_periode_id INTEGER NOT NULL,
         numero_enregistrement INTEGER NOT NULL,
         jour INTEGER NOT NULL,
+        date_comptable TEXT,
         numero_document TEXT NOT NULL,
         reference TEXT,
         numero_compte TEXT NOT NULL,
@@ -619,8 +632,9 @@ class DatabaseService {
         montant_debit REAL DEFAULT 0,
         montant_credit REAL DEFAULT 0,
         is_ventilee INTEGER DEFAULT 0,
-        created_at TEXT,
-        updated_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        deleted_at TEXT,
         FOREIGN KEY (journal_periode_id) REFERENCES journaux_periodes(id) ON DELETE CASCADE,
         FOREIGN KEY (numero_compte) REFERENCES compte(numero_compte),
         FOREIGN KEY (numero_tiers) REFERENCES tiers(numero_compte)
@@ -639,8 +653,9 @@ class DatabaseService {
         id_poste_budgetaire INTEGER,
         id_ligne_budgetaire INTEGER,
         montant_ventile REAL DEFAULT 0,
-        created_at TEXT,
-        updated_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        deleted_at TEXT,
         FOREIGN KEY (ecriture_id) REFERENCES ecritures(id) ON DELETE CASCADE,
         FOREIGN KEY (id_projet) REFERENCES projet(id) ON DELETE CASCADE,
         FOREIGN KEY (id_poste_budgetaire) REFERENCES poste_budgetaire(id) ON DELETE CASCADE,
@@ -706,6 +721,35 @@ class DatabaseService {
       }
     } catch (e) {
       print('⚠️ Migration journaux_periodes échouée: $e');
+    }
+  }
+
+  static Future<void> _ensureEcrituresDateComptable(Database db) async {
+    try {
+      final columns = await db.rawQuery("PRAGMA table_info(ecritures)");
+      final hasDateComptable = columns.any(
+        (col) => col['name'] == 'date_comptable',
+      );
+
+      if (!hasDateComptable) {
+        print('🔄 Migration: ajout de date_comptable à ecritures');
+        await db.execute(
+          'ALTER TABLE ecritures ADD COLUMN date_comptable TEXT',
+        );
+      }
+
+      await db.execute('''
+        UPDATE ecritures
+        SET date_comptable = (
+          SELECT printf('%04d-%02d-%02d', jp.annee, jp.mois,
+            CASE WHEN jour BETWEEN 1 AND 31 THEN jour ELSE 1 END)
+          FROM journaux_periodes jp
+          WHERE jp.id = ecritures.journal_periode_id
+        )
+        WHERE date_comptable IS NULL OR date_comptable = ''
+      ''');
+    } catch (e) {
+      print('⚠️ Migration ecritures.date_comptable échouée: $e');
     }
   }
 

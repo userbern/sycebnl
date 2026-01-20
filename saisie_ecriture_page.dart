@@ -321,6 +321,11 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       libelle: _libelleController.text,
       montantDebit: debit,
       montantCredit: credit,
+      dateComptable: DateTime(
+        widget.journalPeriode.annee,
+        widget.journalPeriode.mois,
+        jour,
+      ),
     );
 
     try {

@@ -18,6 +18,10 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
   TypeCompte? _selectedType; // Filtre par type
   int _longueurCompteGeneral = 7; // Valeur par défaut
 
+  // Pagination
+  int _itemsPerPage = 15;
+  int _currentPage = 1;
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +49,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
       setState(() {
         _comptes = comptes;
         _isLoading = false;
+        _currentPage = 1; // Réinitialiser la pagination
       });
     } catch (e) {
       setState(() => _isLoading = false);
@@ -57,6 +62,12 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
         );
       }
     }
+  }
+
+  void _resetPagination() {
+    setState(() {
+      _currentPage = 1;
+    });
   }
 
   List<Compte> get _filteredComptes {
@@ -89,6 +100,25 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
     }
 
     return filtered;
+  }
+
+  List<Compte> get _paginatedComptes {
+    final filtered = _filteredComptes;
+    final startIndex = (_currentPage - 1) * _itemsPerPage;
+    final endIndex = startIndex + _itemsPerPage;
+
+    if (startIndex >= filtered.length) {
+      return [];
+    }
+
+    return filtered.sublist(
+      startIndex,
+      endIndex > filtered.length ? filtered.length : endIndex,
+    );
+  }
+
+  int get _totalPages {
+    return (_filteredComptes.length / _itemsPerPage).ceil();
   }
 
   String _padNumeroCompte(String numero, TypeCompte type) {
@@ -178,78 +208,6 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
         }
       }
     }
-
-     Future<void> _submit() async {
-    if (formKey.currentState!.validate()) {
-      if (calculatedNature == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Numéro de compte invalide'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      final paddedNumero = _padNumeroCompte(
-        numeroController.text.trim(),
-        selectedType,
-      );
-
-      try {
-        if (isEdit) {
-          await DatabaseService.updateCompte(
-            compteId: compte.id,
-            numeroCompte: paddedNumero,
-            intitule: intituleController.text.trim(),
-            type: selectedType.toDbString(),
-            nature: calculatedNature!.toDbString(),
-            liaisonTiers: liaisonTiers,
-            description:
-                descriptionController.text.trim().isEmpty
-                    ? null
-                    : descriptionController.text.trim(),
-          );
-        } else {
-          await DatabaseService.createCompte(
-            numeroCompte: paddedNumero,
-            intitule: intituleController.text.trim(),
-            type: selectedType.toDbString(),
-            nature: calculatedNature!.toDbString(),
-            liaisonTiers: liaisonTiers,
-            description:
-                descriptionController.text.trim().isEmpty
-                    ? null
-                    : descriptionController.text.trim(),
-          );
-        }
-
-        await _loadComptes();
-        if (context.mounted) {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                isEdit
-                    ? 'Compte modifié avec succès'
-                    : 'Compte créé avec succès',
-              ),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erreur: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    }
-  }
 
     showDialog(
       context: context,
@@ -383,7 +341,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                           child: Text(type.toLabel()),
                                         );
                                       }).toList(),
-                                  onChanged: (value) { 
+                                  onChanged: (value) {
                                     if (value != null) {
                                       setDialogState(() {
                                         selectedType = value;
@@ -802,8 +760,10 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                   Expanded(
                     flex: 1,
                     child: TextField(
-                      onChanged:
-                          (value) => setState(() => _searchQuery = value),
+                      onChanged: (value) {
+                        setState(() => _searchQuery = value);
+                        _resetPagination();
+                      },
                       decoration: InputDecoration(
                         isDense: true,
                         labelText: 'Rechercher',
@@ -843,8 +803,10 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                             child: Text(nature.toLabel()),
                           ),
                       ],
-                      onChanged:
-                          (value) => setState(() => _selectedNature = value),
+                      onChanged: (value) {
+                        setState(() => _selectedNature = value);
+                        _resetPagination();
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -874,8 +836,10 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                             child: Text(type.toLabel()),
                           ),
                       ],
-                      onChanged:
-                          (value) => setState(() => _selectedType = value),
+                      onChanged: (value) {
+                        setState(() => _selectedType = value);
+                        _resetPagination();
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -889,6 +853,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                           _selectedNature = null;
                           _selectedType = null;
                         });
+                        _resetPagination();
                       },
                       icon: const Icon(Icons.clear),
                     ),
@@ -925,196 +890,360 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                             ],
                           ),
                         )
-                        : Container(
-                          constraints: const BoxConstraints.expand(),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade200),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.vertical,
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final double screenWidth =
-                                      MediaQuery.of(context).size.width;
-                                  final double availableWidth =
-                                      constraints.maxWidth.isFinite
-                                          ? constraints.maxWidth
-                                          : (screenWidth -
-                                              48); // fallback when unconstrained
-                                  final double colSpacing =
-                                      (availableWidth * 0.02)
-                                          .clamp(8, 48)
-                                          .toDouble();
+                        : Column(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                constraints: const BoxConstraints.expand(),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey.shade200,
+                                  ),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.vertical,
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        final double screenWidth =
+                                            MediaQuery.of(context).size.width;
+                                        final double availableWidth =
+                                            constraints.maxWidth.isFinite
+                                                ? constraints.maxWidth
+                                                : (screenWidth -
+                                                    48); // fallback when unconstrained
+                                        final double colSpacing =
+                                            (availableWidth * 0.02)
+                                                .clamp(8, 48)
+                                                .toDouble();
 
-                                  // proportional column widths (sum + margins should fit availableWidth)
-                                  final double numWidth = availableWidth * 0.12;
-                                  final double actionsWidth =
-                                      availableWidth * 0.08;
-                                  final double typeWidth =
-                                      availableWidth * 0.12;
-                                  final double natureWidth =
-                                      availableWidth * 0.18;
-                                  final double intituleWidth = (availableWidth -
-                                          (numWidth +
-                                              actionsWidth +
-                                              typeWidth +
-                                              natureWidth +
-                                              3 * colSpacing))
-                                      .clamp(80, availableWidth * 0.40);
+                                        // proportional column widths (sum + margins should fit availableWidth)
+                                        final double numWidth =
+                                            availableWidth * 0.12;
+                                        final double actionsWidth =
+                                            availableWidth * 0.08;
+                                        final double typeWidth =
+                                            availableWidth * 0.08;
+                                        final double natureWidth =
+                                            availableWidth * 0.22;
+                                        final double intituleWidth =
+                                            (availableWidth -
+                                                    (numWidth +
+                                                        actionsWidth +
+                                                        typeWidth +
+                                                        natureWidth +
+                                                        3 * colSpacing))
+                                                .clamp(
+                                                  80,
+                                                  availableWidth * 0.40,
+                                                );
 
-                                  return SizedBox(
-                                    width: availableWidth,
-                                    child: DataTable(
-                                      headingRowColor: WidgetStateProperty.all(
-                                        Colors.blue.shade400,
-                                      ),
-                                      headingTextStyle: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                      dataRowMinHeight: 32,
-                                      dataRowMaxHeight: 40,
-                                      columnSpacing: colSpacing,
-                                      horizontalMargin: 24,
-                                      columns: const [
-                                        DataColumn(label: Text('N° Compte')),
-                                        DataColumn(label: Text('Intitulé')),
-                                        DataColumn(label: Text('Type')),
-                                        DataColumn(label: Text('Nature')),
-                                        DataColumn(label: Text('Actions')),
-                                      ],
-                                      rows:
-                                          _filteredComptes.map((compte) {
-                                            return DataRow(
-                                              cells: [
-                                                DataCell(
-                                                  SizedBox(
-                                                    width: numWidth,
-                                                    child: Text(
-                                                      compte.numeroCompte,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        fontFamily: 'monospace',
-                                                        fontSize: 15,
-                                                      ),
-                                                    ),
-                                                  ),
+                                        return SizedBox(
+                                          width: availableWidth,
+                                          child: DataTable(
+                                            headingRowColor:
+                                                WidgetStateProperty.all(
+                                                  Colors.blue.shade400,
                                                 ),
-                                                DataCell(
-                                                  SizedBox(
-                                                    width: intituleWidth,
-                                                    child: Text(
-                                                      compte.intitule,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: const TextStyle(
-                                                        fontSize: 15,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                DataCell(
-                                                  SizedBox(
-                                                    width: typeWidth,
-                                                    child: Text(
-                                                      compte.type.toLabel(),
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: const TextStyle(
-                                                        fontSize: 15,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                DataCell(
-                                                  SizedBox(
-                                                    width: natureWidth,
-                                                    child: Text(
-                                                      compte.nature.toLabel(),
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: _getNatureColor(
-                                                          compte.nature,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                DataCell(
-                                                  SizedBox(
-                                                    width: actionsWidth,
-                                                    child: Row(
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
-                                                      children: [
-                                                        Flexible(
-                                                          child: IconButton(
-                                                            icon: const Icon(
-                                                              Icons.edit,
-                                                              size: 20,
-                                                            ),
-                                                            color:
-                                                                Colors
-                                                                    .blue
-                                                                    .shade700,
-                                                            onPressed:
-                                                                () =>
-                                                                    _showCompteDialog(
-                                                                      compte:
-                                                                          compte,
-                                                                    ),
-                                                            tooltip: 'Modifier',
+                                            headingRowHeight: 45,
+                                            headingTextStyle: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                            dataRowMinHeight: 24,
+                                            dataRowMaxHeight: 32,
+                                            columnSpacing: colSpacing,
+                                            horizontalMargin: 24,
+                                            columns: const [
+                                              DataColumn(
+                                                label: Text('N° Compte'),
+                                              ),
+                                              DataColumn(
+                                                label: Text('Intitulé'),
+                                              ),
+                                              DataColumn(label: Text('Type')),
+                                              DataColumn(label: Text('Nature')),
+                                              DataColumn(
+                                                label: Text('Actions'),
+                                              ),
+                                            ],
+                                            rows:
+                                                _paginatedComptes.map((compte) {
+                                                  return DataRow(
+                                                    cells: [
+                                                      DataCell(
+                                                        SizedBox(
+                                                          width: numWidth,
+                                                          child: Text(
+                                                            compte.numeroCompte,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontFamily:
+                                                                      'monospace',
+                                                                  fontSize: 15,
+                                                                ),
                                                           ),
                                                         ),
-                                                        Flexible(
-                                                          child: IconButton(
-                                                            icon: const Icon(
-                                                              Icons.delete,
-                                                              size: 20,
-                                                            ),
-                                                            color:
-                                                                Colors
-                                                                    .red
-                                                                    .shade700,
-                                                            onPressed:
-                                                                () =>
-                                                                    _deleteCompte(
-                                                                      compte,
-                                                                    ),
-                                                            tooltip:
-                                                                'Supprimer',
+                                                      ),
+                                                      DataCell(
+                                                        SizedBox(
+                                                          width: intituleWidth,
+                                                          child: Text(
+                                                            compte.intitule,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 15,
+                                                                ),
                                                           ),
                                                         ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            );
-                                          }).toList(),
+                                                      ),
+                                                      DataCell(
+                                                        SizedBox(
+                                                          width: typeWidth,
+                                                          child: Text(
+                                                            compte.type
+                                                                .toLabel(),
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 15,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      DataCell(
+                                                        SizedBox(
+                                                          width: natureWidth,
+                                                          child: Text(
+                                                            compte.nature
+                                                                .toLabel(),
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style: TextStyle(
+                                                              fontSize: 14,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              color:
+                                                                  _getNatureColor(
+                                                                    compte
+                                                                        .nature,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      DataCell(
+                                                        SizedBox(
+                                                          width: actionsWidth,
+                                                          child: Row(
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .min,
+                                                            children: [
+                                                              Flexible(
+                                                                child: IconButton(
+                                                                  icon: const Icon(
+                                                                    Icons.edit,
+                                                                    size: 20,
+                                                                  ),
+                                                                  color:
+                                                                      Colors
+                                                                          .blue
+                                                                          .shade700,
+                                                                  onPressed:
+                                                                      () => _showCompteDialog(
+                                                                        compte:
+                                                                            compte,
+                                                                      ),
+                                                                  tooltip:
+                                                                      'Modifier',
+                                                                ),
+                                                              ),
+                                                              Flexible(
+                                                                child: IconButton(
+                                                                  icon: const Icon(
+                                                                    Icons
+                                                                        .delete,
+                                                                    size: 20,
+                                                                  ),
+                                                                  color:
+                                                                      Colors
+                                                                          .red
+                                                                          .shade700,
+                                                                  onPressed:
+                                                                      () => _deleteCompte(
+                                                                        compte,
+                                                                      ),
+                                                                  tooltip:
+                                                                      'Supprimer',
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  );
+                                                }).toList(),
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  );
-                                },
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                            const SizedBox(height: 16),
+                            // Contrôles de pagination
+                            _buildPaginationControls(),
+                          ],
                         ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPaginationControls() {
+    final totalPages = _totalPages;
+    final totalItems = _filteredComptes.length;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Informations
+          Text(
+            'Page $_currentPage sur $totalPages • Total: $totalItems compte${totalItems > 1 ? 's' : ''}',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          // Boutons de pagination
+          Row(
+            children: [
+              ElevatedButton.icon(
+                onPressed:
+                    _currentPage > 1
+                        ? () => setState(() => _currentPage--)
+                        : null,
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('Précédent'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade400,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey.shade300,
+                  disabledForegroundColor: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Sélection de page
+              SizedBox(
+                width: 100,
+                child: DropdownButtonFormField<int>(
+                  isDense: true,
+                  value: _currentPage,
+                  decoration: InputDecoration(
+                    labelText: 'Page',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                  items: List.generate(
+                    totalPages,
+                    (index) => DropdownMenuItem(
+                      value: index + 1,
+                      child: Text('${index + 1}'),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _currentPage = value);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Sélection d'items par page
+              SizedBox(
+                width: 120,
+                child: DropdownButtonFormField<int>(
+                  isDense: true,
+                  value: _itemsPerPage,
+                  decoration: InputDecoration(
+                    labelText: 'Par page',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                  items:
+                      [5, 10, 15, 20, 50]
+                          .map(
+                            (value) => DropdownMenuItem(
+                              value: value,
+                              child: Text('$value'),
+                            ),
+                          )
+                          .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        _itemsPerPage = value;
+                        _currentPage = 1; // Retour à la première page
+                      });
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                onPressed:
+                    _currentPage < totalPages
+                        ? () => setState(() => _currentPage++)
+                        : null,
+                icon: const Icon(Icons.arrow_forward),
+                label: const Text('Suivant'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade400,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey.shade300,
+                  disabledForegroundColor: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

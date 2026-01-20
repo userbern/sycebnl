@@ -46,6 +46,9 @@ dependencies:
   
   # Window management for desktop
   window_manager: ^0.4.3
+  
+  # PDF generation
+  pdf: ^3.10.6
 
 dev_dependencies:
   flutter_test:

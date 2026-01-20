@@ -21,10 +21,19 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
   TypeTiers? _selectedType; // null = tous les types
   String _sortBy = 'numero'; // 'numero' ou 'intitule'
 
+  late FocusNode _focusNode;
+
   @override
   void initState() {
     super.initState();
     _loadData();
+    _focusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
   }
 
   List<Tiers> get _filteredTiers {
@@ -157,250 +166,337 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Row(
-                children: [
-                  Icon(
-                    isEdit ? Icons.edit : Icons.add,
-                    color: Colors.blue.shade400,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(isEdit ? 'Modifier le tiers' : 'Nouveau tiers'),
-                ],
-              ),
-              content: SizedBox(
-                width: 600,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Numéro de compte
-                      TextField(
-                        controller: numeroController,
-                        enabled: !isEdit,
-                        onChanged:
-                            !isEdit
-                                ? (value) {
-                                  // Chercher le compte correspondant
-                                  final compteCollectif = _findCompteByNumero(
-                                    value,
-                                  );
-                                  // Déterminer le type de tiers basé sur le numéro
-                                  final tiersType = _getTypeFromCompteNumber(
-                                    value,
-                                  );
-                                  setDialogState(() {
-                                    if (compteCollectif != null) {
-                                      selectedCompteCollectif =
-                                          compteCollectif.numeroCompte;
-                                    } else {
-                                      selectedCompteCollectif = '';
-                                    }
-                                    if (tiersType != null) {
-                                      selectedType = tiersType;
-                                    }
-                                  });
-                                }
-                                : null,
-                        decoration: InputDecoration(
-                          labelText: 'N° compte *',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade400),
-                          ),
-                          disabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          filled: true,
-                          fillColor:
-                              isEdit
-                                  ? Colors.grey.shade200
-                                  : Colors.grey.shade50,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Intitulé
-                      TextField(
-                        controller: intituleController,
-                        decoration: InputDecoration(
-                          labelText: 'Intitulé *',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Type
-                      DropdownButtonFormField<TypeTiers>(
-                        value: selectedType,
-                        decoration: InputDecoration(
-                          labelText: 'Type *',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade400),
-                          ),
-                          disabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          filled: true,
-                          fillColor:
-                              isEdit
-                                  ? Colors.grey.shade200
-                                  : Colors.grey.shade50,
-                        ),
-                        items:
-                            TypeTiers.values.map((type) {
-                              return DropdownMenuItem(
-                                value: type,
-                                child: Text(type.toLabel()),
-                              );
-                            }).toList(),
-                        onChanged:
-                            isEdit
-                                ? null
-                                : (value) {
-                                  if (value != null) {
-                                    setDialogState(() => selectedType = value);
-                                  }
-                                },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Compte collectif
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              value:
-                                  selectedCompteCollectif.isEmpty
-                                      ? null
-                                      : selectedCompteCollectif,
-                              decoration: InputDecoration(
-                                labelText: 'Compte collectif *',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade400,
-                                  ),
-                                ),
-                                disabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
-                                filled: true,
-                                fillColor:
-                                    isEdit
-                                        ? Colors.grey.shade200
-                                        : Colors.grey.shade50,
-                              ),
-                              items:
-                                  _comptes.map((compte) {
-                                    return DropdownMenuItem(
-                                      value: compte.numeroCompte,
-                                      child: Text(
-                                        '${compte.numeroCompte} - ${compte.intitule}',
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+            return Focus(
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    event.logicalKey == LogicalKeyboardKey.escape) {
+                  Navigator.pop(context);
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: AlertDialog(
+                title: Row(
+                  children: [
+                    Icon(
+                      isEdit ? Icons.edit : Icons.add,
+                      color: Colors.blue.shade400,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(isEdit ? 'Modifier le tiers' : 'Nouveau tiers'),
+                  ],
+                ),
+                content: SizedBox(
+                  width: 600,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Numéro de compte
+                        TextField(
+                          controller: numeroController,
+                          enabled: !isEdit,
+                          onChanged:
+                              !isEdit
+                                  ? (value) {
+                                    // Chercher le compte correspondant
+                                    final compteCollectif = _findCompteByNumero(
+                                      value,
                                     );
-                                  }).toList(),
-                              onChanged:
+                                    // Déterminer le type de tiers basé sur le numéro
+                                    final tiersType = _getTypeFromCompteNumber(
+                                      value,
+                                    );
+                                    setDialogState(() {
+                                      if (compteCollectif != null) {
+                                        selectedCompteCollectif =
+                                            compteCollectif.numeroCompte;
+                                      } else {
+                                        selectedCompteCollectif = '';
+                                      }
+                                      if (tiersType != null) {
+                                        selectedType = tiersType;
+                                      }
+                                    });
+                                  }
+                                  : null,
+                          decoration: InputDecoration(
+                            labelText: 'N° compte *',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade400,
+                              ),
+                            ),
+                            disabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade300,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor:
+                                isEdit
+                                    ? Colors.grey.shade200
+                                    : Colors.grey.shade50,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Intitulé
+                        TextField(
+                          controller: intituleController,
+                          decoration: InputDecoration(
+                            labelText: 'Intitulé *',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Type
+                        DropdownButtonFormField<TypeTiers>(
+                          value: selectedType,
+                          decoration: InputDecoration(
+                            labelText: 'Type *',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade400,
+                              ),
+                            ),
+                            disabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade300,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor:
+                                isEdit
+                                    ? Colors.grey.shade200
+                                    : Colors.grey.shade50,
+                          ),
+                          items:
+                              TypeTiers.values.map((type) {
+                                return DropdownMenuItem(
+                                  value: type,
+                                  child: Text(type.toLabel()),
+                                );
+                              }).toList(),
+                          onChanged:
+                              isEdit
+                                  ? null
+                                  : (value) {
+                                    if (value != null) {
+                                      setDialogState(
+                                        () => selectedType = value,
+                                      );
+                                    }
+                                  },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Compte collectif
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                isExpanded: true,
+                                value:
+                                    selectedCompteCollectif.isEmpty
+                                        ? null
+                                        : selectedCompteCollectif,
+                                decoration: InputDecoration(
+                                  labelText: 'Compte collectif *',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: Colors.grey.shade400,
+                                    ),
+                                  ),
+                                  disabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: Colors.grey.shade300,
+                                    ),
+                                  ),
+                                  filled: true,
+                                  fillColor:
+                                      isEdit
+                                          ? Colors.grey.shade200
+                                          : Colors.grey.shade50,
+                                ),
+                                items:
+                                    _comptes.map((compte) {
+                                      return DropdownMenuItem(
+                                        value: compte.numeroCompte,
+                                        child: Text(
+                                          '${compte.numeroCompte} - ${compte.intitule}',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      );
+                                    }).toList(),
+                                onChanged:
+                                    isEdit
+                                        ? null
+                                        : (value) {
+                                          if (value != null) {
+                                            setDialogState(
+                                              () =>
+                                                  selectedCompteCollectif =
+                                                      value,
+                                            );
+                                          }
+                                        },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: Icon(
+                                Icons.add_circle,
+                                color:
+                                    isEdit
+                                        ? Colors.grey.shade400
+                                        : Colors.blue.shade400,
+                              ),
+                              tooltip: 'Créer un nouveau compte',
+                              onPressed:
                                   isEdit
                                       ? null
-                                      : (value) {
-                                        if (value != null) {
-                                          setDialogState(
-                                            () =>
-                                                selectedCompteCollectif = value,
-                                          );
-                                        }
+                                      : () async {
+                                        _showCompteDialogInlined(
+                                          setDialogState: setDialogState,
+                                          onCompteCreated: (numeroCompte) {
+                                            setDialogState(() {
+                                              selectedCompteCollectif =
+                                                  numeroCompte;
+                                            });
+                                          },
+                                        );
                                       },
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: Icon(
-                              Icons.add_circle,
-                              color:
-                                  isEdit
-                                      ? Colors.grey.shade400
-                                      : Colors.blue.shade400,
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // NIF
+                        TextField(
+                          controller: nifController,
+                          decoration: InputDecoration(
+                            labelText: 'NIF',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            tooltip: 'Créer un nouveau compte',
-                            onPressed:
-                                isEdit
-                                    ? null
-                                    : () async {
-                                      _showCompteDialogInlined(
-                                        setDialogState: setDialogState,
-                                        onCompteCreated: (numeroCompte) {
-                                          setDialogState(() {
-                                            selectedCompteCollectif =
-                                                numeroCompte;
-                                          });
-                                        },
-                                      );
-                                    },
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // NIF
-                      TextField(
-                        controller: nifController,
-                        decoration: InputDecoration(
-                          labelText: 'NIF',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
                         ),
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 16),
 
-                      // Adresse
-                      TextField(
-                        controller: adresseController,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          labelText: 'Adresse',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                        // Adresse
+                        TextField(
+                          controller: adresseController,
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            labelText: 'Adresse',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
                           ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Fermer'),
-                ),
-                if (!isEdit)
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Fermer'),
+                  ),
+                  if (!isEdit)
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (numeroController.text.isEmpty ||
+                            intituleController.text.isEmpty ||
+                            selectedCompteCollectif.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Veuillez remplir tous les champs obligatoires',
+                              ),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                          return;
+                        }
+
+                        try {
+                          await DatabaseService.createTiers(
+                            numeroController.text,
+                            intituleController.text,
+                            selectedType.toDbString(),
+                            selectedCompteCollectif,
+                            nifController.text.isEmpty
+                                ? null
+                                : nifController.text,
+                            adresseController.text.isEmpty
+                                ? null
+                                : adresseController.text,
+                          );
+
+                          // Réinitialiser le formulaire
+                          numeroController.clear();
+                          intituleController.clear();
+                          nifController.clear();
+                          adresseController.clear();
+                          setDialogState(() {
+                            selectedType = TypeTiers.client;
+                            selectedCompteCollectif = '';
+                          });
+
+                          await _loadData();
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Tiers ajouté avec succès'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Erreur: ${e.toString()}'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Ajouter et continuer'),
+                    ),
                   ElevatedButton(
                     onPressed: () async {
                       if (numeroController.text.isEmpty ||
@@ -418,35 +514,45 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                       }
 
                       try {
-                        await DatabaseService.createTiers(
-                          numeroController.text,
-                          intituleController.text,
-                          selectedType.toDbString(),
-                          selectedCompteCollectif,
-                          nifController.text.isEmpty
-                              ? null
-                              : nifController.text,
-                          adresseController.text.isEmpty
-                              ? null
-                              : adresseController.text,
-                        );
-
-                        // Réinitialiser le formulaire
-                        numeroController.clear();
-                        intituleController.clear();
-                        nifController.clear();
-                        adresseController.clear();
-                        setDialogState(() {
-                          selectedType = TypeTiers.client;
-                          selectedCompteCollectif = '';
-                        });
+                        if (isEdit) {
+                          await DatabaseService.updateTiers(
+                            int.parse(tiers.id),
+                            numeroController.text,
+                            intituleController.text,
+                            selectedType.toDbString(),
+                            selectedCompteCollectif,
+                            nifController.text.isEmpty
+                                ? null
+                                : nifController.text,
+                            adresseController.text.isEmpty
+                                ? null
+                                : adresseController.text,
+                          );
+                        } else {
+                          await DatabaseService.createTiers(
+                            numeroController.text,
+                            intituleController.text,
+                            selectedType.toDbString(),
+                            selectedCompteCollectif,
+                            nifController.text.isEmpty
+                                ? null
+                                : nifController.text,
+                            adresseController.text.isEmpty
+                                ? null
+                                : adresseController.text,
+                          );
+                        }
 
                         await _loadData();
-
                         if (context.mounted) {
+                          Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Tiers ajouté avec succès'),
+                            SnackBar(
+                              content: Text(
+                                isEdit
+                                    ? 'Tiers modifié avec succès'
+                                    : 'Tiers ajouté avec succès',
+                              ),
                               backgroundColor: Colors.green,
                             ),
                           );
@@ -462,86 +568,10 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                         }
                       }
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Ajouter et continuer'),
+                    child: Text(isEdit ? 'Enregistrer' : 'Ajouter'),
                   ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (numeroController.text.isEmpty ||
-                        intituleController.text.isEmpty ||
-                        selectedCompteCollectif.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Veuillez remplir tous les champs obligatoires',
-                          ),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                      return;
-                    }
-
-                    try {
-                      if (isEdit) {
-                        await DatabaseService.updateTiers(
-                          int.parse(tiers.id),
-                          numeroController.text,
-                          intituleController.text,
-                          selectedType.toDbString(),
-                          selectedCompteCollectif,
-                          nifController.text.isEmpty
-                              ? null
-                              : nifController.text,
-                          adresseController.text.isEmpty
-                              ? null
-                              : adresseController.text,
-                        );
-                      } else {
-                        await DatabaseService.createTiers(
-                          numeroController.text,
-                          intituleController.text,
-                          selectedType.toDbString(),
-                          selectedCompteCollectif,
-                          nifController.text.isEmpty
-                              ? null
-                              : nifController.text,
-                          adresseController.text.isEmpty
-                              ? null
-                              : adresseController.text,
-                        );
-                      }
-
-                      await _loadData();
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              isEdit
-                                  ? 'Tiers modifié avec succès'
-                                  : 'Tiers ajouté avec succès',
-                            ),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Erreur: ${e.toString()}'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  child: Text(isEdit ? 'Enregistrer' : 'Ajouter'),
-                ),
-              ],
+                ],
+              ),
             );
           },
         );
@@ -1079,15 +1109,15 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent &&
+    return RawKeyboardListener(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKey: (event) {
+        if (event is RawKeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyN &&
             HardwareKeyboard.instance.isControlPressed) {
           _showTiersDialog();
-          return KeyEventResult.handled;
         }
-        return KeyEventResult.ignored;
       },
       child: Scaffold(
         backgroundColor: Colors.grey.shade50,

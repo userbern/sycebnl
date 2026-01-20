@@ -3,6 +3,7 @@ import '../models/exercice.dart';
 import '../models/projet.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import 'balance_resultat_page.dart';
 
 class BalanceComptesPage extends StatefulWidget {
   final int? exerciceId;
@@ -20,7 +21,8 @@ class BalanceComptesPage extends StatefulWidget {
 
 class _BalanceComptesPageState extends State<BalanceComptesPage> {
   // Bloc 1 - Type d'état
-  String _typeEtat = 'general'; // 'general' ou 'analytique'
+  String _typeEtat =
+      'general'; // 'general', 'tiers', 'analytique', 'tiers_analytique'
   int? _projetSelectionne;
   List<Projet> _projets = [];
   bool _isLoadingProjets = false;
@@ -205,7 +207,8 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
       }
 
       // Validation analytique : au moins un bailleur si projet sélectionné
-      if (_typeEtat == 'analytique' && _projetSelectionne != null) {
+      if ((_typeEtat == 'analytique' || _typeEtat == 'tiers_analytique') &&
+          _projetSelectionne != null) {
         if (_bailleursSelectionnes.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -219,11 +222,33 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
         }
       }
 
-      // TODO: Implémenter l'affichage de la balance
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Affichage de la balance...'),
-          backgroundColor: Colors.green,
+      // Naviguer vers la page des résultats
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) => BalanceResultatPage(
+                typeEtat: _typeEtat,
+                projetId: _projetSelectionne,
+                bailleursSelectionnes:
+                    _bailleursSelectionnes.isNotEmpty
+                        ? _bailleursSelectionnes
+                        : null,
+                tousLesBailleurs: _tousLesBailleurs,
+                dateDebut: _dateDebut!,
+                dateFin: _dateFin!,
+                exerciceId: widget.exerciceId,
+                compteDebut:
+                    _compteDebutController.text.isEmpty
+                        ? null
+                        : _compteDebutController.text,
+                compteFin:
+                    _compteFinController.text.isEmpty
+                        ? null
+                        : _compteFinController.text,
+                inclureComptesSansMouvement: _inclureComptesSansMouvement,
+                exercice: _exercice,
+              ),
         ),
       );
     }
@@ -457,6 +482,25 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                     ),
                                     Expanded(
                                       child: RadioListTile<String>(
+                                        title: const Text('Tiers'),
+                                        value: 'tiers',
+                                        groupValue: _typeEtat,
+                                        activeColor: Colors.blue.shade700,
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _typeEtat = value!;
+                                            _projetSelectionne = null;
+                                          });
+                                        },
+                                        dense: true,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: RadioListTile<String>(
                                         title: const Text('Analytique'),
                                         value: 'analytique',
                                         groupValue: _typeEtat,
@@ -469,9 +513,24 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                         dense: true,
                                       ),
                                     ),
+                                    Expanded(
+                                      child: RadioListTile<String>(
+                                        title: const Text('Tiers & Analytique'),
+                                        value: 'tiers_analytique',
+                                        groupValue: _typeEtat,
+                                        activeColor: Colors.blue.shade700,
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _typeEtat = value!;
+                                          });
+                                        },
+                                        dense: true,
+                                      ),
+                                    ),
                                   ],
                                 ),
-                                if (_typeEtat == 'analytique')
+                                if (_typeEtat == 'analytique' ||
+                                    _typeEtat == 'tiers_analytique')
                                   Padding(
                                     padding: const EdgeInsets.only(
                                       top: 8,
