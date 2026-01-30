@@ -63,6 +63,12 @@ class ExportService {
     required List<Map<String, dynamic>> comptes,
     required Map<String, dynamic>? totals,
     required BuildContext context,
+    required Map<String, dynamic>? entite,
+    required String? projetDesignation,
+    required String? bailleursDesignation,
+    required String typeEtat,
+    required DateTime dateDebut,
+    required DateTime dateFin,
   }) async {
     try {
       final pdfData = await _generatePDF(
@@ -71,6 +77,12 @@ class ExportService {
         periodInfo: periodInfo,
         comptes: comptes,
         totals: totals,
+        entite: entite,
+        projetDesignation: projetDesignation,
+        bailleursDesignation: bailleursDesignation,
+        typeEtat: typeEtat,
+        dateDebut: dateDebut,
+        dateFin: dateFin,
       );
 
       if (context.mounted) {
@@ -118,33 +130,141 @@ class ExportService {
     required String periodInfo,
     required List<Map<String, dynamic>> comptes,
     required Map<String, dynamic>? totals,
+    Map<String, dynamic>? entite,
+    String? projetDesignation,
+    String? bailleursDesignation,
+    String typeEtat = 'general',
+    DateTime? dateDebut,
+    DateTime? dateFin,
   }) async {
     final pdf = pw.Document();
 
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4.landscape,
-        margin: const pw.EdgeInsets.all(16),
+        margin: const pw.EdgeInsets.all(12),
         build: (context) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // En-tête
-              pw.Text(
-                title,
-                style: pw.TextStyle(
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
+              // Titre
+              pw.Center(
+                child: pw.Text(
+                  'RÉSULTATS DE LA BALANCE',
+                  style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.blue800,
+                  ),
                 ),
               ),
               pw.SizedBox(height: 8),
-              pw.Text(
-                'Entité: $entityName',
-                style: const pw.TextStyle(fontSize: 10),
+
+              // Info card (Entité, NIF, Adresse, Période)
+              pw.Container(
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.grey300, width: 1),
+                ),
+                child: pw.Column(
+                  children: [
+                    // Ligne 1: Dénomination, NIF, Adresse, Période
+                    pw.Row(
+                      children: [
+                        pw.Expanded(
+                          child: _buildInfoCell('Dénomination sociale', true),
+                        ),
+                        pw.Expanded(
+                          child: _buildInfoCell(
+                            entite?['denomination_sociale'] as String? ?? '—',
+                            true,
+                          ),
+                        ),
+                        pw.Expanded(child: _buildInfoCell('NIF', true)),
+                        pw.Expanded(
+                          child: _buildInfoCell(
+                            entite?['numero_fiscal'] as String? ?? '—',
+                            false,
+                            borderBottom: true,
+                          ),
+                        ),
+                        pw.Expanded(
+                          child: _buildInfoCell(
+                            'Adresse',
+                            true,
+                            borderBottom: true,
+                          ),
+                        ),
+                        pw.Expanded(
+                          child: _buildInfoCell(
+                            _formatAddress(entite),
+                            false,
+                            borderBottom: true,
+                          ),
+                        ),
+                        pw.Expanded(
+                          child: _buildInfoCell(
+                            'Période',
+                            true,
+                            borderBottom: true,
+                          ),
+                        ),
+                        pw.Expanded(
+                          child: _buildInfoCell(
+                            dateDebut != null && dateFin != null
+                                ? '${dateDebut.toString().split(' ')[0]} - ${dateFin.toString().split(' ')[0]}'
+                                : '—',
+                            false,
+                            borderBottom: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Ligne 2: Type, Projet, Bailleur
+                    pw.Row(
+                      children: [
+                        pw.Expanded(child: _buildInfoCell('TYPE', true)),
+                        pw.Expanded(
+                          child: _buildInfoCell(_getTypeEtat(typeEtat), true),
+                        ),
+                        pw.Expanded(child: pw.SizedBox()),
+                        pw.Expanded(
+                          child: _buildInfoCell(
+                            'PROJET',
+                            true,
+                            borderAll: true,
+                          ),
+                        ),
+                        pw.Expanded(
+                          flex: 2,
+                          child: _buildInfoCell(
+                            projetDesignation ?? '—',
+                            false,
+                            borderAll: true,
+                          ),
+                        ),
+                        pw.Expanded(
+                          child: _buildInfoCell(
+                            'BAILLEUR',
+                            true,
+                            borderAll: true,
+                          ),
+                        ),
+                        pw.Expanded(
+                          flex: 2,
+                          child: _buildInfoCell(
+                            bailleursDesignation ?? '—',
+                            false,
+                            borderAll: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              pw.Text(periodInfo, style: const pw.TextStyle(fontSize: 10)),
               pw.SizedBox(height: 12),
-              // Tableau avec le même layout que l'interface
+
+              // Tableau des comptes
               _buildBalanceTable(comptes),
             ],
           );
@@ -153,6 +273,57 @@ class ExportService {
     );
 
     return pdf.save();
+  }
+
+  static pw.Widget _buildInfoCell(
+    String text,
+    bool isBold, {
+    bool borderBottom = false,
+    bool borderAll = false,
+  }) {
+    final borders =
+        borderAll
+            ? pw.Border.all(color: PdfColors.black, width: 0.5)
+            : borderBottom
+            ? pw.Border(
+              bottom: const pw.BorderSide(color: PdfColors.black, width: 0.5),
+            )
+            : pw.Border.all(color: PdfColors.grey300, width: 0.5);
+
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+      decoration: pw.BoxDecoration(border: borders),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          fontSize: 8,
+          fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+        ),
+        maxLines: 1,
+        overflow: pw.TextOverflow.clip,
+      ),
+    );
+  }
+
+  static String _formatAddress(Map<String, dynamic>? entite) {
+    if (entite == null) return '—';
+    final address = entite['adresse'] as String? ?? '';
+    final ville = entite['ville'] as String? ?? '';
+    if (address.isEmpty && ville.isEmpty) return '—';
+    return '$address ${ville.isNotEmpty ? ', $ville' : ''}'.trim();
+  }
+
+  static String _getTypeEtat(String typeEtat) {
+    switch (typeEtat) {
+      case 'general':
+        return 'GÉNÉRAL';
+      case 'tiers':
+        return 'TIERS';
+      case 'tiers_analytique':
+        return 'TIERS & ANALYTIQUE';
+      default:
+        return 'ANALYTIQUE';
+    }
   }
 
   /// Construit le tableau de balance avec le layout exact
@@ -459,9 +630,14 @@ class ExportService {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('PDF téléchargé: $fileName'),
+            content: Text('PDF téléchargé: $fileName\n$filePath'),
             backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
           ),
         );
       }

@@ -17,6 +17,7 @@ import 'journal_periode_selection_page.dart';
 import 'journaux_de_saisie_page.dart';
 import 'saisie_ecriture_page.dart';
 import 'balance_comptes_page.dart';
+import 'permissions_page.dart';
 import '../models/saisie_comptable.dart';
 
 class HomePage extends StatefulWidget {
@@ -42,6 +43,12 @@ class _HomePageState extends State<HomePage> {
   bool _isSidebarCollapsed = false;
   static const List<_QuickAccessItem> _quickAccessItems = [
     _QuickAccessItem(
+      label: 'Plan comptable',
+      icon: Icons.list_alt,
+      pageIndex: 4,
+    ),
+    _QuickAccessItem(label: 'Codes journaux', icon: Icons.code, pageIndex: 6),
+    _QuickAccessItem(
       label: 'Saisie comptable',
       icon: Icons.receipt_long,
       pageIndex: 10,
@@ -55,13 +62,7 @@ class _HomePageState extends State<HomePage> {
       label: 'Interrogations & Lettrages',
       icon: Icons.search,
       pageIndex: 11,
-    ),
-    _QuickAccessItem(
-      label: 'Plan comptable',
-      icon: Icons.list_alt,
-      pageIndex: 4,
-    ),
-    _QuickAccessItem(label: 'Codes journaux', icon: Icons.code, pageIndex: 6),
+    )
   ];
 
   @override
@@ -1047,7 +1048,7 @@ class _HomePageState extends State<HomePage> {
       case 1:
         return EntiteIdentificationPage(onDataUpdated: _loadDatabaseInfo);
       case 2:
-        return _buildPlaceholderPage('Autorisations d\'accès');
+        return const PermissionsPage(showAppBar: false);
       case 4:
         return const PlanComptablePage();
       case 5:

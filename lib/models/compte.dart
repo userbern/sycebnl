@@ -363,10 +363,10 @@ class Compte {
   factory Compte.fromMap(Map<String, dynamic> map) {
     return Compte(
       id: map['id'].toString(),
-      numeroCompte: map['numero_compte'] as String,
-      intitule: map['intitule'] as String,
-      type: stringToTypeCompte(map['type'] as String),
-      nature: stringToNatureCompte(map['nature'] as String),
+      numeroCompte: (map['numero_compte'] ?? '') as String,
+      intitule: (map['intitule'] ?? '') as String,
+      type: stringToTypeCompte((map['type'] ?? 'detail') as String),
+      nature: stringToNatureCompte((map['nature'] ?? '') as String),
       liaisonTiers: ((map['liaison_tiers'] ?? 0) as int) == 1,
       description: map['description'] as String?,
       isActive: ((map['is_active'] ?? 1) as int) == 1,

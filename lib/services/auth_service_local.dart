@@ -145,7 +145,7 @@ class AuthService {
       final users = await _db.query(
         'utilisateur',
         where: 'deleted_at IS NULL',
-        orderBy: 'nom ASC',
+        orderBy: 'login ASC',
       );
       return users;
     } catch (e) {

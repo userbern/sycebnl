@@ -342,10 +342,14 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                 ),
                                 items:
                                     _comptes.map((compte) {
+                                      final displayIntitule =
+                                          compte.intitule.isEmpty
+                                              ? compte.nature.toLabel()
+                                              : compte.intitule;
                                       return DropdownMenuItem(
                                         value: compte.numeroCompte,
                                         child: Text(
-                                          '${compte.numeroCompte} - ${compte.intitule}',
+                                          '${compte.numeroCompte} - $displayIntitule',
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       );
@@ -1365,8 +1369,8 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                               color: Colors.white,
                                               fontWeight: FontWeight.bold,
                                             ),
-                                            dataRowMinHeight: 36,
-                                            dataRowMaxHeight: 48,
+                                            dataRowMinHeight: 24,
+                                            dataRowMaxHeight: 32,
                                             columnSpacing: columnSpacing,
                                             horizontalMargin: 24,
                                             columns: const [

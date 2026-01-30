@@ -238,7 +238,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
           _entite?['ville'] as String?,
           _entite?['quartier'] as String?,
         ].where((e) => e != null && e.isNotEmpty).cast<String>().toList();
-    if (parts.isEmpty) return '—';
+    if (parts.isEmpty) return ' ';
     return parts.join(', ');
   }
 
@@ -370,14 +370,14 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                               Expanded(
                                 child: _headerCell(
                                   _entite?['denomination_sociale'] as String? ??
-                                      '—',
+                                      ' ',
                                   bold: true,
                                 ),
                               ),
                               Expanded(child: _headerCell('NIF', bold: true)),
                               Expanded(
                                 child: _headerCell(
-                                  _entite?['numero_fiscal'] as String? ?? '—',
+                                  _entite?['numero_fiscal'] as String? ?? ' ',
                                   borderBottom: true,
                                 ),
                               ),
@@ -437,12 +437,12 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                 ),
                               ),
                               Expanded(
+                                flex: 2,
                                 child: _headerCell(
-                                  _projetDesignation ?? '—',
+                                  _projetDesignation ?? ' ',
                                   borderAll: true,
                                 ),
                               ),
-                              Expanded(child: _headerCell('', borderAll: true)),
                               Expanded(
                                 child: _headerCell(
                                   'BAILLEUR',
@@ -452,7 +452,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                               ),
                               Expanded(
                                 child: _headerCell(
-                                  _bailleursDesignation ?? '—',
+                                  _bailleursDesignation ?? ' ',
                                   borderAll: true,
                                 ),
                               ),
@@ -1339,6 +1339,12 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         comptes: _comptes,
         totals: null,
         context: context,
+        entite: _entite,
+        projetDesignation: _projetDesignation,
+        bailleursDesignation: _bailleursDesignation,
+        typeEtat: widget.typeEtat,
+        dateDebut: widget.dateDebut,
+        dateFin: widget.dateFin,
       );
     } catch (e) {
       if (mounted) {
