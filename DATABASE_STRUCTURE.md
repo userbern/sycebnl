@@ -229,8 +229,14 @@ CREATE TABLE compte (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   numero_compte TEXT NOT NULL UNIQUE,
   intitule TEXT NOT NULL,
-  type_compte TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  type TEXT NOT NULL,
+  nature TEXT NOT NULL,
+  liaison_tiers INTEGER DEFAULT 0,
+  description TEXT,
+  is_active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TEXT
 );
 ```
 

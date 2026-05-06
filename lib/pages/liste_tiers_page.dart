@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../services/database_service_new.dart';
+import '../services/database_service.dart';
 import '../models/tiers.dart';
 import '../models/compte.dart';
 
@@ -180,7 +180,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                   children: [
                     Icon(
                       isEdit ? Icons.edit : Icons.add,
-                      color: Colors.blue.shade400,
+                      color: Colors.blue.shade100,
                     ),
                     const SizedBox(width: 12),
                     Text(isEdit ? 'Modifier le tiers' : 'Nouveau tiers'),
@@ -1133,7 +1133,14 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
               // En-tête
               Row(
                 children: [
-                  Icon(Icons.people, size: 32, color: Colors.blue.shade400),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade200,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.people, size: 32, color: Colors.black),
+                  ),
                   const SizedBox(width: 12),
                   const Text(
                     'Liste des tiers',
@@ -1146,7 +1153,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                   const Spacer(),
                   ElevatedButton.icon(
                     onPressed: () => _showTiersDialog(),
-                    icon: const Icon(Icons.add),
+                    icon: const Icon(Icons.add, color: Colors.white),
                     label: const Text('Nouveau tiers (Ctrl+N)'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue.shade400,
@@ -1365,14 +1372,14 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                                 WidgetStateProperty.all(
                                                   Colors.blue.shade400,
                                                 ),
-                                            headingTextStyle: const TextStyle(
+                                            headingTextStyle: TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.bold,
                                             ),
                                             dataRowMinHeight: 24,
                                             dataRowMaxHeight: 32,
                                             columnSpacing: columnSpacing,
-                                            horizontalMargin: 24,
+                                            horizontalMargin: 12,
                                             columns: const [
                                               DataColumn(
                                                 label: Text('N° Compte'),

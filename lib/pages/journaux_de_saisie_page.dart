@@ -219,6 +219,42 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
     }).toList();
   }
 
+  String? _selectedMonthValue(List<_MonthOption> monthOptions) {
+    final selectedId = _selectedMonthId;
+    return monthOptions.any((option) => option.id == selectedId)
+        ? selectedId
+        : null;
+  }
+
+  void _applyMonthSelection(
+    String? selectedId,
+    List<_MonthOption> monthOptions,
+  ) {
+    setState(() {
+      _selectedMonthId = selectedId;
+      if (selectedId == null) {
+        _selectedMonth = null;
+      } else {
+        final selectedOption = monthOptions.firstWhere(
+          (option) => option.id == selectedId,
+          orElse: () => monthOptions.first,
+        );
+        _selectedMonth = selectedOption.mois;
+        _selectedYear = selectedOption.annee;
+      }
+    });
+  }
+
+  void _applyYearSelection(int? value) {
+    if (value == null) return;
+    setState(() => _selectedYear = value == 0 ? null : value);
+  }
+
+  void _clearSearchControllers() {
+    _codeSearchController.clear();
+    _intituleSearchController.clear();
+  }
+
   List<_MonthOption> get _availableMonthOptions {
     if (_rows.isEmpty) return [];
 
@@ -301,7 +337,6 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
 
     return Container(
       padding: const EdgeInsets.all(24),
-      color: Colors.blue.shade200,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -310,13 +345,13 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: Colors.black,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             subtitle,
-            style: const TextStyle(fontSize: 14, color: Colors.white70),
+            style: const TextStyle(fontSize: 14, color: Colors.black),
           ),
           const SizedBox(height: 12),
           if (exercice != null)
@@ -331,7 +366,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
 
                 return Text(
                   infoText,
-                  style: const TextStyle(fontSize: 12, color: Colors.white54),
+                  style: const TextStyle(fontSize: 12, color: Colors.black),
                 );
               },
             ),
@@ -527,10 +562,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
             ),
           ];
 
-          final selectedMonthValue =
-              monthOptions.any((option) => option.id == _selectedMonthId)
-                  ? _selectedMonthId
-                  : null;
+          final selectedMonthValue = _selectedMonthValue(monthOptions);
 
           if (monthOptions.isNotEmpty) {
             children.add(
@@ -557,20 +589,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
                     ),
                   ],
                   onChanged: (value) {
-                    final selectedId = value;
-                    setState(() {
-                      _selectedMonthId = selectedId;
-                      if (selectedId == null) {
-                        _selectedMonth = null;
-                      } else {
-                        final selectedOption = monthOptions.firstWhere(
-                          (option) => option.id == selectedId,
-                          orElse: () => monthOptions.first,
-                        );
-                        _selectedMonth = selectedOption.mois;
-                        _selectedYear = selectedOption.annee;
-                      }
-                    });
+                    _applyMonthSelection(value, monthOptions);
                   },
                 ),
               ),
@@ -601,14 +620,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
                     ),
                   ],
                   onChanged:
-                      _selectedMonthId != null
-                          ? null
-                          : (value) {
-                            if (value == null) return;
-                            setState(
-                              () => _selectedYear = value == 0 ? null : value,
-                            );
-                          },
+                      _selectedMonthId != null ? null : _applyYearSelection,
                 ),
               ),
             );
@@ -652,8 +664,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
       _selectedMonthId = null;
       _selectedMonth = null;
       _selectedYear = null;
-      _codeSearchController.clear();
-      _intituleSearchController.clear();
+      _clearSearchControllers();
     });
   }
 
@@ -678,7 +689,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
         final table = DataTable(
           showCheckboxColumn: false,
           headingRowColor: WidgetStateProperty.resolveWith(
-            (states) => Colors.blue.shade400,
+            (states) => Colors.blue.shade300,
           ),
           dataRowMinHeight: 32,
           dataRowMaxHeight: 40,
@@ -688,12 +699,24 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
             DataColumn(
               label: Padding(
                 padding: EdgeInsets.only(left: 12),
-                child: Text('Période'),
+                child: Text('Période', style: TextStyle(color: Colors.white)),
               ),
             ),
-            DataColumn(label: Text('Code')),
-            DataColumn(label: Text('Intitulé du journal')),
-            DataColumn(label: Text('Statut du journal')),
+            DataColumn(
+              label: Text('Code', style: TextStyle(color: Colors.white)),
+            ),
+            DataColumn(
+              label: Text(
+                'Intitulé du journal',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Statut du journal',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
           ],
           rows: rows.map(_buildDataRow).toList(),
         );

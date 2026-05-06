@@ -70,6 +70,9 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
 
       final isTiers =
           widget.typeEtat == 'tiers' || widget.typeEtat == 'tiers_analytique';
+      final isAnalytique =
+          widget.typeEtat == 'analytique' ||
+          widget.typeEtat == 'tiers_analytique';
 
       String query;
       final queryArgs = <dynamic>[];
@@ -84,6 +87,20 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
           FROM ecritures e
           LEFT JOIN tiers t ON e.numero_tiers = t.numero_compte
           LEFT JOIN journaux_periodes jp ON e.journal_periode_id = jp.id
+        ''';
+
+        // Utiliser INNER JOIN pour les ventilations analytiques si filtrage actif
+        if (isAnalytique &&
+            (widget.projetId != null ||
+                (!widget.tousLesBailleurs &&
+                    widget.bailleursSelectionnes != null &&
+                    widget.bailleursSelectionnes!.isNotEmpty))) {
+          query += '''
+          INNER JOIN ventilations_analytiques va ON e.id = va.ecriture_id AND va.deleted_at IS NULL
+          ''';
+        }
+
+        query += '''
           WHERE e.numero_tiers IS NOT NULL
         ''';
       } else {
@@ -96,6 +113,20 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
           FROM compte c
           LEFT JOIN ecritures e ON c.numero_compte = e.numero_compte
           LEFT JOIN journaux_periodes jp ON e.journal_periode_id = jp.id
+        ''';
+
+        // Utiliser INNER JOIN pour les ventilations analytiques si filtrage actif
+        if (isAnalytique &&
+            (widget.projetId != null ||
+                (!widget.tousLesBailleurs &&
+                    widget.bailleursSelectionnes != null &&
+                    widget.bailleursSelectionnes!.isNotEmpty))) {
+          query += '''
+          INNER JOIN ventilations_analytiques va ON e.id = va.ecriture_id AND va.deleted_at IS NULL
+          ''';
+        }
+
+        query += '''
           WHERE 1=1
         ''';
       }
@@ -110,19 +141,25 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         queryArgs.add(widget.exerciceId);
       }
 
-      if (isTiers) {
-        query += ' AND (e.numero_tiers LIKE \'4%\')';
+      // Filtre analytique : projet et bailleurs
+      if (isAnalytique) {
+        if (widget.projetId != null) {
+          query += ' AND va.id_projet = ?';
+          queryArgs.add(widget.projetId);
+        }
+
+        // Si bailleurs sélectionnés (pas "tous")
+        if (!widget.tousLesBailleurs &&
+            widget.bailleursSelectionnes != null &&
+            widget.bailleursSelectionnes!.isNotEmpty) {
+          query +=
+              ' AND va.id_bailleur IN (${widget.bailleursSelectionnes!.map((_) => '?').join(', ')})';
+          queryArgs.addAll(widget.bailleursSelectionnes!);
+        }
       }
 
-      if (widget.compteDebut != null && widget.compteDebut!.isNotEmpty) {
-        query +=
-            isTiers ? ' AND e.numero_tiers >= ?' : ' AND c.numero_compte >= ?';
-        queryArgs.add(widget.compteDebut);
-      }
-      if (widget.compteFin != null && widget.compteFin!.isNotEmpty) {
-        query +=
-            isTiers ? ' AND e.numero_tiers <= ?' : ' AND c.numero_compte <= ?';
-        queryArgs.add(widget.compteFin);
+      if (isTiers) {
+        // Le filtre pour tiers (4%) est déjà dans le WHERE clause
       }
 
       query +=
@@ -192,6 +229,11 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
 
       final comptes = <Map<String, dynamic>>[];
       for (final row in results) {
+        final numeroCompte = (row['numero_compte'] as String?) ?? '';
+        if (!_isCompteInPrefixRange(numeroCompte)) {
+          continue;
+        }
+
         final totalDebit = (row['total_debit'] as num?)?.toDouble() ?? 0.0;
         final totalCredit = (row['total_credit'] as num?)?.toDouble() ?? 0.0;
 
@@ -202,7 +244,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         }
 
         comptes.add({
-          'numero': row['numero_compte'] as String,
+          'numero': numeroCompte,
           'intitule': row['intitule'] as String,
           'mouvementDebit': totalDebit,
           'mouvementCredit': totalCredit,
@@ -229,6 +271,54 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
 
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  String? _normalizeComptePrefix(String? value) {
+    if (value == null) return null;
+
+    final cleaned = value.trim().replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleaned.isEmpty) return null;
+    return cleaned;
+  }
+
+  bool _isCompteInPrefixRange(String numeroCompte) {
+    final debutPrefix = _normalizeComptePrefix(widget.compteDebut);
+    final finPrefix = _normalizeComptePrefix(widget.compteFin);
+
+    if (debutPrefix == null && finPrefix == null) {
+      return true;
+    }
+
+    final compteValue = _normalizeComptePrefix(numeroCompte);
+    if (compteValue == null) {
+      return false;
+    }
+
+    var maxLength = compteValue.length;
+    if (debutPrefix != null && debutPrefix.length > maxLength) {
+      maxLength = debutPrefix.length;
+    }
+    if (finPrefix != null && finPrefix.length > maxLength) {
+      maxLength = finPrefix.length;
+    }
+
+    final normalizedCompte = compteValue.padRight(maxLength, '0');
+
+    if (debutPrefix != null) {
+      final lowerBound = debutPrefix.padRight(maxLength, '0');
+      if (normalizedCompte.compareTo(lowerBound) < 0) {
+        return false;
+      }
+    }
+
+    if (finPrefix != null) {
+      final upperBound = finPrefix.padRight(maxLength, '9');
+      if (normalizedCompte.compareTo(upperBound) > 0) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   String _formatAddress() {

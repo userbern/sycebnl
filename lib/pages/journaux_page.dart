@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
-import '../services/database_service_new.dart' as db_service;
+import '../services/database_service.dart' as db_service;
 import '../models/journal.dart';
 import '../models/compte.dart';
 import '../models/user_session.dart';
@@ -169,11 +169,12 @@ class _JournauxPageState extends State<JournauxPage> {
 
   @override
   Widget build(BuildContext context) {
-    return RawKeyboardListener(
+    return KeyboardListener(
       focusNode: _focusNode,
       autofocus: true,
-      onKey: (event) {
-        if (event.logicalKey == LogicalKeyboardKey.keyN &&
+      onKeyEvent: (event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.keyN &&
             HardwareKeyboard.instance.isControlPressed) {
           _showJournalDialog(null);
         }
@@ -205,6 +206,19 @@ class _JournauxPageState extends State<JournauxPage> {
                         children: [
                           Row(
                             children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.account_balance_wallet,
+                                  size: 32,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
                               const Text(
                                 'Codes Journaux',
                                 style: TextStyle(
@@ -216,7 +230,10 @@ class _JournauxPageState extends State<JournauxPage> {
                               const Spacer(),
                               ElevatedButton.icon(
                                 onPressed: () => _showJournalDialog(null),
-                                icon: const Icon(Icons.add),
+                                icon: const Icon(
+                                  Icons.add,
+                                  color: Colors.white,
+                                ),
                                 label: const Text('Nouveau (Ctrl+N)'),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.blue.shade400,
@@ -335,7 +352,7 @@ class _JournauxPageState extends State<JournauxPage> {
                                       _filterStatus = 'actifs';
                                     });
                                   },
-                                  icon: const Icon(Icons.clear),
+                                  icon: const Icon(Icons.restart_alt),
                                 ),
                               ),
                             ],
@@ -362,8 +379,8 @@ class _JournauxPageState extends State<JournauxPage> {
                                   final double availableWidth =
                                       constraints.maxWidth;
                                   final double horizontalPadding =
-                                      (availableWidth * 0.05)
-                                          .clamp(16, 80)
+                                      (availableWidth * 0.02)
+                                          .clamp(12, 64)
                                           .toDouble();
                                   final double tableWidth =
                                       availableWidth - (horizontalPadding * 2);
@@ -432,11 +449,11 @@ class _JournauxPageState extends State<JournauxPage> {
                                             width: tableWidth,
                                             child: DataTable(
                                               columnSpacing: columnSpacing,
-                                              horizontalMargin: 24,
+                                              horizontalMargin: 16,
                                               dataRowMinHeight: 28,
                                               dataRowMaxHeight: 40,
                                               headingRowColor:
-                                                  MaterialStateProperty.all(
+                                                  WidgetStateProperty.all(
                                                     Colors.blue.shade400,
                                                   ),
                                               headingTextStyle: const TextStyle(
@@ -1614,91 +1631,6 @@ class _JournalDialogState extends State<JournalDialog> {
         ],
       ),
     );
-  }
-
-  NatureCompte _calculateNatureFromNumero(String numero) {
-    if (numero.isEmpty) return NatureCompte.bilanBanque;
-
-    // Extraire les 2 premiers chiffres pour les cas spéciaux
-    String twoDigitPrefix = '';
-    if (numero.length >= 2) {
-      twoDigitPrefix = numero.substring(0, 2);
-    }
-
-    // Cas spécifiques 2 chiffres
-    switch (twoDigitPrefix) {
-      case '40':
-        return NatureCompte.bilanFournisseurs;
-      case '41':
-        return NatureCompte.bilanAdherentsClientsUsagers;
-      case '42':
-        return NatureCompte.bilanPersonnel;
-      case '43':
-        return NatureCompte.bilanOrganismesSociaux;
-      case '44':
-        return NatureCompte.bilanEtatCollectivitesPubliques;
-      case '45':
-      case '46':
-      case '47':
-      case '48':
-      case '49':
-        return NatureCompte.bilanAutresTiers;
-      case '50':
-      case '51':
-      case '53':
-      case '55':
-      case '56':
-      case '58':
-      case '59':
-        return NatureCompte.bilanBanque;
-      case '52':
-      case '57':
-        return NatureCompte.bilanCaisse;
-      case '80':
-      case '82':
-      case '84':
-      case '86':
-      case '88':
-        return NatureCompte.produitsHAO;
-      case '81':
-      case '83':
-      case '85':
-      case '87':
-      case '89':
-        return NatureCompte.chargesHAO;
-    }
-
-    // Fallback sur 1er chiffre
-    final firstDigit = numero[0];
-    switch (firstDigit) {
-      case '1':
-        return NatureCompte.bilanRessourcesDurables;
-      case '2':
-        return NatureCompte.bilanActifImmobilise;
-      case '3':
-        return NatureCompte.bilanStocks;
-      case '5':
-        return NatureCompte.bilanBanque;
-      case '6':
-        return NatureCompte.chargesAO;
-      case '7':
-        return NatureCompte.produitsAO;
-      case '8':
-        // Pour '8X', vérifier la parité du 2ème chiffre
-        if (numero.length >= 2) {
-          final secondDigit = int.tryParse(numero[1]) ?? 0;
-          if (secondDigit % 2 == 0) {
-            return NatureCompte.produitsHAO;
-          } else {
-            return NatureCompte.chargesHAO;
-          }
-        }
-        return NatureCompte.chargesHAO;
-      case '9':
-        return NatureCompte.engagementsHorsBilan;
-      default:
-        return NatureCompte.bilanBanque;
-    }
   }
 
   /*

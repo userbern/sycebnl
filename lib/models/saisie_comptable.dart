@@ -155,6 +155,8 @@ class LigneEcriture {
   final String libelle;
   final double montantDebit;
   final double montantCredit;
+  final String? lettrageCode;
+  final DateTime? lettrageDate;
   final VentilationAnalytique? ventilation;
   final DateTime dateCreation;
   final bool hasVentilation;
@@ -172,6 +174,8 @@ class LigneEcriture {
     required this.libelle,
     required this.montantDebit,
     required this.montantCredit,
+    this.lettrageCode,
+    this.lettrageDate,
     this.ventilation,
     DateTime? dateCreation,
     bool? hasVentilation,
@@ -179,6 +183,7 @@ class LigneEcriture {
        hasVentilation = hasVentilation ?? false;
 
   bool get isEquilibree => ventilation?.isComplete ?? false;
+  bool get isLettrie => lettrageCode != null && lettrageCode!.trim().isNotEmpty;
   bool get isValid =>
       (montantDebit > 0 || montantCredit > 0) &&
       !(montantDebit > 0 && montantCredit > 0) &&
@@ -197,6 +202,8 @@ class LigneEcriture {
     'libelle': libelle,
     'montantDebit': montantDebit,
     'montantCredit': montantCredit,
+    'lettrageCode': lettrageCode,
+    'lettrageDate': lettrageDate?.toIso8601String(),
     'ventilation': ventilation?.toJson(),
     'dateComptable': dateComptable.toIso8601String(),
     'dateCreation': dateCreation.toIso8601String(),
@@ -215,6 +222,11 @@ class LigneEcriture {
     libelle: json['libelle'],
     montantDebit: (json['montantDebit'] as num).toDouble(),
     montantCredit: (json['montantCredit'] as num).toDouble(),
+    lettrageCode: json['lettrageCode'] as String?,
+    lettrageDate:
+        json['lettrageDate'] != null
+            ? DateTime.tryParse(json['lettrageDate'].toString())
+            : null,
     ventilation:
         json['ventilation'] != null
             ? VentilationAnalytique.fromJson(json['ventilation'])
@@ -241,6 +253,13 @@ class LigneEcriture {
     libelle: map['libelle'] ?? '',
     montantDebit: (map['montant_debit'] as num?)?.toDouble() ?? 0.0,
     montantCredit: (map['montant_credit'] as num?)?.toDouble() ?? 0.0,
+    lettrageCode: (map['lettrage_code'] ?? map['lettrageCode']) as String?,
+    lettrageDate:
+        map['lettrage_date'] != null
+            ? DateTime.tryParse(map['lettrage_date'].toString())
+            : map['lettrageDate'] != null
+            ? DateTime.tryParse(map['lettrageDate'].toString())
+            : null,
     dateComptable: _mapDateComptable(
       rawDate: map['date_comptable'],
       jour: map['jour'],
@@ -269,6 +288,8 @@ class LigneEcriture {
     String? libelle,
     double? montantDebit,
     double? montantCredit,
+    String? lettrageCode,
+    DateTime? lettrageDate,
     VentilationAnalytique? ventilation,
     DateTime? dateCreation,
     bool? hasVentilation,
@@ -286,6 +307,8 @@ class LigneEcriture {
       libelle: libelle ?? this.libelle,
       montantDebit: montantDebit ?? this.montantDebit,
       montantCredit: montantCredit ?? this.montantCredit,
+      lettrageCode: lettrageCode ?? this.lettrageCode,
+      lettrageDate: lettrageDate ?? this.lettrageDate,
       ventilation: ventilation ?? this.ventilation,
       dateCreation: dateCreation ?? this.dateCreation,
       hasVentilation: hasVentilation ?? this.hasVentilation,
@@ -330,10 +353,8 @@ class VentilationAnalytique {
   bool get isComplete {
     if (type == 'fonctionnement') return true;
     if (type == 'projet') {
-      return idProjet != null &&
-          typeActivite != null &&
-          idBailleur != null &&
-          (postebudgetaire != null || ligneBudgetaire != null);
+      // Poste et Ligne ne sont pas obligatoires
+      return idProjet != null && typeActivite != null && idBailleur != null;
     }
     return false;
   }

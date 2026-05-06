@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/database_service_new.dart';
+import '../services/database_service.dart';
 import '../utils/form_enter_shortcut.dart';
 
 class EntiteIdentificationPage extends StatefulWidget {
@@ -424,7 +424,7 @@ class _EntiteIdentificationPageState extends State<EntiteIdentificationPage> {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

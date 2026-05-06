@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import '../services/database_service_new.dart';
+import '../services/database_service.dart';
 
 class NewFileWizardPage extends StatefulWidget {
   const NewFileWizardPage({super.key});
@@ -200,12 +200,12 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
 
       // Créer la base de données
       await DatabaseService.createDatabase(
-        databasePath: _selectedFilePath!,
+        _selectedFilePath!,
+        adminLogin: _usePassword ? _loginController.text : null,
+        adminPassword: _usePassword ? _passwordController.text : null,
         entiteData: entiteData,
         configData: configData,
         exerciceData: exerciceData,
-        login: _usePassword ? _loginController.text : null,
-        password: _usePassword ? _passwordController.text : null,
       );
 
       if (!mounted) return;

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/user_session.dart';
-import '../services/database_service_new.dart';
+import '../services/database_service.dart';
 
 class NouvelExercicePage extends StatefulWidget {
   final UserSession userSession;
@@ -325,7 +325,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo,
+                  backgroundColor: Colors.blue.shade400,
                   foregroundColor: Colors.white,
                 ),
                 child: const Text('Créer'),
@@ -410,8 +410,8 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           widget.showAppBar
               ? AppBar(
                 title: const Text('Nouvel exercice'),
-                backgroundColor: Colors.indigo,
-                foregroundColor: Colors.white,
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
               )
               : null,
       body: Column(
@@ -422,13 +422,13 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
             padding: EdgeInsets.all(screenHeight * 0.02),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.indigo.shade700, Colors.indigo.shade500],
+                colors: [Colors.grey.shade500, Colors.grey.shade500],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.indigo.withValues(alpha: 0.3),
+                  color: Colors.blue.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -442,12 +442,12 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
+                        color: Colors.blue.shade100,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
                         Icons.calendar_month,
-                        color: Colors.white,
+                        color: Colors.black,
                         size: 32,
                       ),
                     ),
@@ -461,7 +461,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                             style: TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: Colors.black,
                             ),
                           ),
                           SizedBox(height: 4),
@@ -469,7 +469,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                             'Création d\'un nouvel exercice comptable',
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.white70,
+                              color: Colors.black54,
                             ),
                           ),
                         ],

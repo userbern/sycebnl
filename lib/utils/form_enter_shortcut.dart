@@ -94,7 +94,9 @@ class FormWithEnterShortcut extends StatelessWidget {
             final gcWidget = grandChild.widget;
             if (gcWidget is Focus || gcWidget is FocusScope) {
               final focusNode = (gcWidget as dynamic).focusNode as FocusNode?;
-              if (focusNode != null && focusNode.canRequestFocus) {
+              if (focusNode != null &&
+                  focusNode.context != null &&
+                  focusNode.canRequestFocus) {
                 focusNode.requestFocus();
                 found = true;
               }
@@ -121,7 +123,9 @@ class FormWithEnterShortcut extends StatelessWidget {
       final widget = child.widget;
       if (widget is TextField || widget is TextFormField) {
         final focusNode = (widget as dynamic).focusNode as FocusNode?;
-        if (focusNode != null && focusNode.canRequestFocus) {
+        if (focusNode != null &&
+            focusNode.context != null &&
+            focusNode.canRequestFocus) {
           focusNode.requestFocus();
           return;
         }

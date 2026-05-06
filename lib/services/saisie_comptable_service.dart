@@ -9,6 +9,8 @@ class SaisieComptableService {
       '-${date.month.toString().padLeft(2, '0')}'
       '-${date.day.toString().padLeft(2, '0')}';
 
+  static String _nowIso() => DateTime.now().toIso8601String();
+
   /// Creer ou recuperer une periode de journal
   static Future<JournalPeriode?> createJournalPeriode({
     required String codeJournal,
@@ -28,8 +30,7 @@ class SaisieComptableService {
         'solde_final': 0,
         'is_equilibre': 0,
         'is_closed': 0,
-        'created_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
+        'created_at': _nowIso(),
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
       if (id == 0) {
@@ -145,6 +146,203 @@ class SaisieComptableService {
     }
   }
 
+  /// Recuperer les ecritures d'un compte pour l'interrogation
+  static Future<List<LigneEcriture>> getEcrituresParCompte({
+    required String numeroCompte,
+    DateTime? dateDebut,
+    DateTime? dateFin,
+  }) async {
+    try {
+      final query = StringBuffer('''
+        SELECT e.*,
+               jp.annee AS periode_annee,
+               jp.mois AS periode_mois,
+               jp.code_journal,
+               EXISTS(
+                 SELECT 1
+                 FROM ventilations_analytiques va
+                 WHERE va.ecriture_id = e.id AND va.deleted_at IS NULL
+               ) AS has_ventilation
+        FROM ecritures e
+        JOIN journaux_periodes jp ON e.journal_periode_id = jp.id
+        WHERE e.numero_compte = ?
+      ''');
+      final queryArgs = <dynamic>[numeroCompte];
+
+      if (dateDebut != null) {
+        query.write(' AND date(e.date_comptable) >= date(?)');
+        queryArgs.add(_formatDateYMD(dateDebut));
+      }
+
+      if (dateFin != null) {
+        query.write(' AND date(e.date_comptable) <= date(?)');
+        queryArgs.add(_formatDateYMD(dateFin));
+      }
+
+      query.write('''
+        ORDER BY date(e.date_comptable) ASC, e.numero_enregistrement ASC, e.id ASC
+      ''');
+
+      final results = await database.rawQuery(query.toString(), queryArgs);
+      return results.map((r) => LigneEcriture.fromMap(r)).toList();
+    } catch (e) {
+      throw Exception('Erreur recuperation interrogation compte: $e');
+    }
+  }
+
+  static Future<List<LigneEcriture>> getEcrituresNonLettrees({
+    required String numeroCompte,
+    DateTime? dateDebut,
+    DateTime? dateFin,
+  }) {
+    return getEcrituresParCompte(
+      numeroCompte: numeroCompte,
+      dateDebut: dateDebut,
+      dateFin: dateFin,
+    ).then(
+      (ecritures) =>
+          ecritures.where((ecriture) => !ecriture.isLettrie).toList(),
+    );
+  }
+
+  static Future<String> lettrerEcritures({
+    required String numeroCompte,
+    required List<int> ecritureIds,
+    String? codeLettrage,
+  }) async {
+    if (ecritureIds.length < 2) {
+      throw Exception('Sélectionnez au moins deux écritures à lettrer');
+    }
+
+    final selected = await database.rawQuery('''
+      SELECT id, numero_compte, montant_debit, montant_credit, lettrage_code
+      FROM ecritures
+      WHERE id IN (${ecritureIds.map((_) => '?').join(', ')})
+      ''', ecritureIds);
+
+    if (selected.length != ecritureIds.length) {
+      throw Exception('Certaines écritures sélectionnées sont introuvables');
+    }
+
+    double totalDebit = 0;
+    double totalCredit = 0;
+    for (final row in selected) {
+      final compte = row['numero_compte']?.toString() ?? '';
+      if (compte != numeroCompte) {
+        throw Exception(
+          'Toutes les écritures doivent appartenir au même compte',
+        );
+      }
+
+      final lettrageExistant = row['lettrage_code']?.toString() ?? '';
+      if (lettrageExistant.isNotEmpty) {
+        throw Exception('Au moins une écriture est déjà lettrée');
+      }
+
+      totalDebit += (row['montant_debit'] as num?)?.toDouble() ?? 0.0;
+      totalCredit += (row['montant_credit'] as num?)?.toDouble() ?? 0.0;
+    }
+
+    if ((totalDebit - totalCredit).abs() > 0.01) {
+      throw Exception(
+        'Le lettrage est possible seulement si le débit et le crédit sont équilibrés',
+      );
+    }
+
+    final effectiveCode = codeLettrage ?? _generateLettrageCode(numeroCompte);
+    final now = _nowIso();
+
+    await database.transaction((txn) async {
+      for (final id in ecritureIds) {
+        await txn.update(
+          'ecritures',
+          {
+            'lettrage_code': effectiveCode,
+            'lettrage_date': now,
+            'updated_at': now,
+          },
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+    });
+
+    return effectiveCode;
+  }
+
+  static Future<List<String>> lettrerAutomatiquement({
+    required String numeroCompte,
+    DateTime? dateDebut,
+    DateTime? dateFin,
+  }) async {
+    final candidates = await getEcrituresNonLettrees(
+      numeroCompte: numeroCompte,
+      dateDebut: dateDebut,
+      dateFin: dateFin,
+    );
+
+    final buckets = <String, List<LigneEcriture>>{};
+    for (final ligne in candidates) {
+      final montant = (ligne.montantDebit > 0
+              ? ligne.montantDebit
+              : ligne.montantCredit)
+          .toStringAsFixed(2);
+      final reference = (ligne.reference ?? '').trim().toLowerCase();
+      final key = reference.isEmpty ? montant : '$montant|$reference';
+      buckets.putIfAbsent(key, () => []).add(ligne);
+    }
+
+    final codes = <String>[];
+    final now = _nowIso();
+
+    await database.transaction((txn) async {
+      for (final entry in buckets.entries) {
+        final lignes = entry.value;
+        if (lignes.length < 2) continue;
+
+        double debit = 0;
+        double credit = 0;
+        for (final ligne in lignes) {
+          debit += ligne.montantDebit;
+          credit += ligne.montantCredit;
+        }
+
+        if ((debit - credit).abs() > 0.01) continue;
+
+        final code = _generateLettrageCode(numeroCompte);
+        codes.add(code);
+
+        for (final ligne in lignes) {
+          if (ligne.id == null) continue;
+          await txn.update(
+            'ecritures',
+            {'lettrage_code': code, 'lettrage_date': now, 'updated_at': now},
+            where: 'id = ?',
+            whereArgs: [ligne.id],
+          );
+        }
+      }
+    });
+
+    return codes;
+  }
+
+  static Future<void> delettrerEcritures(List<int> ecritureIds) async {
+    if (ecritureIds.isEmpty) return;
+
+    final now = _nowIso();
+    await database.transaction((txn) async {
+      for (final id in ecritureIds) {
+        await txn.update(
+          'ecritures',
+          {'lettrage_code': null, 'lettrage_date': null, 'updated_at': now},
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+    });
+  }
+
   /// Recuperer le nombre d'ecritures par periode
   static Future<Map<int, int>> getEcritureCountsByPeriode() async {
     try {
@@ -189,8 +387,10 @@ class SaisieComptableService {
         'montant_debit': ligne.montantDebit,
         'montant_credit': ligne.montantCredit,
         'is_ventilee': 0,
-        'created_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
+        'lettrage_code': ligne.lettrageCode,
+        'lettrage_date': ligne.lettrageDate?.toIso8601String(),
+        'created_at': _nowIso(),
+        'updated_at': _nowIso(),
       };
       return await database.insert('ecritures', map);
     } catch (e) {
@@ -213,6 +413,8 @@ class SaisieComptableService {
         'libelle': ligne.libelle,
         'montant_debit': ligne.montantDebit,
         'montant_credit': ligne.montantCredit,
+        'lettrage_code': ligne.lettrageCode,
+        'lettrage_date': ligne.lettrageDate?.toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
       };
       return await database.update(
@@ -272,27 +474,48 @@ class SaisieComptableService {
     return maxNumero + 1;
   }
 
+  static Map<String, dynamic> _ventilationToMap(
+    VentilationAnalytique v, {
+    bool forSave = false,
+  }) {
+    final map = <String, dynamic>{
+      'ecriture_id': v.ligneEcritureId,
+      'type': v.type,
+      'montant_ventile': v.montantVentrle,
+      'created_at': _nowIso(),
+      'updated_at': _nowIso(),
+    };
+
+    if (forSave) {
+      map['id_projet'] = v.idProjet != null ? int.tryParse(v.idProjet!) : null;
+      map['volet'] = v.typeActivite;
+      map['id_bailleur'] =
+          v.idBailleur != null ? int.tryParse(v.idBailleur!) : null;
+      map['id_poste_budgetaire'] =
+          v.postebudgetaire != null ? int.tryParse(v.postebudgetaire!) : null;
+      map['id_ligne_budgetaire'] =
+          v.ligneBudgetaire != null ? int.tryParse(v.ligneBudgetaire!) : null;
+    } else {
+      map['id_projet'] = v.idProjet;
+      map['type_activite'] = v.typeActivite;
+      map['id_bailleur'] = v.idBailleur;
+      map['poste_budgetaire'] = v.postebudgetaire;
+      map['ligne_budgetaire'] = v.ligneBudgetaire;
+    }
+
+    return map;
+  }
+
   /// Ajouter une ventilation analytique
   static Future<int> addVentilationAnalytique(
     VentilationAnalytique ventilation,
   ) async {
     try {
-      final map = {
-        'ecriture_id': ventilation.ligneEcritureId,
-        'type': ventilation.type,
-        'id_projet': ventilation.idProjet,
-        'type_activite': ventilation.typeActivite,
-        'id_bailleur': ventilation.idBailleur,
-        'poste_budgetaire': ventilation.postebudgetaire,
-        'ligne_budgetaire': ventilation.ligneBudgetaire,
-        'montant_ventile': ventilation.montantVentrle,
-        'created_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
-      };
+      final map = _ventilationToMap(ventilation, forSave: false);
       final id = await database.insert('ventilations_analytiques', map);
       await database.update(
         'ecritures',
-        {'is_ventilee': 1, 'updated_at': DateTime.now().toIso8601String()},
+        {'is_ventilee': 1, 'updated_at': _nowIso()},
         where: 'id = ?',
         whereArgs: [ventilation.ligneEcritureId],
       );
@@ -340,7 +563,7 @@ class SaisieComptableService {
       );
       await database.update(
         'ecritures',
-        {'is_ventilee': 0, 'updated_at': DateTime.now().toIso8601String()},
+        {'is_ventilee': 0, 'updated_at': _nowIso()},
         where: 'id = ?',
         whereArgs: [ecritureId],
       );
@@ -402,13 +625,13 @@ class SaisieComptableService {
                 ? int.tryParse(ventilation.ligneBudgetaire!)
                 : null,
         'montant_ventile': ventilation.montantVentrle,
-        'created_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
+        'created_at': _nowIso(),
+        'updated_at': _nowIso(),
       };
       final id = await database.insert('ventilations_analytiques', map);
       await database.update(
         'ecritures',
-        {'is_ventilee': 1, 'updated_at': DateTime.now().toIso8601String()},
+        {'is_ventilee': 1, 'updated_at': _nowIso()},
         where: 'id = ?',
         whereArgs: [ventilation.ligneEcritureId],
       );
@@ -416,5 +639,15 @@ class SaisieComptableService {
     } catch (e) {
       throw Exception('Erreur sauvegarde ventilation: $e');
     }
+  }
+
+  static String _generateLettrageCode(String numeroCompte) {
+    final normalizedCompte = numeroCompte.replaceAll(
+      RegExp(r'[^0-9A-Za-z]'),
+      '',
+    );
+    final timestamp =
+        DateTime.now().millisecondsSinceEpoch.toRadixString(36).toUpperCase();
+    return 'LT-${normalizedCompte.isEmpty ? 'CPTE' : normalizedCompte}-$timestamp';
   }
 }

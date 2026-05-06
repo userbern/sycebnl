@@ -40,7 +40,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
   void initState() {
     super.initState();
     _focusNode = FocusNode();
-    Future.microtask(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusNode.requestFocus();
     });
     _loadData();
@@ -203,7 +203,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 4,
             offset: const Offset(0, 1),
           ),
@@ -223,7 +223,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Colors.indigo.shade700,
+                    color: Colors.blue.shade400,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -241,7 +241,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Colors.black87,
+                      color: Colors.black,
                     ),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
@@ -278,7 +278,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                         icon: Icon(
                           Icons.edit,
                           size: 18,
-                          color: Colors.indigo.shade700,
+                          color: Colors.blue.shade400,
                         ),
                         onPressed: () => _showProjetDialog(projet),
                         tooltip: 'Modifier',
@@ -356,7 +356,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
+                              color: Colors.black.withValues(alpha: 0.05),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -368,13 +368,13 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                             Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: Colors.indigo.shade100,
+                                color: Colors.blue.shade100,
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Icon(
                                 Icons.folder_open,
                                 size: 28,
-                                color: Colors.indigo.shade700,
+                                color: Colors.black,
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -387,7 +387,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                                     style: TextStyle(
                                       fontSize: 24,
                                       fontWeight: FontWeight.w700,
-                                      color: Colors.indigo.shade800,
+                                      color: Colors.blue.shade400,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -404,7 +404,11 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                             if (_canCreate)
                               ElevatedButton.icon(
                                 onPressed: () => _showProjetDialog(null),
-                                icon: const Icon(Icons.add, size: 20),
+                                icon: const Icon(
+                                  Icons.add,
+                                  size: 20,
+                                  color: Colors.white,
+                                ),
                                 label: const Text('Nouveau projet'),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.blue.shade400,
@@ -432,7 +436,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
+                              color: Colors.black.withValues(alpha: 0.03),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),

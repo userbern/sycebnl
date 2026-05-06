@@ -3,6 +3,9 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart' as path;
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
+import '../models/compte.dart';
+import '../models/tiers.dart';
+import '../models/journal.dart';
 
 class DatabaseService {
   static Database? _database;
@@ -40,7 +43,7 @@ class DatabaseService {
     }
 
     // Ouvrir/créer la base de données
-    print('📂 DEBUG: Création de la base de données: $databasePath');
+    print('DEBUG: Création de la base de données: $databasePath');
     _database = await databaseFactory.openDatabase(
       databasePath,
       options: OpenDatabaseOptions(
@@ -123,7 +126,7 @@ class DatabaseService {
     );
 
     _currentDatabasePath = databasePath;
-    print('✅ DEBUG: Base de données créée et ouverte: $databasePath');
+    print('DEBUG: Base de données créée et ouverte: $databasePath');
   }
 
   /// Se connecter à une base de données existante
@@ -134,12 +137,14 @@ class DatabaseService {
       throw Exception('Aucune base de données trouvée à cet emplacement');
     }
 
-    print('📂 DEBUG: Connexion à la base de données: $databasePath');
+    print('DEBUG: Connexion à la base de données: $databasePath');
     _database = await databaseFactory.openDatabase(
       databasePath,
       options: OpenDatabaseOptions(
         version: 1,
         onOpen: (db) async {
+          await _ensureCompteSchema(db);
+
           // Migration: Ajouter exercice_id à la table budget
           try {
             final columns = await db.rawQuery("PRAGMA table_info(budget)");
@@ -148,16 +153,16 @@ class DatabaseService {
             );
 
             if (!hasExerciceId) {
-              print('🔄 Migration: Ajout de exercice_id à la table budget');
+              print('Migration: Ajout de exercice_id à la table budget');
 
               try {
                 // Ajouter la colonne exercice_id
                 await db.execute(
                   'ALTER TABLE budget ADD COLUMN exercice_id INTEGER',
                 );
-                print('✅ Migration: Colonne exercice_id ajoutée');
+                print('Migration: Colonne exercice_id ajoutée');
               } catch (e) {
-                print('⚠️ Migration: Impossible d\'ajouter exercice_id ($e)');
+                print('Migration: Impossible d\'ajouter exercice_id ($e)');
                 // Continuer même si la migration échoue
               }
             }
@@ -172,7 +177,7 @@ class DatabaseService {
 
             if (!hasNumeroColumn) {
               print(
-                '🔄 Migration: Recréation de la table journal avec numero_compte_tresorerie',
+                'Migration: Recréation de la table journal avec numero_compte_tresorerie',
               );
 
               // Sauvegarder les données existantes
@@ -211,7 +216,7 @@ class DatabaseService {
                 });
               }
 
-              print('✅ Migration complétée');
+              print('Migration complétée');
             }
 
             // Créer les tables manquantes pour la saisie comptable
@@ -222,7 +227,7 @@ class DatabaseService {
               );
 
               if (tableList.isEmpty) {
-                print('🔄 Création des tables de saisie comptable');
+                print('Création des tables de saisie comptable');
 
                 await db.execute('''
                   CREATE TABLE journaux_periodes (
@@ -260,6 +265,8 @@ class DatabaseService {
                     montant_debit REAL DEFAULT 0,
                     montant_credit REAL DEFAULT 0,
                     is_ventilee INTEGER DEFAULT 0,
+                    lettrage_code TEXT,
+                    lettrage_date TEXT,
                     created_at TEXT,
                     updated_at TEXT,
                     FOREIGN KEY (journal_periode_id) REFERENCES journaux_periodes(id),
@@ -289,34 +296,34 @@ class DatabaseService {
                   )
                 ''');
 
-                print('✅ Tables de saisie comptable créées');
+                print('Tables de saisie comptable créées');
               } else {
                 await _ensureJournalPeriodeSchema(db);
               }
 
               await _ensureEcrituresDateComptable(db);
             } catch (e) {
-              print('⚠️ Erreur création tables saisie comptable: $e');
+              print('Erreur création tables saisie comptable: $e');
             }
           } catch (e) {
-            print('⚠️ Erreur général migration: $e');
+            print('Erreur général migration: $e');
           }
         },
       ),
     );
 
     _currentDatabasePath = databasePath;
-    print('✅ DEBUG: Base de données connectée: $databasePath');
+    print('DEBUG: Base de données connectée: $databasePath');
   }
 
   /// Fermer la connexion à la base de données
   static Future<void> closeDatabase() async {
     if (_database != null) {
-      print('🔒 DEBUG: Fermeture de la base de données: $_currentDatabasePath');
+      print('DEBUG: Fermeture de la base de données: $_currentDatabasePath');
       await _database!.close();
       _database = null;
       _currentDatabasePath = null;
-      print('❌ DEBUG: Base de données fermée');
+      print('DEBUG: Base de données fermée');
     }
   }
 
@@ -426,6 +433,7 @@ class DatabaseService {
         type TEXT NOT NULL,
         nature TEXT NOT NULL,
         liaison_tiers INTEGER DEFAULT 0,
+        description TEXT,
         is_active INTEGER DEFAULT 1,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -632,6 +640,8 @@ class DatabaseService {
         montant_debit REAL DEFAULT 0,
         montant_credit REAL DEFAULT 0,
         is_ventilee INTEGER DEFAULT 0,
+        lettrage_code TEXT,
+        lettrage_date TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now')),
         deleted_at TEXT,
@@ -672,6 +682,7 @@ class DatabaseService {
       );
 
       bool needsRebuild = !hasExerciceColumn;
+      await _ensureEcrituresLettrage(db);
 
       if (!needsRebuild) {
         final indexList = await db.rawQuery(
@@ -711,16 +722,30 @@ class DatabaseService {
 
       if (needsRebuild) {
         print(
-          '🔄 Migration: mise à jour de journaux_periodes pour gérer les exercices',
+          'Migration: mise à jour de journaux_periodes pour gérer les exercices',
         );
         await _rebuildJournalPeriodesTable(
           db,
           hasExistingExerciceColumn: hasExerciceColumn,
         );
-        print('✅ Migration journaux_periodes terminée');
+        print('Migration journaux_periodes terminée');
       }
     } catch (e) {
-      print('⚠️ Migration journaux_periodes échouée: $e');
+      print('Migration journaux_periodes échouée: $e');
+    }
+  }
+
+  static Future<void> _ensureCompteSchema(Database db) async {
+    try {
+      final columns = await db.rawQuery("PRAGMA table_info(compte)");
+      final hasDescription = columns.any((col) => col['name'] == 'description');
+
+      if (!hasDescription) {
+        print('Migration: ajout de description à la table compte');
+        await db.execute('ALTER TABLE compte ADD COLUMN description TEXT');
+      }
+    } catch (e) {
+      print('Migration compte échouée: $e');
     }
   }
 
@@ -732,7 +757,7 @@ class DatabaseService {
       );
 
       if (!hasDateComptable) {
-        print('🔄 Migration: ajout de date_comptable à ecritures');
+        print('Migration: ajout de date_comptable à ecritures');
         await db.execute(
           'ALTER TABLE ecritures ADD COLUMN date_comptable TEXT',
         );
@@ -749,7 +774,31 @@ class DatabaseService {
         WHERE date_comptable IS NULL OR date_comptable = ''
       ''');
     } catch (e) {
-      print('⚠️ Migration ecritures.date_comptable échouée: $e');
+      print('Migration ecritures.date_comptable échouée: $e');
+    }
+  }
+
+  static Future<void> _ensureEcrituresLettrage(Database db) async {
+    try {
+      final columns = await db.rawQuery("PRAGMA table_info(ecritures)");
+      final hasLettrageCode = columns.any(
+        (col) => col['name'] == 'lettrage_code',
+      );
+      final hasLettrageDate = columns.any(
+        (col) => col['name'] == 'lettrage_date',
+      );
+
+      if (!hasLettrageCode) {
+        print('Migration: ajout de lettrage_code à ecritures');
+        await db.execute('ALTER TABLE ecritures ADD COLUMN lettrage_code TEXT');
+      }
+
+      if (!hasLettrageDate) {
+        print('Migration: ajout de lettrage_date à ecritures');
+        await db.execute('ALTER TABLE ecritures ADD COLUMN lettrage_date TEXT');
+      }
+    } catch (e) {
+      print('Migration ecritures.lettrage échouée: $e');
     }
   }
 
@@ -899,5 +948,492 @@ class DatabaseService {
     } finally {
       await db.execute('PRAGMA foreign_keys=ON');
     }
+  }
+
+  /// S'assurer que la base est ouverte avant toute requête
+  static Future<void> ensureDatabaseOpen() async {
+    if (!isConnected) {
+      print('DEBUG: Base fermée, tentative de réouverture...');
+      final dbPath = currentDatabasePath;
+      if (dbPath != null) {
+        print('DEBUG: Réouverture de la base: $dbPath');
+        await connectToDatabase(dbPath);
+      } else {
+        print('DEBUG: Impossible de rouvrir, chemin inconnu');
+        throw Exception('Chemin de base de données inconnu');
+      }
+    } else {
+      print('DEBUG: Base déjà ouverte');
+    }
+  }
+
+  /// Alias pour compatibilité: openDatabase -> connectToDatabase
+  static Future<void> openDatabase(String databasePath) async {
+    return connectToDatabase(databasePath);
+  }
+
+  /// Récupérer tous les comptes (liste de `Compte`)
+  static Future<List<Compte>> getAllComptes() async {
+    await ensureDatabaseOpen();
+    try {
+      final results = await database.query(
+        'compte',
+        where: 'deleted_at IS NULL',
+        orderBy: 'numero_compte ASC',
+      );
+      return results.map((r) => Compte.fromMap(r)).toList();
+    } catch (e) {
+      throw Exception('Erreur récupération comptes: $e');
+    }
+  }
+
+  /// Créer un compte (compatible avec usages existants)
+  static Future<void> createCompte({
+    required String numeroCompte,
+    required String intitule,
+    required String type,
+    required String nature,
+    bool? liaisonTiers,
+    String? description,
+  }) async {
+    await ensureDatabaseOpen();
+    await database.insert('compte', {
+      'numero_compte': numeroCompte,
+      'intitule': intitule,
+      'type': type,
+      'nature': nature,
+      'liaison_tiers': (liaisonTiers ?? false) ? 1 : 0,
+      'description': description,
+      'is_active': 1,
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  static Future<void> updateCompte({
+    int? id,
+    String? compteId,
+    String? numeroCompte,
+    String? intitule,
+    String? type,
+    String? nature,
+    bool? liaisonTiers,
+    String? description,
+  }) async {
+    await ensureDatabaseOpen();
+    final data = <String, dynamic>{
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+    if (numeroCompte != null) data['numero_compte'] = numeroCompte;
+    if (intitule != null) data['intitule'] = intitule;
+    if (type != null) data['type'] = type;
+    if (nature != null) data['nature'] = nature;
+    if (liaisonTiers != null) data['liaison_tiers'] = liaisonTiers ? 1 : 0;
+    if (description != null) data['description'] = description;
+    final finalId = id ?? (compteId != null ? int.parse(compteId) : null);
+    if (finalId == null)
+      throw Exception('updateCompte requires id or compteId');
+    await database.update(
+      'compte',
+      data,
+      where: 'id = ?',
+      whereArgs: [finalId],
+    );
+  }
+
+  static Future<void> deleteCompte(dynamic id) async {
+    await ensureDatabaseOpen();
+    final finalId = id is String ? int.parse(id) : id as int;
+    await database.update(
+      'compte',
+      {
+        'deleted_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [finalId],
+    );
+  }
+
+  /// Tiers helpers
+  static Future<List<Tiers>> getAllTiers() async {
+    await ensureDatabaseOpen();
+    final results = await database.query(
+      'tiers',
+      where: 'deleted_at IS NULL',
+      orderBy: 'intitule ASC',
+    );
+    return results.map((r) => Tiers.fromMap(r)).toList();
+  }
+
+  static Future<void> createTiers(
+    String numeroCompte,
+    String intitule,
+    String type,
+    String compteCollectif, [
+    String? nif,
+    String? adresse,
+  ]) async {
+    await ensureDatabaseOpen();
+    await database.insert('tiers', {
+      'numero_compte': numeroCompte,
+      'intitule': intitule,
+      'type': type,
+      'compte_collectif': compteCollectif,
+      'nif': nif,
+      'adresse': adresse,
+      'is_active': 1,
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  static Future<void> updateTiers(
+    int id,
+    String numeroCompte,
+    String intitule,
+    String type,
+    String compteCollectif, [
+    String? nif,
+    String? adresse,
+  ]) async {
+    await ensureDatabaseOpen();
+    final data = <String, dynamic>{
+      'updated_at': DateTime.now().toIso8601String(),
+      'numero_compte': numeroCompte,
+      'intitule': intitule,
+      'type': type,
+      'compte_collectif': compteCollectif,
+      'nif': nif,
+      'adresse': adresse,
+    };
+    await database.update('tiers', data, where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<void> deleteTiers(int id) async {
+    await ensureDatabaseOpen();
+    await database.update(
+      'tiers',
+      {
+        'deleted_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// Compatibility wrapper: getFileConfig -> getConfig
+  static Future<Map<String, dynamic>?> getFileConfig() async {
+    return getConfig();
+  }
+
+  /// Récupérer un journal par code
+  static Future<Journal?> getJournalByCode(String code) async {
+    await ensureDatabaseOpen();
+    final results = await database.query(
+      'journal',
+      where: 'code = ?',
+      whereArgs: [code],
+      limit: 1,
+    );
+    if (results.isEmpty) return null;
+    return Journal.fromMap(results.first);
+  }
+
+  /// Vérifie si un compte est utilisé dans la table journaux (compte de trésorerie)
+  static Future<bool> isCompteUsedInJournaux(String numeroCompte) async {
+    await ensureDatabaseOpen();
+    try {
+      final result = await database.query(
+        'journal',
+        where: 'compte_tresorerie = ? AND is_active = 1',
+        whereArgs: [numeroCompte],
+        limit: 1,
+      );
+      return result.isNotEmpty;
+    } catch (e) {
+      print('Table journaux absente ou erreur SQL: $e');
+      return false;
+    }
+  }
+
+  /// Vérifier le mot de passe et retourner l'utilisateur
+  static Future<Map<String, dynamic>?> verifyLogin(
+    String login,
+    String password,
+  ) async {
+    try {
+      await ensureDatabaseOpen();
+      final users = await database.query(
+        'utilisateur',
+        where: 'login = ? AND deleted_at IS NULL',
+        whereArgs: [login],
+        limit: 1,
+      );
+
+      if (users.isEmpty) return null;
+
+      final user = users.first;
+      final storedHash = user['password'] as String?;
+
+      if (storedHash != null && verifyPassword(password, storedHash)) {
+        return user;
+      }
+
+      return null;
+    } catch (e) {
+      print('DEBUG verifyLogin error: $e');
+      return null;
+    }
+  }
+
+  /// Vérifier si le fichier nécessite un mot de passe
+  static Future<bool> requiresPassword(String databasePath) async {
+    try {
+      if (isConnected && currentDatabasePath == databasePath) {
+        final users = await database.query('utilisateur', limit: 1);
+        return users.isNotEmpty;
+      }
+
+      await initializeFfi();
+      final db = await databaseFactoryFfi.openDatabase(
+        databasePath,
+        options: OpenDatabaseOptions(readOnly: true),
+      );
+      final users = await db.query('utilisateur', limit: 1);
+      await db.close();
+      return users.isNotEmpty;
+    } catch (e) {
+      print('DEBUG requiresPassword error: $e');
+      return false;
+    }
+  }
+
+  /// Obtenir la configuration du fichier
+  static Future<Map<String, dynamic>?> getConfig() async {
+    try {
+      await ensureDatabaseOpen();
+      final results = await database.query('config', limit: 1);
+      return results.isNotEmpty ? results.first : null;
+    } catch (e) {
+      print('DEBUG: Table config not found, returning null');
+      return null;
+    }
+  }
+
+  /// Obtenir les données de l'entité
+  static Future<Map<String, dynamic>?> getEntite() async {
+    try {
+      await ensureDatabaseOpen();
+      final results = await database.query('entite', limit: 1);
+      return results.isNotEmpty ? results.first : null;
+    } catch (e) {
+      print('DEBUG getEntite error: $e');
+      return null;
+    }
+  }
+
+  /// Mettre à jour l'entité (une seule entité par fichier)
+  static Future<void> updateEntite(Map<String, dynamic> entiteData) async {
+    await ensureDatabaseOpen();
+    final entite = await getEntite();
+    if (entite == null) {
+      throw Exception('Aucune entité trouvée dans ce fichier');
+    }
+
+    await database.update(
+      'entite',
+      {...entiteData, 'updated_at': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [entite['id']],
+    );
+  }
+
+  /// Obtenir tous les exercices comptables
+  static Future<List<Map<String, dynamic>>> getExercices() async {
+    try {
+      await ensureDatabaseOpen();
+      final results = await database.query(
+        'exercice',
+        orderBy: 'date_debut DESC',
+      );
+      return results;
+    } catch (e) {
+      print('DEBUG getExercices error: $e');
+      return [];
+    }
+  }
+
+  /// Changer l'exercice actif
+  static Future<void> setActiveExercice(int exerciceId) async {
+    await ensureDatabaseOpen();
+    await database.update('exercice', {
+      'is_active': 0,
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+
+    await database.update(
+      'exercice',
+      {'is_active': 1, 'updated_at': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [exerciceId],
+    );
+  }
+
+  /// Créer un nouvel exercice comptable
+  static Future<void> createExercice({
+    required String code,
+    required String dateDebut,
+    required String dateFin,
+    required int dureeMois,
+    bool reportSoldes = false,
+  }) async {
+    await ensureDatabaseOpen();
+
+    final exercices = await getExercices();
+    if (exercices.length >= 5) {
+      throw Exception('Maximum 5 exercices par fichier comptable');
+    }
+
+    final existing = exercices.where((e) => e['code'] == code);
+    if (existing.isNotEmpty) {
+      throw Exception('Un exercice avec ce code existe déjà');
+    }
+
+    await database.insert('exercice', {
+      'code': code,
+      'date_debut': dateDebut,
+      'date_fin': dateFin,
+      'duree_mois': dureeMois,
+      'is_active': 0,
+      'is_cloture': 0,
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Wrapper de hash/verification pour compatibilité
+  static bool verifyPasswordHash(String password, String hash) {
+    return verifyPassword(password, hash);
+  }
+
+  /// Récupérer tous les utilisateurs
+  static Future<List<Map<String, dynamic>>> getAllUsers() async {
+    await ensureDatabaseOpen();
+    return await database.query(
+      'utilisateur',
+      where: 'deleted_at IS NULL',
+      orderBy: 'login ASC',
+    );
+  }
+
+  /// Créer un nouvel utilisateur
+  static Future<int> createUser({
+    required String login,
+    String? description,
+    String? role,
+    String? password,
+  }) async {
+    await ensureDatabaseOpen();
+
+    final existing = await database.query(
+      'utilisateur',
+      where: 'login = ? AND deleted_at IS NULL',
+      whereArgs: [login],
+    );
+
+    if (existing.isNotEmpty) {
+      throw Exception('Un utilisateur avec ce login existe déjà');
+    }
+
+    return await database.insert('utilisateur', {
+      'login': login,
+      'password': password != null ? hashPassword(password) : null,
+      'role': role ?? 'utilisateur',
+      'nom': description ?? '',
+      'prenom': '',
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Mettre à jour un utilisateur
+  static Future<void> updateUser({
+    required int userId,
+    String? login,
+    String? description,
+    String? role,
+  }) async {
+    await ensureDatabaseOpen();
+
+    final updates = <String, dynamic>{
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+
+    if (login != null) updates['login'] = login;
+    if (description != null) updates['nom'] = description;
+    if (role != null) updates['role'] = role;
+
+    await database.update(
+      'utilisateur',
+      updates,
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+  }
+
+  /// Supprimer un utilisateur (soft delete)
+  static Future<void> deleteUser(int userId) async {
+    await ensureDatabaseOpen();
+
+    await database.update(
+      'utilisateur',
+      {
+        'deleted_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+  }
+
+  /// Changer le mot de passe
+  static Future<void> changePassword({
+    int? userId,
+    String? oldPassword,
+    required String newPassword,
+    required bool isAdmin,
+  }) async {
+    await ensureDatabaseOpen();
+
+    if (!isAdmin && oldPassword != null && userId != null) {
+      final user = await database.query(
+        'utilisateur',
+        where: 'id = ?',
+        whereArgs: [userId],
+        limit: 1,
+      );
+
+      if (user.isEmpty) {
+        throw Exception('Utilisateur non trouvé');
+      }
+
+      final storedHash = user.first['password'] as String?;
+      if (storedHash != null && !verifyPassword(oldPassword, storedHash)) {
+        throw Exception('Ancien mot de passe incorrect');
+      }
+    }
+
+    final targetUserId = userId ?? 1;
+    await database.update(
+      'utilisateur',
+      {
+        'password': hashPassword(newPassword),
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [targetUserId],
+    );
   }
 }

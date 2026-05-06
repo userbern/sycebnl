@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import '../services/database_service_new.dart';
+import '../services/database_service.dart';
+import '../services/auth_service_local.dart';
+import '../models/user_session.dart';
 
 class PasswordLoginPage extends StatefulWidget {
   final String filePath;
@@ -81,22 +83,31 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
       // Ouvrir la base de données
       await DatabaseService.openDatabase(widget.filePath);
 
-      // Vérifier le login et mot de passe
-      final user = await DatabaseService.verifyLogin(
-        _loginController.text,
-        _passwordController.text,
+      // Vérifier le login, mot de passe et récupérer les permissions
+      final loginResult = await AuthService.login(
+        login: _loginController.text,
+        password: _passwordController.text,
       );
 
       if (!mounted) return;
 
-      if (user != null) {
-        // Connexion réussie - retourner true
-        Navigator.pop(context, true);
-      } else {
-        setState(() => _isLoading = false);
-        _showError('Login ou mot de passe incorrect');
-        _passwordController.clear();
-      }
+      // Connexion réussie - retourner la session complète
+      final userData = loginResult['user'] as Map<String, dynamic>;
+      final permissions = loginResult['permissions'] as List<dynamic>;
+
+      final userSession = UserSession(
+        id: userData['id'].toString(),
+        login: userData['login'] ?? '',
+        nom: (userData['nom'] ?? '').toString(),
+        prenom: (userData['prenom'] ?? '').toString(),
+        email: '',
+        role: (userData['role'] ?? 'utilisateur').toString(),
+        permissions: permissions.cast<Map<String, dynamic>>(),
+      );
+
+      AuthService.setCurrentUser(userData);
+
+      Navigator.pop(context, userSession);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);

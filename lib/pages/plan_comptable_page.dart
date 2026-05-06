@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/compte.dart';
-import '../services/database_service_new.dart';
+import '../services/database_service.dart';
 
 class PlanComptablePage extends StatefulWidget {
   const PlanComptablePage({super.key});
@@ -722,10 +722,17 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
               // En-tête
               Row(
                 children: [
-                  Icon(
-                    Icons.account_balance_wallet,
-                    size: 32,
-                    color: Colors.blue.shade400,
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.account_balance_wallet,
+                      size: 32,
+                      color: Colors.black,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   const Text(
@@ -739,7 +746,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                   const Spacer(),
                   ElevatedButton.icon(
                     onPressed: () => _showCompteDialog(),
-                    icon: const Icon(Icons.add),
+                    icon: const Icon(Icons.add, color: Colors.white),
                     label: const Text('Nouveau compte (Ctrl+N)'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue.shade400,
@@ -897,7 +904,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                 constraints: const BoxConstraints.expand(),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(1),
                                   border: Border.all(
                                     color: Colors.grey.shade200,
                                   ),
@@ -949,7 +956,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                                   Colors.blue.shade400,
                                                 ),
                                             headingRowHeight: 45,
-                                            headingTextStyle: const TextStyle(
+                                            headingTextStyle: TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.bold,
                                               fontSize: 14,
@@ -1131,7 +1138,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(0),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(

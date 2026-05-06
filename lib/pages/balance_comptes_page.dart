@@ -68,7 +68,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
       _projetSelectionne = projetId;
       _bailleursSelectionnes.clear();
       _tousLesBailleurs = false;
-      _bailleurs.clear();
+      _bailleurs = []; // Replace with empty list instead of clearing
     });
 
     if (projetId != null) {
@@ -180,24 +180,6 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
             SnackBar(
               content: Text(
                 'La date de fin doit être comprise entre ${_formatDate(_exercice!.dateDebut)} et ${_formatDate(_exercice!.dateFin)}',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
-      }
-
-      // Validation des comptes si les deux sont remplis
-      if (_compteDebutController.text.isNotEmpty &&
-          _compteFinController.text.isNotEmpty) {
-        final debut = int.tryParse(_compteDebutController.text);
-        final fin = int.tryParse(_compteFinController.text);
-        if (debut != null && fin != null && fin < debut) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Le compte fin doit être supérieur ou égal au compte début',
               ),
               backgroundColor: Colors.red,
             ),
@@ -348,7 +330,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
       final bailleurs = await AuthService.getBailleursForProjet(projetId);
       if (!mounted) return;
       setState(() {
-        _bailleurs = bailleurs;
+        _bailleurs = List.from(bailleurs); // Convert to mutable list
         _isLoadingBailleurs = false;
       });
     } catch (e) {
@@ -618,7 +600,9 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                               _onProjetChanged(value);
                                             },
                                             validator: (value) {
-                                              if (_typeEtat == 'analytique' &&
+                                              if ((_typeEtat == 'analytique' ||
+                                                      _typeEtat ==
+                                                          'tiers_analytique') &&
                                                   (value == null ||
                                                       _projets.isEmpty)) {
                                                 return 'Veuillez sélectionner un projet';

@@ -101,8 +101,14 @@ void main() async {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           numero_compte TEXT NOT NULL UNIQUE,
           intitule TEXT NOT NULL,
-          type_compte TEXT,
-          created_at TEXT DEFAULT CURRENT_TIMESTAMP
+          type TEXT,
+          nature TEXT,
+          liaison_tiers INTEGER DEFAULT 0,
+          description TEXT,
+          is_active INTEGER DEFAULT 1,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT,
+          deleted_at TEXT
         )
       ''');
 
@@ -141,7 +147,7 @@ void main() async {
       ''');
 
       // Table projet
-     /*  await db.execute('''
+      /*  await db.execute('''
         CREATE TABLE projet (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           code TEXT NOT NULL UNIQUE,
@@ -169,7 +175,7 @@ void main() async {
       '''); */
 
       // Table monnaie
-     /*  await db.execute('''
+      /*  await db.execute('''
         CREATE TABLE monnaie (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           code TEXT NOT NULL UNIQUE,

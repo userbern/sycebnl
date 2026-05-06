@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../services/database_service_new.dart';
+import '../services/database_service.dart';
 import '../models/user_session.dart';
 import 'entite_identification_page.dart';
 import 'nouvel_exercice_page.dart';
@@ -21,7 +21,9 @@ import 'permissions_page.dart';
 import '../models/saisie_comptable.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final UserSession? userSession;
+
+  const HomePage({super.key, this.userSession});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -62,7 +64,7 @@ class _HomePageState extends State<HomePage> {
       label: 'Interrogations & Lettrages',
       icon: Icons.search,
       pageIndex: 11,
-    )
+    ),
   ];
 
   @override
@@ -1057,6 +1059,7 @@ class _HomePageState extends State<HomePage> {
         return JournauxPage(
           userSession: UserSession(
             id: '0',
+            login: 'admin',
             nom: 'Admin',
             prenom: 'Système',
             email: '',
@@ -1075,6 +1078,7 @@ class _HomePageState extends State<HomePage> {
           exerciceId: _activeExerciceId,
           userSession: UserSession(
             id: '0',
+            login: 'admin',
             nom: 'Admin',
             prenom: 'Système',
             email: 'admin@system.local',
@@ -1094,6 +1098,7 @@ class _HomePageState extends State<HomePage> {
         return NouvelExercicePage(
           userSession: UserSession(
             id: '0',
+            login: 'admin',
             nom: 'Admin',
             prenom: 'Système',
             email: '',

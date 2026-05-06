@@ -5,15 +5,15 @@ allprojects {
     }
 }
 
-val newBuildDir: Directory = rootProject.layout.buildDirectory.dir("../../build").get()
-rootProject.layout.buildDirectory.value(newBuildDir)
-
 subprojects {
-    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
-    project.layout.buildDirectory.value(newSubprojectBuildDir)
-}
-subprojects {
+    project.layout.buildDirectory.value(project.layout.projectDirectory.dir("build"))
     project.evaluationDependsOn(":app")
+}
+
+gradle.projectsEvaluated {
+    subprojects {
+        layout.buildDirectory.value(layout.projectDirectory.dir("build"))
+    }
 }
 
 tasks.register<Delete>("clean") {

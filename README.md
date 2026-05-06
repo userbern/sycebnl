@@ -631,7 +631,7 @@ lib/
 │   └── budget.dart                   # Budget
 ├── services/
 │   ├── app_config_service.dart       # Gestion app_config.db
-│   └── database_service_new.dart     # Gestion fichiers utilisateur
+│   └── database_service.dart         # Gestion fichiers utilisateur
 ├── pages/
 │   ├── welcome_page.dart             # Page d'accueil
 │   ├── new_file_wizard_page.dart     # Assistant création fichier
@@ -673,13 +673,17 @@ Pour l'utiliser :
 L'application est organisée en 5 menus principaux accessibles depuis la sidebar :
 
 ### 📂 Notre Entité
+
 Menu pour gérer les informations de l'organisation :
+
 - **Identification** : Modifier les informations de l'entité (dénomination, sigle, forme juridique, contacts, etc.)
 - **Nouvel exercice** : Créer et gérer les exercices comptables (date début/fin, activation)
 - **Monnaie** : Configurer la devise principale (XOF, EUR, USD, XAF)
 
 ### ⚙️ Paramétrages
+
 Configuration des données de base comptables :
+
 - **Plan comptable** : Gérer les comptes généraux avec leurs natures et types
 - **Liste des tiers** : Créer et gérer les tiers (fournisseurs, clients, salariés)
 - **Codes journaux** : Définir les journaux comptables (financiers ou non)
@@ -688,14 +692,18 @@ Configuration des données de base comptables :
 - **Gestion des budgets** : Gérer la hiérarchie budgétaire à 4 niveaux
 
 ### 📝 Traitements
+
 Opérations comptables courantes :
+
 - **Saisie comptable** : Enregistrer les écritures par journal et période
 - **Journaux de saisie** : Consulter les périodes de saisie par journal avec statistiques
 - **Interrogations & Lettrages** : Consulter les écritures par compte et effectuer le lettrage
 - **Balance des comptes** : Afficher la balance par nature avec mouvements et soldes
 
 ### 📊 Éditions
+
 États et rapports comptables (en développement) :
+
 - Grand livre
 - Journaux comptables
 - Bilan
@@ -704,7 +712,9 @@ Opérations comptables courantes :
 - Exports PDF/Excel
 
 ### 🚀 Accès rapide
+
 Raccourcis vers les fonctions les plus utilisées :
+
 - Saisie comptable
 - Journaux de saisie
 - Interrogations & Lettrages

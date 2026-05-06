@@ -56,9 +56,20 @@ class AuthService {
           'login': user['login'],
           'nom': user['nom'],
           'prenom': user['prenom'],
-          'role': user['role'],
+          'role': user['role'] ?? 'utilisateur',
         },
-        'permissions': permissions,
+        'permissions':
+            permissions
+                .map(
+                  (p) => {
+                    'module_nom': p['module_nom'],
+                    'lecture': p['lecture'],
+                    'ajout': p['ajout'],
+                    'modification': p['modification'],
+                    'suppression': p['suppression'],
+                  },
+                )
+                .toList(),
       };
     } catch (e) {
       throw Exception('Erreur lors du login: $e');
@@ -190,6 +201,51 @@ class AuthService {
       );
     } catch (e) {
       throw Exception('Erreur lors de la suppression de l\'utilisateur: $e');
+    }
+  }
+
+  /// Changer le mot de passe d'un utilisateur
+  static Future<void> changePassword({
+    required int userId,
+    String? oldPassword,
+    required String newPassword,
+    required bool isAdmin,
+  }) async {
+    try {
+      if (!isAdmin) {
+        if (oldPassword == null || oldPassword.isEmpty) {
+          throw Exception('L\'ancien mot de passe est requis');
+        }
+
+        final user = await _db.query(
+          'utilisateur',
+          where: 'id = ? AND deleted_at IS NULL',
+          whereArgs: [userId],
+          limit: 1,
+        );
+
+        if (user.isEmpty) {
+          throw Exception('Utilisateur non trouvé');
+        }
+
+        final storedHash = user.first['password'] as String?;
+        if (storedHash != null &&
+            !DatabaseService.verifyPassword(oldPassword, storedHash)) {
+          throw Exception('Ancien mot de passe incorrect');
+        }
+      }
+
+      await _db.update(
+        'utilisateur',
+        {
+          'password': _hashPassword(newPassword),
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [userId],
+      );
+    } catch (e) {
+      throw Exception('Erreur lors du changement de mot de passe: $e');
     }
   }
 

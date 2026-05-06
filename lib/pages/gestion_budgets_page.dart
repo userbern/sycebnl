@@ -46,11 +46,9 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
     super.initState();
     _loadData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.microtask(() {
-        if (mounted) {
-          _focusNode.requestFocus();
-        }
-      });
+      if (mounted) {
+        _focusNode.requestFocus();
+      }
     });
     _searchController.addListener(_filterBudgets);
   }
@@ -216,7 +214,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
               ),
               child: Icon(
                 Icons.account_balance_wallet,
-                color: Colors.blue.shade400,
+                color: Colors.blue.shade200,
                 size: 20,
               ),
             ),
@@ -397,7 +395,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
               if (_canCreate)
                 ElevatedButton.icon(
                   onPressed: _showCreateBudgetDialog,
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(Icons.add, color: Colors.white),
                   label: const Text('Créer un budget'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue.shade400,
@@ -465,7 +463,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
+                              color: Colors.black.withValues(alpha: 0.05),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -483,7 +481,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                               child: Icon(
                                 Icons.account_balance_wallet,
                                 size: 28,
-                                color: Colors.blue.shade400,
+                                color: Colors.black,
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -496,7 +494,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                                     style: TextStyle(
                                       fontSize: 24,
                                       fontWeight: FontWeight.w700,
-                                      color: Colors.blue.shade800,
+                                      color: Colors.black,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -513,7 +511,11 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                             if (_canCreate)
                               ElevatedButton.icon(
                                 onPressed: _showCreateBudgetDialog,
-                                icon: const Icon(Icons.add, size: 20),
+                                icon: const Icon(
+                                  Icons.add,
+                                  size: 20,
+                                  color: Colors.white,
+                                ),
                                 label: const Text('Nouveau budget'),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.blue.shade400,
@@ -541,7 +543,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
+                              color: Colors.black.withValues(alpha: 0.03),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
@@ -2201,7 +2203,11 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
                         if (_canCreate)
                           ElevatedButton.icon(
                             onPressed: _createPoste,
-                            icon: const Icon(Icons.add, size: 18),
+                            icon: const Icon(
+                              Icons.add,
+                              size: 18,
+                              color: Colors.white,
+                            ),
                             label: const Text('Nouveau poste'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue.shade400,
@@ -2300,7 +2306,11 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
                           if (_canCreate)
                             ElevatedButton.icon(
                               onPressed: () => _createLigne(_selectedPosteId!),
-                              icon: const Icon(Icons.add, size: 18),
+                              icon: const Icon(
+                                Icons.add,
+                                size: 18,
+                                color: Colors.white,
+                              ),
                               label: const Text('Nouvelle ligne'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green,

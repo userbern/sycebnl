@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../services/app_config_service.dart';
-import '../services/database_service_new.dart';
+import '../services/database_service.dart';
 import 'new_file_wizard_page.dart';
 import 'password_login_page.dart';
 import 'home_page.dart';
+import '../models/user_session.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
@@ -75,15 +76,15 @@ class _WelcomePageState extends State<WelcomePage> {
       if (requiresPassword) {
         // Rediriger vers la page de connexion avec mot de passe
         if (!mounted) return;
-        final authenticated = await Navigator.push<bool>(
+        final userSession = await Navigator.push<UserSession>(
           context,
           MaterialPageRoute(
             builder: (context) => PasswordLoginPage(filePath: filePath),
           ),
         );
 
-        if (authenticated == true) {
-          await _openFileSuccess(filePath);
+        if (userSession != null) {
+          await _openFileSuccess(filePath, userSession: userSession);
         }
       } else {
         // Ouvrir directement le fichier
@@ -98,7 +99,10 @@ class _WelcomePageState extends State<WelcomePage> {
     }
   }
 
-  Future<void> _openFileSuccess(String filePath) async {
+  Future<void> _openFileSuccess(
+    String filePath, {
+    UserSession? userSession,
+  }) async {
     // Ajouter aux fichiers récents
     final fileName = filePath.split(Platform.pathSeparator).last;
     final requiresPassword = await DatabaseService.requiresPassword(filePath);
@@ -113,7 +117,9 @@ class _WelcomePageState extends State<WelcomePage> {
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => HomePage()),
+      MaterialPageRoute(
+        builder: (context) => HomePage(userSession: userSession),
+      ),
     );
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:excel/excel.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
@@ -175,14 +176,14 @@ class ExportService {
                         ),
                         pw.Expanded(
                           child: _buildInfoCell(
-                            entite?['denomination_sociale'] as String? ?? '—',
+                            entite?['denomination_sociale'] as String? ?? ' ',
                             true,
                           ),
                         ),
                         pw.Expanded(child: _buildInfoCell('NIF', true)),
                         pw.Expanded(
                           child: _buildInfoCell(
-                            entite?['numero_fiscal'] as String? ?? '—',
+                            entite?['numero_fiscal'] as String? ?? ' ',
                             false,
                             borderBottom: true,
                           ),
@@ -212,7 +213,7 @@ class ExportService {
                           child: _buildInfoCell(
                             dateDebut != null && dateFin != null
                                 ? '${dateDebut.toString().split(' ')[0]} - ${dateFin.toString().split(' ')[0]}'
-                                : '—',
+                                : ' ',
                             false,
                             borderBottom: true,
                           ),
@@ -237,7 +238,7 @@ class ExportService {
                         pw.Expanded(
                           flex: 2,
                           child: _buildInfoCell(
-                            projetDesignation ?? '—',
+                            projetDesignation ?? ' ',
                             false,
                             borderAll: true,
                           ),
@@ -309,7 +310,7 @@ class ExportService {
     if (entite == null) return '—';
     final address = entite['adresse'] as String? ?? '';
     final ville = entite['ville'] as String? ?? '';
-    if (address.isEmpty && ville.isEmpty) return '—';
+    if (address.isEmpty && ville.isEmpty) return ' ';
     return '$address ${ville.isNotEmpty ? ', $ville' : ''}'.trim();
   }
 
@@ -328,6 +329,20 @@ class ExportService {
 
   /// Construit le tableau de balance avec le layout exact
   static pw.Widget _buildBalanceTable(List<Map<String, dynamic>> comptes) {
+    final comptesBilan =
+        comptes.where((c) {
+          final numero = c['numero']?.toString() ?? '';
+          final first = int.tryParse(numero.isNotEmpty ? numero[0] : '') ?? 0;
+          return first >= 1 && first <= 5;
+        }).toList();
+
+    final comptesGestion =
+        comptes.where((c) {
+          final numero = c['numero']?.toString() ?? '';
+          final first = int.tryParse(numero.isNotEmpty ? numero[0] : '') ?? 0;
+          return first >= 6 && first <= 8;
+        }).toList();
+
     return pw.Container(
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: PdfColors.black),
@@ -534,7 +549,7 @@ class ExportService {
                         ),
                       ),
                       child: pw.Text(
-                        compte['intitule'] ?? '-',
+                        compte['intitule'] ?? ' ',
                         style: const pw.TextStyle(fontSize: 8),
                       ),
                     ),
@@ -545,6 +560,191 @@ class ExportService {
               ),
             );
           }),
+          _buildTotalSummaryRow(
+            label: 'COMPTES DU BILAN',
+            comptes: comptesBilan,
+          ),
+          _buildTotalSummaryRow(
+            label: 'COMPTES DE GESTION',
+            comptes: comptesGestion,
+          ),
+          _buildTotalSummaryRow(
+            label: 'TOTAL DE LA BALANCE',
+            comptes: comptes,
+            isTotalBalance: true,
+          ),
+          _buildNatureResultatRow(comptesGestion),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildTotalSummaryRow({
+    required String label,
+    required List<Map<String, dynamic>> comptes,
+    bool isTotalBalance = false,
+  }) {
+    final mouvementDebit = comptes.fold<double>(
+      0.0,
+      (sum, c) => sum + ((c['mouvementDebit'] as num?)?.toDouble() ?? 0.0),
+    );
+    final mouvementCredit = comptes.fold<double>(
+      0.0,
+      (sum, c) => sum + ((c['mouvementCredit'] as num?)?.toDouble() ?? 0.0),
+    );
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        color: PdfColors.blue100,
+        border: pw.Border(
+          top: const pw.BorderSide(color: PdfColors.black, width: 1),
+          bottom: const pw.BorderSide(color: PdfColors.black, width: 1),
+        ),
+      ),
+      child: pw.Row(
+        children: [
+          pw.Expanded(
+            flex: 3,
+            child: pw.Container(
+              padding: const pw.EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: 3,
+              ),
+              decoration: pw.BoxDecoration(
+                border: pw.Border(
+                  right: const pw.BorderSide(color: PdfColors.black, width: 1),
+                ),
+              ),
+              child: pw.Text(
+                label,
+                style: pw.TextStyle(
+                  fontSize: 8,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          _buildSummaryValueCell(''),
+          _buildSummaryValueCell(''),
+          _buildSummaryValueCell(_formatNumber(mouvementDebit)),
+          _buildSummaryValueCell(_formatNumber(mouvementCredit)),
+          _buildSummaryValueCell(
+            isTotalBalance ? '/' : _formatNumber(mouvementDebit),
+          ),
+          _buildSummaryValueCell(
+            isTotalBalance ? '/' : _formatNumber(mouvementCredit),
+            hasRightBorder: false,
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildSummaryValueCell(
+    String value, {
+    bool hasRightBorder = true,
+  }) {
+    return pw.Expanded(
+      flex: 1,
+      child: pw.Container(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+        decoration: pw.BoxDecoration(
+          border:
+              hasRightBorder
+                  ? pw.Border(
+                    right: const pw.BorderSide(
+                      color: PdfColors.black,
+                      width: 1,
+                    ),
+                  )
+                  : null,
+        ),
+        child: pw.Center(
+          child: pw.Text(
+            value,
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static pw.Widget _buildNatureResultatRow(
+    List<Map<String, dynamic>> comptesGestion,
+  ) {
+    final totalDebit = comptesGestion.fold<double>(
+      0.0,
+      (sum, c) => sum + ((c['mouvementDebit'] as num?)?.toDouble() ?? 0.0),
+    );
+    final totalCredit = comptesGestion.fold<double>(
+      0.0,
+      (sum, c) => sum + ((c['mouvementCredit'] as num?)?.toDouble() ?? 0.0),
+    );
+
+    String natureResultat = 'NUL';
+    if (totalCredit > totalDebit) {
+      natureResultat = 'EXCEDENT';
+    } else if (totalCredit < totalDebit) {
+      natureResultat = 'DEFICIT';
+    }
+
+    final color =
+        natureResultat == 'EXCEDENT'
+            ? PdfColors.green700
+            : natureResultat == 'DEFICIT'
+            ? PdfColors.red700
+            : PdfColors.blue700;
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border(
+          top: const pw.BorderSide(color: PdfColors.black, width: 1),
+          bottom: const pw.BorderSide(color: PdfColors.black, width: 1),
+        ),
+      ),
+      child: pw.Row(
+        children: [
+          pw.Expanded(
+            flex: 3,
+            child: pw.Container(
+              padding: const pw.EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: 3,
+              ),
+              decoration: pw.BoxDecoration(
+                border: pw.Border(
+                  right: const pw.BorderSide(color: PdfColors.black, width: 1),
+                ),
+              ),
+              child: pw.Text(
+                'NATURE DU RESULTAT',
+                style: pw.TextStyle(
+                  fontSize: 8,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          pw.Expanded(
+            flex: 6,
+            child: pw.Container(
+              padding: const pw.EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: 3,
+              ),
+              child: pw.Center(
+                child: pw.Text(
+                  natureResultat,
+                  style: pw.TextStyle(
+                    fontSize: 9,
+                    fontWeight: pw.FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -654,7 +854,7 @@ class ExportService {
     }
   }
 
-  /// Exporte la balance des résultats en Excel (format TSV)
+  /// Exporte la balance des résultats en vrai fichier Excel (.xlsx) formaté
   static Future<File> generateExcel({
     required String title,
     required String entityName,
@@ -663,38 +863,245 @@ class ExportService {
     required Map<String, dynamic>? totals,
   }) async {
     try {
-      final buffer = StringBuffer();
-
-      // En-têtes informatifs
-      buffer.writeln(title);
-      buffer.writeln('');
-      buffer.writeln('Entité:\t$entityName');
-      buffer.writeln('Période:\t$periodInfo');
-      buffer.writeln('');
-      buffer.writeln(
-        'Date d\'export:\t${DateTime.now().toString().split('.')[0]}',
-      );
-      buffer.writeln('');
-
-      // En-têtes du tableau
-      buffer.writeln(
-        'N° Compte\tIntitulé\tSolde Débit\tSolde Crédit\tMouvement Débit\tMouvement Crédit\tSolde Clôture Débit\tSolde Clôture Crédit',
-      );
-
-      // Ajouter les données
-      for (final compte in comptes) {
-        buffer.writeln(
-          '${compte['numero'] ?? '-'}\t${compte['intitule'] ?? '-'}\t${compte['soldeDebit'] ?? 0}\t${compte['soldeCredit'] ?? 0}\t${compte['mouvementDebit'] ?? 0}\t${compte['mouvementCredit'] ?? 0}\t${compte['soldeClotureDebit'] ?? 0}\t${compte['soldeClotureCredit'] ?? 0}',
-        );
+      final excel = Excel.createExcel();
+      const sheetName = 'Balance';
+      final defaultSheet = excel.getDefaultSheet();
+      if (defaultSheet != null && defaultSheet != sheetName) {
+        excel.rename(defaultSheet, sheetName);
       }
+      final sheet = excel[sheetName];
+
+      final titleStyle = CellStyle(
+        bold: true,
+        fontSize: 14,
+        horizontalAlign: HorizontalAlign.Center,
+        verticalAlign: VerticalAlign.Center,
+      );
+
+      final sectionStyle = CellStyle(
+        bold: true,
+        fontSize: 11,
+        horizontalAlign: HorizontalAlign.Left,
+      );
+
+      final headerStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Center,
+        verticalAlign: VerticalAlign.Center,
+        backgroundColorHex: ExcelColor.fromHexString('#DCE6F1'),
+      );
+
+      final dataTextStyle = CellStyle(
+        horizontalAlign: HorizontalAlign.Left,
+        verticalAlign: VerticalAlign.Center,
+      );
+
+      final dataNumberStyle = CellStyle(
+        horizontalAlign: HorizontalAlign.Center,
+        verticalAlign: VerticalAlign.Center,
+      );
+
+      final summaryStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Center,
+        verticalAlign: VerticalAlign.Center,
+        backgroundColorHex: ExcelColor.fromHexString('#E8EEF9'),
+      );
+
+      final natureStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Center,
+        verticalAlign: VerticalAlign.Center,
+        backgroundColorHex: ExcelColor.fromHexString('#FFF2CC'),
+      );
+
+      double toDouble(dynamic value) {
+        if (value == null) return 0.0;
+        if (value is num) return value.toDouble();
+        return double.tryParse(value.toString()) ?? 0.0;
+      }
+
+      void setCell(int row, int col, dynamic value, {CellStyle? style}) {
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+        );
+
+        if (value is num) {
+          cell.value = DoubleCellValue(value.toDouble());
+        } else {
+          cell.value = TextCellValue((value ?? '').toString());
+        }
+
+        if (style != null) {
+          cell.cellStyle = style;
+        }
+      }
+
+      int row = 0;
+
+      setCell(row, 0, title, style: titleStyle);
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
+        CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: row),
+      );
+      row += 2;
+
+      setCell(row, 0, 'Entité', style: sectionStyle);
+      setCell(row, 1, entityName);
+      row += 1;
+      setCell(row, 0, 'Période', style: sectionStyle);
+      setCell(row, 1, periodInfo);
+      row += 1;
+      setCell(row, 0, 'Date d\'export', style: sectionStyle);
+      setCell(row, 1, DateTime.now().toString().split('.')[0]);
+      row += 2;
+
+      final headers = [
+        'N° Compte',
+        'Intitulé',
+        'Solde Débit',
+        'Solde Crédit',
+        'Mouvement Débit',
+        'Mouvement Crédit',
+        'Solde Clôture Débit',
+        'Solde Clôture Crédit',
+      ];
+
+      for (var col = 0; col < headers.length; col++) {
+        setCell(row, col, headers[col], style: headerStyle);
+      }
+      row += 1;
+
+      for (final compte in comptes) {
+        setCell(row, 0, compte['numero'] ?? '-', style: dataTextStyle);
+        setCell(row, 1, compte['intitule'] ?? '-', style: dataTextStyle);
+        setCell(row, 2, toDouble(compte['soldeDebit']), style: dataNumberStyle);
+        setCell(
+          row,
+          3,
+          toDouble(compte['soldeCredit']),
+          style: dataNumberStyle,
+        );
+        setCell(
+          row,
+          4,
+          toDouble(compte['mouvementDebit']),
+          style: dataNumberStyle,
+        );
+        setCell(
+          row,
+          5,
+          toDouble(compte['mouvementCredit']),
+          style: dataNumberStyle,
+        );
+        setCell(
+          row,
+          6,
+          toDouble(compte['soldeClotureDebit']),
+          style: dataNumberStyle,
+        );
+        setCell(
+          row,
+          7,
+          toDouble(compte['soldeClotureCredit']),
+          style: dataNumberStyle,
+        );
+        row += 1;
+      }
+
+      row += 1;
+
+      int firstDigit(dynamic numero) {
+        final text = (numero ?? '').toString().trim();
+        if (text.isEmpty) return 0;
+        return int.tryParse(text.substring(0, 1)) ?? 0;
+      }
+
+      List<Map<String, dynamic>> filterByClass(int min, int max) {
+        return comptes.where((compte) {
+          final digit = firstDigit(compte['numero']);
+          return digit >= min && digit <= max;
+        }).toList();
+      }
+
+      List<dynamic> summaryRow(String label, List<Map<String, dynamic>> rows) {
+        final debit = rows.fold<double>(
+          0.0,
+          (sum, row) => sum + toDouble(row['mouvementDebit']),
+        );
+        final credit = rows.fold<double>(
+          0.0,
+          (sum, row) => sum + toDouble(row['mouvementCredit']),
+        );
+
+        return [label, '', '', '', debit, credit, debit, credit];
+      }
+
+      final comptesBilan = filterByClass(1, 5);
+      final comptesGestion = filterByClass(6, 8);
+
+      final totalGestionDebit = comptesGestion.fold<double>(
+        0.0,
+        (sum, row) => sum + toDouble(row['mouvementDebit']),
+      );
+      final totalGestionCredit = comptesGestion.fold<double>(
+        0.0,
+        (sum, row) => sum + toDouble(row['mouvementCredit']),
+      );
+
+      String natureResultat = 'NUL';
+      if (totalGestionCredit > totalGestionDebit) {
+        natureResultat = 'EXCEDENT';
+      } else if (totalGestionCredit < totalGestionDebit) {
+        natureResultat = 'DEFICIT';
+      }
+
+      final summaryRows = [
+        summaryRow('COMPTES DU BILAN', comptesBilan),
+        summaryRow('COMPTES DE GESTION', comptesGestion),
+        summaryRow('TOTAL DE LA BALANCE', comptes),
+      ];
+
+      for (final values in summaryRows) {
+        for (var col = 0; col < values.length; col++) {
+          setCell(row, col, values[col], style: summaryStyle);
+        }
+        row += 1;
+      }
+
+      setCell(row, 0, 'NATURE DU RESULTAT', style: natureStyle);
+      setCell(row, 1, natureResultat, style: natureStyle);
+      for (var col = 2; col < 8; col++) {
+        setCell(row, col, '', style: natureStyle);
+      }
+      row += 1;
 
       // Ajouter les totaux si disponibles
       if (totals != null) {
-        buffer.writeln('');
-        buffer.writeln(
-          'TOTAL\t\t${totals['totalSoldeDebit'] ?? 0}\t${totals['totalSoldeCredit'] ?? 0}\t${totals['totalMouvementDebit'] ?? 0}\t${totals['totalMouvementCredit'] ?? 0}\t${totals['totalSoldeClotureDebit'] ?? 0}\t${totals['totalSoldeClotureCredit'] ?? 0}',
-        );
+        row += 1;
+        final totalValues = [
+          'TOTAL',
+          '',
+          totals['totalSoldeDebit'] ?? 0,
+          totals['totalSoldeCredit'] ?? 0,
+          totals['totalMouvementDebit'] ?? 0,
+          totals['totalMouvementCredit'] ?? 0,
+          totals['totalSoldeClotureDebit'] ?? 0,
+          totals['totalSoldeClotureCredit'] ?? 0,
+        ];
+        for (var col = 0; col < totalValues.length; col++) {
+          setCell(row, col, totalValues[col], style: summaryStyle);
+        }
       }
+
+      sheet.setColumnWidth(0, 18);
+      sheet.setColumnWidth(1, 40);
+      sheet.setColumnWidth(2, 16);
+      sheet.setColumnWidth(3, 16);
+      sheet.setColumnWidth(4, 18);
+      sheet.setColumnWidth(5, 18);
+      sheet.setColumnWidth(6, 22);
+      sheet.setColumnWidth(7, 22);
 
       // Sauvegarder le fichier
       final directory = await getApplicationDocumentsDirectory();
@@ -702,7 +1109,11 @@ class ExportService {
           'balance_resultat_${DateTime.now().toString().split(' ')[0]}.xlsx';
       final filePath = '${directory.path}/$fileName';
       final file = File(filePath);
-      await file.writeAsString(buffer.toString());
+      final bytes = excel.encode();
+      if (bytes == null) {
+        throw Exception('Impossible de générer le fichier Excel');
+      }
+      await file.writeAsBytes(bytes, flush: true);
 
       return file;
     } catch (e) {

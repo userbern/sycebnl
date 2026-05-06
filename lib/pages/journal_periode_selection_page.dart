@@ -8,6 +8,21 @@ import 'saisie_ecriture_page.dart';
 
 typedef MoisData = ({String label, int mois, int annee, String id});
 
+const List<String> _monthNames = [
+  'janvier',
+  'février',
+  'mars',
+  'avril',
+  'mai',
+  'juin',
+  'juillet',
+  'août',
+  'septembre',
+  'octobre',
+  'novembre',
+  'décembre',
+];
+
 class JournalPeriodeSelectionPage extends StatefulWidget {
   final bool showAppBar;
   final Future<bool> Function(JournalPeriode)? onOpenPeriode;
@@ -88,28 +103,13 @@ class _JournalPeriodeSelectionPageState
         return [];
       }
 
-      final monthNames = const [
-        'janvier',
-        'février',
-        'mars',
-        'avril',
-        'mai',
-        'juin',
-        'juillet',
-        'août',
-        'septembre',
-        'octobre',
-        'novembre',
-        'décembre',
-      ];
-
       final moisList = <MoisData>[];
       DateTime current = exerciceActif.dateDebut;
 
       while (current.isBefore(exerciceActif.dateFin) ||
           (current.year == exerciceActif.dateFin.year &&
               current.month == exerciceActif.dateFin.month)) {
-        final label = '${monthNames[current.month - 1]} ${current.year}';
+        final label = '${_monthNames[current.month - 1]} ${current.year}';
         final id = '${current.year}-${current.month}';
         moisList.add((
           label: label,
@@ -126,6 +126,33 @@ class _JournalPeriodeSelectionPageState
       debugPrint('Erreur génération mois: $e');
       return [];
     }
+  }
+
+  InputDecoration _buildDropdownDecoration(String labelText) {
+    return InputDecoration(
+      labelText: labelText,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 10,
+      ),
+    );
+  }
+
+  String? get _selectedJournalValue {
+    final selectedCode = _selectedCodeJournal;
+    return _journaux.any((journal) => journal.code == selectedCode)
+        ? selectedCode
+        : null;
+  }
+
+  String? get _selectedMoisValue {
+    final selectedId = _selectedMoisId;
+    return _moisDisponibles.any((item) => item.id == selectedId)
+        ? selectedId
+        : null;
   }
 
   Future<void> _handleCreateSaisie() async {
@@ -231,7 +258,7 @@ class _JournalPeriodeSelectionPageState
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.06),
+                color: Colors.black.withValues(alpha: 0.06),
                 blurRadius: 16,
                 offset: const Offset(0, 8),
               ),
@@ -247,13 +274,13 @@ class _JournalPeriodeSelectionPageState
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.indigo.shade100,
+                      color: Colors.blue.shade50,
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(
                       Icons.fact_check,
                       size: 28,
-                      color: Colors.indigo.shade700,
+                      color: Colors.black,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -280,22 +307,8 @@ class _JournalPeriodeSelectionPageState
               ),
               const SizedBox(height: 20),
               DropdownButtonFormField<String>(
-                value:
-                    _journaux.any(
-                          (journal) => journal.code == _selectedCodeJournal,
-                        )
-                        ? _selectedCodeJournal
-                        : null,
-                decoration: InputDecoration(
-                  labelText: 'Journal',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                ),
+                value: _selectedJournalValue,
+                decoration: _buildDropdownDecoration('Journal'),
                 isExpanded: true,
                 hint: const Text('Sélectionnez un journal'),
                 items:
@@ -313,20 +326,8 @@ class _JournalPeriodeSelectionPageState
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
-                value:
-                    _moisDisponibles.any((item) => item.id == _selectedMoisId)
-                        ? _selectedMoisId
-                        : null,
-                decoration: InputDecoration(
-                  labelText: 'Mois de saisie',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                ),
+                value: _selectedMoisValue,
+                decoration: _buildDropdownDecoration('Mois de saisie'),
                 isExpanded: true,
                 menuMaxHeight: 320,
                 hint: const Text('Sélectionnez un mois'),

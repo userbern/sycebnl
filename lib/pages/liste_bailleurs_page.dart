@@ -44,7 +44,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
   void initState() {
     super.initState();
     _focusNode = FocusNode();
-    Future.microtask(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusNode.requestFocus();
     });
     _loadBailleurs();
@@ -177,10 +177,12 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
 
   @override
   Widget build(BuildContext context) {
-    return RawKeyboardListener(
+    return KeyboardListener(
       focusNode: _focusNode,
-      onKey: (event) {
-        if (event.logicalKey == LogicalKeyboardKey.keyN &&
+      autofocus: true,
+      onKeyEvent: (KeyEvent event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.keyN &&
             HardwareKeyboard.instance.isControlPressed &&
             _canCreate) {
           _showBailleurDialog(null);
@@ -203,10 +205,17 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                 children: [
                   Row(
                     children: [
-                      Icon(
-                        Icons.business,
-                        size: 32,
-                        color: Colors.indigo.shade700,
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.business,
+                          size: 32,
+                          color: Colors.black,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       const Text(
@@ -214,7 +223,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: Colors.black,
                         ),
                       ),
                     ],
@@ -222,7 +231,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                   if (_canCreate)
                     ElevatedButton.icon(
                       onPressed: () => _showBailleurDialog(null),
-                      icon: const Icon(Icons.add),
+                      icon: const Icon(Icons.add, color: Colors.white),
                       label: const Text('Nouveau bailleur (Ctrl+N)'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue.shade400,
@@ -444,7 +453,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                                         'Sigle',
                                         style: TextStyle(
                                           color: Colors.white,
-                                          fontWeight: FontWeight.w600,
+                                          fontWeight: FontWeight.w900,
                                           fontSize: 14,
                                         ),
                                       ),
@@ -459,7 +468,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                                           'Désignation',
                                           style: TextStyle(
                                             color: Colors.white,
-                                            fontWeight: FontWeight.w600,
+                                            fontWeight: FontWeight.w900,
                                             fontSize: 14,
                                           ),
                                         ),
@@ -473,7 +482,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                                           'Actions',
                                           style: TextStyle(
                                             color: Colors.white,
-                                            fontWeight: FontWeight.w600,
+                                            fontWeight: FontWeight.w900,
                                             fontSize: 14,
                                           ),
                                         ),
@@ -507,7 +516,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
