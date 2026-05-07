@@ -861,6 +861,21 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
     }
   }
 
+  String _formatAmount(dynamic value) {
+    final numVal =
+        (value is num)
+            ? value.toDouble()
+            : (value == null ? 0.0 : double.tryParse(value.toString()) ?? 0.0);
+    final parts = numVal.toStringAsFixed(2).split('.');
+    final intPart = parts[0];
+    final decPart = parts.length > 1 ? parts[1] : '00';
+    final intWithSep = intPart.replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]} ',
+    );
+    return '$intWithSep.$decPart XOF';
+  }
+
   Widget _buildMontantCard(String title, double montant) {
     return Card(
       elevation: 2,
@@ -880,7 +895,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              '${montant.toStringAsFixed(2)} XOF',
+              _formatAmount(montant),
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
@@ -894,435 +909,773 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
   }
 
   Widget _buildPosteHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade100),
-      ),
-      child: const Row(
-        children: [
-          SizedBox(width: 56),
-          Expanded(
-            flex: 3,
-            child: Text(
-              'INTITULÉ',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Colors.blue,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              'MONTANT',
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Colors.blue,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-          SizedBox(width: 48),
-        ],
-      ),
-    );
+    // Remplacé par le tableau unifié dans _buildPostesTable
+    return const SizedBox.shrink();
   }
 
-  Widget _buildPosteRow(Map<String, dynamic> poste) {
-    final posteId = poste['id'] as int;
-    final isSelected = _selectedPosteId == posteId;
-    final montant = _postesMontants[posteId] ?? 0.0;
-
+  Widget _buildPostesTable() {
     return Container(
       decoration: BoxDecoration(
-        color: isSelected ? Colors.blue.shade50 : Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200, width: 1),
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: ListTile(
-        onTap: () {
-          if (!isSelected) {
-            setState(() => _selectedPosteId = posteId);
-            _loadLignesForPoste(posteId);
-          } else {
-            setState(() {
-              _selectedPosteId = null;
-              _selectedPosteLignes = [];
-              _expandedLignesIds.clear();
-              _lignesSousRubriques.clear();
-            });
-          }
-        },
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.blue.shade100 : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected ? Colors.blue.shade300 : Colors.grey.shade300,
-            ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Table(
+          columnWidths: const {
+            0: FixedColumnWidth(44), // icône
+            1: FlexColumnWidth(4), // intitulé
+            2: FlexColumnWidth(2), // montant
+            3: FixedColumnWidth(110), // actions
+          },
+          border: TableBorder(
+            horizontalInside: BorderSide(color: Colors.grey.shade200, width: 1),
+            bottom: BorderSide(color: Colors.grey.shade200, width: 1),
           ),
-          child: Icon(
-            Icons.folder,
-            color: isSelected ? Colors.blue.shade400 : Colors.grey.shade600,
-            size: 20,
-          ),
-        ),
-        title: Text(
-          poste['intitule'] as String,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: isSelected ? Colors.blue.shade800 : Colors.black87,
-          ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              '${montant.toStringAsFixed(2)} XOF',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.green.shade700,
-              ),
+            // En-tête
+            TableRow(
+              decoration: BoxDecoration(color: Colors.blue.shade50),
+              children: [
+                const SizedBox(height: 44),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  child: Text(
+                    'INTITULÉ',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.blue.shade700,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  child: Text(
+                    'MONTANT',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.blue.shade700,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 12,
+                  ),
+                  child: Text(
+                    'ACTIONS',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.blue.shade700,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 16),
-            Icon(
-              isSelected ? Icons.expand_less : Icons.expand_more,
-              color: Colors.grey.shade600,
-              size: 20,
-            ),
-            if (_canCreate) ...[
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.edit, size: 18),
-                onPressed:
-                    () => _editPoste(posteId, poste['intitule'] as String),
-                tooltip: 'Modifier',
-                color: Colors.blue.shade600,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              ),
-            ],
-            if (_canDelete) ...[
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.delete, size: 18),
-                onPressed: () => _deletePoste(posteId),
-                tooltip: 'Supprimer',
-                color: Colors.red.shade600,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              ),
-            ],
+            // Lignes de données
+            ..._postes.map((poste) {
+              final posteId = poste['id'] as int;
+              final isSelected = _selectedPosteId == posteId;
+              final montant = _postesMontants[posteId] ?? 0.0;
+              final rowColor = isSelected ? Colors.blue.shade50 : Colors.white;
+
+              return TableRow(
+                decoration: BoxDecoration(color: rowColor),
+                children: [
+                  // Icône
+                  GestureDetector(
+                    onTap: () {
+                      if (!isSelected) {
+                        setState(() => _selectedPosteId = posteId);
+                        _loadLignesForPoste(posteId);
+                      } else {
+                        setState(() {
+                          _selectedPosteId = null;
+                          _selectedPosteLignes = [];
+                          _expandedLignesIds.clear();
+                          _lignesSousRubriques.clear();
+                        });
+                      }
+                    },
+                    child: Container(
+                      height: 52,
+                      alignment: Alignment.center,
+                      child: Icon(
+                        isSelected ? Icons.folder_open : Icons.folder,
+                        color:
+                            isSelected
+                                ? Colors.blue.shade500
+                                : Colors.grey.shade400,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  // Intitulé
+                  GestureDetector(
+                    onTap: () {
+                      if (!isSelected) {
+                        setState(() => _selectedPosteId = posteId);
+                        _loadLignesForPoste(posteId);
+                      } else {
+                        setState(() {
+                          _selectedPosteId = null;
+                          _selectedPosteLignes = [];
+                          _expandedLignesIds.clear();
+                          _lignesSousRubriques.clear();
+                        });
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 14,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              poste['intitule'] as String,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight:
+                                    isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                color:
+                                    isSelected
+                                        ? Colors.blue.shade800
+                                        : Colors.black87,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            isSelected ? Icons.expand_less : Icons.expand_more,
+                            size: 18,
+                            color: Colors.grey.shade500,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Montant
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 14,
+                    ),
+                    child: Text(
+                      _formatAmount(montant),
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green.shade700,
+                      ),
+                    ),
+                  ),
+                  // Actions
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 6,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_canCreate)
+                          IconButton(
+                            icon: Icon(
+                              Icons.edit,
+                              size: 17,
+                              color: Colors.blue.shade400,
+                            ),
+                            onPressed:
+                                () => _editPoste(
+                                  posteId,
+                                  poste['intitule'] as String,
+                                ),
+                            tooltip: 'Modifier',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                          ),
+                        if (_canDelete)
+                          IconButton(
+                            icon: const Icon(
+                              Icons.delete,
+                              size: 17,
+                              color: Colors.red,
+                            ),
+                            onPressed: () => _deletePoste(posteId),
+                            tooltip: 'Supprimer',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildPosteRow(Map<String, dynamic> poste) {
+    // Remplacé par _buildPostesTable - stub conservé pour compatibilité
+    return const SizedBox.shrink();
+  }
+
   Widget _buildLignesHeader() {
+    // Remplacé par le tableau unifié dans _buildLignesTable
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildLignesTable() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.green.shade50,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.green.shade100),
-      ),
-      child: const Row(
-        children: [
-          SizedBox(width: 72),
-          Expanded(
-            flex: 2,
-            child: Text(
-              'CODE',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Colors.green,
-                letterSpacing: 0.5,
-              ),
-            ),
+        border: Border.all(color: Colors.green.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
-          Expanded(
-            flex: 4,
-            child: Text(
-              'INTITULÉ',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Colors.green,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              'MONTANT',
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Colors.green,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-          SizedBox(width: 100),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Column(
+          children: [
+            // En-tête
+            Container(
+              color: Colors.green.shade50,
+              child: Table(
+                columnWidths: const {
+                  0: FixedColumnWidth(80), // code
+                  1: FlexColumnWidth(4), // intitulé
+                  2: FlexColumnWidth(2), // montant
+                  3: FixedColumnWidth(130), // actions
+                },
+                children: [
+                  TableRow(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        child: Text(
+                          'CODE',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.green.shade700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        child: Text(
+                          'INTITULÉ',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.green.shade700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        child: Text(
+                          'MONTANT',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.green.shade700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 12,
+                        ),
+                        child: Text(
+                          'ACTIONS',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.green.shade700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: Colors.green.shade200),
+            // Corps : lignes + sous-rubriques inline
+            ..._selectedPosteLignes.asMap().entries.map((entry) {
+              final index = entry.key;
+              final ligne = entry.value;
+              final ligneId = ligne['id'] as int;
+              final isExpanded = _expandedLignesIds.contains(ligneId);
+              final sousRubriques = _lignesSousRubriques[ligneId] ?? [];
+              final montant = _lignesMontants[ligneId] ?? 0.0;
+
+              return Column(
+                children: [
+                  if (index > 0)
+                    Divider(height: 1, color: Colors.grey.shade200),
+                  // Ligne principale
+                  Table(
+                    columnWidths: const {
+                      0: FixedColumnWidth(80),
+                      1: FlexColumnWidth(4),
+                      2: FlexColumnWidth(2),
+                      3: FixedColumnWidth(130),
+                    },
+                    children: [
+                      TableRow(
+                        decoration: const BoxDecoration(color: Colors.white),
+                        children: [
+                          // Code
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 14,
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: Text(
+                                ligne['code'] as String,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade800,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                          // Intitulé
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 14,
+                            ),
+                            child: Text(
+                              ligne['intitule'] as String,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          // Montant
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 14,
+                            ),
+                            child: Text(
+                              _formatAmount(montant),
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.green.shade700,
+                              ),
+                            ),
+                          ),
+                          // Actions
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 6,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (_canCreate)
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.edit,
+                                      size: 16,
+                                      color: Colors.blue.shade400,
+                                    ),
+                                    onPressed:
+                                        () => _editLigne(
+                                          ligneId,
+                                          ligne['code'] as String,
+                                          ligne['intitule'] as String,
+                                        ),
+                                    tooltip: 'Modifier',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 28,
+                                      minHeight: 28,
+                                    ),
+                                  ),
+                                if (_canCreate)
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.add,
+                                      size: 16,
+                                      color: Colors.green.shade600,
+                                    ),
+                                    onPressed:
+                                        () => _createSousRubrique(ligneId),
+                                    tooltip: 'Ajouter sous-rubrique',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 28,
+                                      minHeight: 28,
+                                    ),
+                                  ),
+                                if (_canDelete)
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.delete,
+                                      size: 16,
+                                      color: Colors.red.shade400,
+                                    ),
+                                    onPressed: () => _deleteLigne(ligneId),
+                                    tooltip: 'Supprimer',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 28,
+                                      minHeight: 28,
+                                    ),
+                                  ),
+                                IconButton(
+                                  icon: Icon(
+                                    isExpanded
+                                        ? Icons.expand_less
+                                        : Icons.expand_more,
+                                    size: 16,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  onPressed: () {
+                                    if (!isExpanded) {
+                                      _loadSousRubriquesForLigne(ligneId);
+                                    }
+                                    setState(() {
+                                      if (_expandedLignesIds.contains(
+                                        ligneId,
+                                      )) {
+                                        _expandedLignesIds.remove(ligneId);
+                                      } else {
+                                        _expandedLignesIds.add(ligneId);
+                                      }
+                                    });
+                                  },
+                                  tooltip:
+                                      isExpanded ? 'Réduire' : 'Développer',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 28,
+                                    minHeight: 28,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  // Sous-rubriques en tableau imbriqué
+                  if (isExpanded && sousRubriques.isNotEmpty)
+                    Container(
+                      color: Colors.grey.shade50,
+                      child: Column(
+                        children: [
+                          // En-tête sous-rubriques
+                          Container(
+                            color: Colors.grey.shade100,
+                            child: Table(
+                              columnWidths: const {
+                                0: FixedColumnWidth(16), // indent
+                                1: FixedColumnWidth(110), // n° compte
+                                2: FlexColumnWidth(4), // intitulé
+                                3: FlexColumnWidth(2), // montant
+                                4: FixedColumnWidth(72), // actions
+                              },
+                              children: [
+                                TableRow(
+                                  children: [
+                                    const SizedBox(height: 36),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 10,
+                                      ),
+                                      child: Text(
+                                        'N° COMPTE',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.grey.shade600,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 10,
+                                      ),
+                                      child: Text(
+                                        'INTITULÉ SOUS-RUBRIQUE',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.grey.shade600,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 10,
+                                      ),
+                                      child: Text(
+                                        'MONTANT',
+                                        textAlign: TextAlign.right,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.grey.shade600,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 36),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Divider(height: 1, color: Colors.grey.shade300),
+                          // Lignes sous-rubriques
+                          ...sousRubriques.asMap().entries.map((srEntry) {
+                            final srIndex = srEntry.key;
+                            final sr = srEntry.value;
+                            return Column(
+                              children: [
+                                if (srIndex > 0)
+                                  Divider(
+                                    height: 1,
+                                    color: Colors.grey.shade200,
+                                  ),
+                                Table(
+                                  columnWidths: const {
+                                    0: FixedColumnWidth(16),
+                                    1: FixedColumnWidth(110),
+                                    2: FlexColumnWidth(4),
+                                    3: FlexColumnWidth(2),
+                                    4: FixedColumnWidth(72),
+                                  },
+                                  children: [
+                                    TableRow(
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade50,
+                                      ),
+                                      children: [
+                                        // Trait d'indentation
+                                        Container(
+                                          height: 44,
+                                          alignment: Alignment.center,
+                                          child: Container(
+                                            width: 2,
+                                            color: Colors.green.shade200,
+                                          ),
+                                        ),
+                                        // N° compte
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 12,
+                                          ),
+                                          child: Text(
+                                            sr['numero_compte']?.toString() ??
+                                                '-',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade600,
+                                              fontFamily: 'monospace',
+                                            ),
+                                          ),
+                                        ),
+                                        // Intitulé
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 12,
+                                          ),
+                                          child: Text(
+                                            sr['intitule'] as String,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.grey.shade800,
+                                            ),
+                                          ),
+                                        ),
+                                        // Montant
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 12,
+                                          ),
+                                          child: Text(
+                                            _formatAmount(
+                                              (sr['montant'] as num?)
+                                                  ?.toDouble(),
+                                            ),
+                                            textAlign: TextAlign.right,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade700,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                        // Actions
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                            vertical: 6,
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              if (_canCreate)
+                                                IconButton(
+                                                  icon: Icon(
+                                                    Icons.edit,
+                                                    size: 15,
+                                                    color: Colors.blue.shade400,
+                                                  ),
+                                                  onPressed:
+                                                      () => _editSousRubrique(
+                                                        sr['id'] as int,
+                                                        sr['intitule']
+                                                            as String,
+                                                        (sr['montant'] as num?)
+                                                                ?.toDouble() ??
+                                                            0.0,
+                                                        ligneId,
+                                                      ),
+                                                  tooltip: 'Modifier',
+                                                  padding: EdgeInsets.zero,
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                        minWidth: 28,
+                                                        minHeight: 28,
+                                                      ),
+                                                ),
+                                              if (_canDelete)
+                                                IconButton(
+                                                  icon: Icon(
+                                                    Icons.delete,
+                                                    size: 15,
+                                                    color: Colors.red.shade400,
+                                                  ),
+                                                  onPressed:
+                                                      () => _deleteSousRubrique(
+                                                        sr['id'] as int,
+                                                      ),
+                                                  tooltip: 'Supprimer',
+                                                  padding: EdgeInsets.zero,
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                        minWidth: 28,
+                                                        minHeight: 28,
+                                                      ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                ],
+              );
+            }),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildLigneRow(Map<String, dynamic> ligne, {bool isFirst = false}) {
-    final ligneId = ligne['id'] as int;
-    final isExpanded = _expandedLignesIds.contains(ligneId);
-    final sousRubriques = _lignesSousRubriques[ligneId] ?? [];
-    final montant = _lignesMontants[ligneId] ?? 0.0;
-
-    return Column(
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(
-              bottom: BorderSide(
-                color: isFirst ? Colors.transparent : Colors.grey.shade200,
-                width: 1,
-              ),
-            ),
-          ),
-          child: ListTile(
-            contentPadding: EdgeInsets.only(
-              left: 72,
-              right: 16,
-              top: 8,
-              bottom: sousRubriques.isNotEmpty && isExpanded ? 0 : 8,
-            ),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Text(
-                    ligne['code'] as String,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade800,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    ligne['intitule'] as String,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '${montant.toStringAsFixed(2)} XOF',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.green.shade700,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                if (_canCreate)
-                  IconButton(
-                    icon: Icon(
-                      Icons.edit,
-                      size: 18,
-                      color: Colors.blue.shade600,
-                    ),
-                    onPressed:
-                        () => _editLigne(
-                          ligneId,
-                          ligne['code'] as String,
-                          ligne['intitule'] as String,
-                        ),
-                    tooltip: 'Modifier',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 36,
-                      minHeight: 36,
-                    ),
-                  ),
-                if (_canCreate)
-                  IconButton(
-                    icon: Icon(
-                      Icons.add,
-                      size: 18,
-                      color: Colors.blue.shade600,
-                    ),
-                    onPressed: () => _createSousRubrique(ligneId),
-                    tooltip: 'Ajouter une sous-rubrique',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 36,
-                      minHeight: 36,
-                    ),
-                  ),
-                if (_canDelete)
-                  IconButton(
-                    icon: Icon(
-                      Icons.delete,
-                      size: 18,
-                      color: Colors.red.shade600,
-                    ),
-                    onPressed: () => _deleteLigne(ligneId),
-                    tooltip: 'Supprimer',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 36,
-                      minHeight: 36,
-                    ),
-                  ),
-                IconButton(
-                  icon: Icon(
-                    isExpanded ? Icons.expand_less : Icons.expand_more,
-                    size: 18,
-                    color: Colors.grey.shade600,
-                  ),
-                  onPressed: () {
-                    if (!isExpanded) {
-                      _loadSousRubriquesForLigne(ligneId);
-                    }
-                    setState(() {
-                      if (_expandedLignesIds.contains(ligneId)) {
-                        _expandedLignesIds.remove(ligneId);
-                      } else {
-                        _expandedLignesIds.add(ligneId);
-                      }
-                    });
-                  },
-                  tooltip: isExpanded ? 'Réduire' : 'Développer',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (isExpanded && sousRubriques.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.only(left: 88, right: 16, bottom: 8),
-            child: Column(
-              children:
-                  sousRubriques.map((sr) {
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 4),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.circle,
-                            size: 8,
-                            color: Colors.grey.shade500,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              sr['intitule'] as String,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey.shade700,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Text(
-                            '${(sr['montant'] as num?)?.toStringAsFixed(2) ?? '0.00'} XOF',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade700,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          if (_canCreate)
-                            IconButton(
-                              icon: Icon(
-                                Icons.edit,
-                                size: 16,
-                                color: Colors.blue.shade600,
-                              ),
-                              onPressed:
-                                  () => _editSousRubrique(
-                                    sr['id'] as int,
-                                    sr['intitule'] as String,
-                                    (sr['montant'] as num?)?.toDouble() ?? 0.0,
-                                    ligneId,
-                                  ),
-                              tooltip: 'Modifier',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 32,
-                                minHeight: 32,
-                              ),
-                            ),
-                          if (_canDelete)
-                            IconButton(
-                              icon: Icon(
-                                Icons.delete,
-                                size: 16,
-                                color: Colors.red.shade600,
-                              ),
-                              onPressed:
-                                  () => _deleteSousRubrique(sr['id'] as int),
-                              tooltip: 'Supprimer',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 32,
-                                minHeight: 32,
-                              ),
-                            ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-            ),
-          ),
-      ],
-    );
+    // Remplacé par _buildLignesTable - stub conservé pour compatibilité
+    return const SizedBox.shrink();
   }
 
   Future<void> _createPoste() async {
@@ -2261,31 +2614,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
                         ),
                       )
                     else
-                      Column(
-                        children: [
-                          _buildPosteHeader(),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey.shade200),
-                            ),
-                            child: ListView.separated(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: _postes.length,
-                              separatorBuilder:
-                                  (context, index) => Divider(
-                                    height: 1,
-                                    color: Colors.grey.shade100,
-                                  ),
-                              itemBuilder: (context, index) {
-                                return _buildPosteRow(_postes[index]);
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
+                      _buildPostesTable(),
 
                     // Section Lignes
                     if (_selectedPosteId != null) ...[
@@ -2371,31 +2700,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
                           ),
                         )
                       else
-                        Column(
-                          children: [
-                            _buildLignesHeader(),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.shade200),
-                              ),
-                              child: ListView.separated(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: _selectedPosteLignes.length,
-                                separatorBuilder:
-                                    (context, index) => const SizedBox.shrink(),
-                                itemBuilder: (context, index) {
-                                  return _buildLigneRow(
-                                    _selectedPosteLignes[index],
-                                    isFirst: index == 0,
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
+                        _buildLignesTable(),
                     ],
                   ],
                 ),
@@ -2445,6 +2750,59 @@ class __CreateBudgetDialogState extends State<_CreateBudgetDialog> {
           SnackBar(
             content: Text('Erreur: ${e.toString()}'),
             backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _createBudgetAndContinue() async {
+    if (selectedProjetId == null || selectedBailleurId == null) {
+      return;
+    }
+
+    try {
+      await AuthService.createBudget(
+        projetId: selectedProjetId!,
+        bailleurId: selectedBailleurId!,
+        exerciceId: widget.exerciceId,
+      );
+      if (mounted) {
+        widget.onBudgetCreated();
+
+        // Réinitialiser les champs
+        setState(() {
+          selectedProjetId = null;
+          selectedBailleurId = null;
+          bailleursFiltres = [];
+          isLoadingBailleurs = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Budget créé avec succès'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        // Vérifier si c'est une erreur de contrainte UNIQUE
+        final errorMessage = e.toString();
+        String displayMessage = 'Erreur: $e';
+
+        if (errorMessage.contains('existe déjà pour cette combinaison')) {
+          displayMessage =
+              'Un budget existe déjà pour cette combinaison projet + bailleur + exercice.\n'
+              'Rafraîchissez la page pour voir les budgets à jour.';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(displayMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -2596,6 +2954,22 @@ class __CreateBudgetDialogState extends State<_CreateBudgetDialog> {
             ),
           ),
           child: const Text('Créer'),
+        ),
+        ElevatedButton.icon(
+          onPressed:
+              selectedProjetId != null && selectedBailleurId != null
+                  ? _createBudgetAndContinue
+                  : null,
+          icon: const Icon(Icons.add_circle),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green.shade600,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          label: const Text('Ajouter et continuer'),
         ),
       ],
     );

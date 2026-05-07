@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../services/database_service.dart';
 import '../models/tiers.dart';
 import '../models/compte.dart';
+import '../services/export_service.dart';
 
 class ListeTiersPage extends StatefulWidget {
   const ListeTiersPage({super.key});
@@ -37,7 +38,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
   }
 
   List<Tiers> get _filteredTiers {
-    var filtered = _tiers;
+    var filtered = List<Tiers>.from(_tiers);
 
     // Filtrer par texte de recherche
     if (_searchQuery.isNotEmpty) {
@@ -1151,6 +1152,63 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                     ),
                   ),
                   const Spacer(),
+                  // Boutons d'export
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      final tiers =
+                          _filteredTiers.map((t) {
+                            return {
+                              'numeroCompte': t.numeroCompte,
+                              'intitule': t.intitule,
+                              'type': t.type.toLabel(),
+                              'nif': t.nif ?? '',
+                            };
+                          }).toList();
+                      ExportService.exportTiersPDF(
+                        tiers: tiers,
+                        context: context,
+                      );
+                    },
+                    icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+                    label: const Text('PDF'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade400,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      final tiers =
+                          _filteredTiers.map((t) {
+                            return {
+                              'numeroCompte': t.numeroCompte,
+                              'intitule': t.intitule,
+                              'type': t.type.toLabel(),
+                              'nif': t.nif ?? '',
+                            };
+                          }).toList();
+                      ExportService.exportTiersExcel(
+                        tiers: tiers,
+                        context: context,
+                      );
+                    },
+                    icon: const Icon(Icons.table_chart, color: Colors.white),
+                    label: const Text('Excel'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade400,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   ElevatedButton.icon(
                     onPressed: () => _showTiersDialog(),
                     icon: const Icon(Icons.add, color: Colors.white),

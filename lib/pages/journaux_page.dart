@@ -177,6 +177,19 @@ class _JournauxPageState extends State<JournauxPage> {
             event.logicalKey == LogicalKeyboardKey.keyN &&
             HardwareKeyboard.instance.isControlPressed) {
           _showJournalDialog(null);
+        } else if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.escape) {
+          if (searchQuery.isNotEmpty ||
+              _selectedType != null ||
+              _filterStatus != 'actifs') {
+            setState(() {
+              searchQuery = '';
+              _selectedType = null;
+              _filterStatus = 'actifs';
+            });
+          } else if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
         }
       },
       child: Scaffold(
@@ -776,292 +789,332 @@ class _JournalDialogState extends State<JournalDialog> {
             return FormWithEnterShortcut(
               formKey: formKey,
               onSubmit: handleSubmit,
-              child: AlertDialog(
-                title: Row(
-                  children: [
-                    Icon(Icons.add_circle, color: Colors.indigo.shade700),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Nouveau compte de trésorerie',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+              child: Shortcuts(
+                shortcuts: <ShortcutActivator, Intent>{
+                  const SingleActivator(LogicalKeyboardKey.escape):
+                      const DismissIntent(),
+                  const SingleActivator(
+                        LogicalKeyboardKey.enter,
+                        control: true,
+                      ):
+                      const ActivateIntent(),
+                },
+                child: Actions(
+                  actions: <Type, Action<Intent>>{
+                    DismissIntent: CallbackAction<DismissIntent>(
+                      onInvoke: (intent) {
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                        }
+                        return null;
+                      },
                     ),
-                  ],
-                ),
-                content: SizedBox(
-                  width: 600,
-                  child: Form(
-                    key: formKey,
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    ActivateIntent: CallbackAction<ActivateIntent>(
+                      onInvoke: (intent) {
+                        handleSubmit();
+                        return null;
+                      },
+                    ),
+                  },
+                  child: Focus(
+                    autofocus: true,
+                    child: AlertDialog(
+                      title: Row(
                         children: [
-                          // Numéro de compte
-                          TextFormField(
-                            controller: numeroController,
-                            decoration: InputDecoration(
-                              labelText: 'N° Compte *',
-                              prefixIcon: const Icon(Icons.numbers),
-                              hintText: 'Ex: 52100, 57100, 53000...',
-                              helperText: 'Doit commencer par 52, 57 ou 50-59',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade400,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.indigo.shade700,
-                                  width: 2,
-                                ),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey.shade50,
-                            ),
-                            keyboardType: TextInputType.number,
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Champ requis';
-                              }
-                              if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
-                                return 'Seuls les chiffres sont autorisés';
-                              }
-                              // Vérifier que c'est un compte de trésorerie
-                              final isTresorerie = [
-                                '52',
-                                '57',
-                                '50',
-                                '51',
-                                '53',
-                                '55',
-                                '56',
-                                '58',
-                                '59',
-                              ].any((prefix) => value.startsWith(prefix));
-
-                              if (!isTresorerie) {
-                                return 'Le compte doit être de trésorerie (classe 5)';
-                              }
-                              return null;
-                            },
-                            onChanged: (value) {
-                              setDialogState(() {
-                                calculatedNature =
-                                    calculateNatureFromNumeroCompte(value);
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Intitulé
-                          TextFormField(
-                            controller: intituleController,
-                            decoration: InputDecoration(
-                              labelText: 'Intitulé *',
-                              prefixIcon: const Icon(Icons.title),
-                              hintText: 'Ex: Caisse principale, Banque ABC...',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade400,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.indigo.shade700,
-                                  width: 2,
-                                ),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey.shade50,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Champ requis';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Type (fixé à "détail" pour les comptes de trésorerie)
-                          DropdownButtonFormField<TypeCompte>(
-                            value: selectedType,
-                            decoration: InputDecoration(
-                              labelText: 'Type',
-                              prefixIcon: const Icon(Icons.category),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade400,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.indigo.shade700,
-                                  width: 2,
-                                ),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey.shade50,
-                            ),
-                            dropdownColor: Colors.white,
-                            icon: Icon(
-                              Icons.arrow_drop_down_circle,
-                              color: Colors.indigo.shade700,
-                            ),
-                            items:
-                                TypeCompte.values.map((type) {
-                                  return DropdownMenuItem(
-                                    value: type,
-                                    child: Text(type.toLabel()),
-                                  );
-                                }).toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setDialogState(() {
-                                  selectedType = value;
-                                });
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Nature (auto-détectée)
-                          DropdownButtonFormField<NatureCompte>(
-                            value: calculatedNature,
-                            decoration: InputDecoration(
-                              labelText: 'Nature *',
-                              prefixIcon: const Icon(Icons.layers),
-                              helperText: 'Auto-détecté du numéro de compte',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade400,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.indigo.shade700,
-                                  width: 2,
-                                ),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey.shade50,
-                            ),
-                            dropdownColor: Colors.white,
-                            icon: Icon(
-                              Icons.arrow_drop_down_circle,
-                              color: Colors.indigo.shade700,
-                            ),
-                            items:
-                                NatureCompte.values.map((nature) {
-                                  return DropdownMenuItem(
-                                    value: nature,
-                                    child: Text(nature.toLabel()),
-                                  );
-                                }).toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setDialogState(() {
-                                  calculatedNature = value;
-                                });
-                              }
-                            },
-                            validator: (value) {
-                              if (value == null) {
-                                return 'Sélectionnez une nature';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Description
-                          TextFormField(
-                            controller: descriptionController,
-                            decoration: InputDecoration(
-                              labelText: 'Description',
-                              prefixIcon: const Icon(Icons.notes),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade400,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.indigo.shade700,
-                                  width: 2,
-                                ),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey.shade50,
-                            ),
-                            maxLines: 2,
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Rattachement de tiers
-                          CheckboxListTile(
-                            title: const Text('Rattachement de tiers'),
-                            subtitle: const Text(
-                              'Permet de rattacher un tiers à ce compte',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                            value: liaisonTiers,
-                            onChanged: (value) {
-                              setDialogState(() {
-                                liaisonTiers = value ?? false;
-                              });
-                            },
-                            controlAffinity: ListTileControlAffinity.leading,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.grey.shade300),
-                            ),
-                            tileColor: Colors.grey.shade50,
+                          Icon(Icons.add_circle, color: Colors.indigo.shade700),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Nouveau compte de trésorerie',
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
+                      content: SizedBox(
+                        width: 600,
+                        child: Form(
+                          key: formKey,
+                          child: SingleChildScrollView(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Numéro de compte
+                                TextFormField(
+                                  controller: numeroController,
+                                  decoration: InputDecoration(
+                                    labelText: 'N° Compte *',
+                                    prefixIcon: const Icon(Icons.numbers),
+                                    hintText: 'Ex: 52100, 57100, 53000...',
+                                    helperText:
+                                        'Doit commencer par 52, 57 ou 50-59',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade400,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: Colors.indigo.shade700,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    filled: true,
+                                    fillColor: Colors.grey.shade50,
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Champ requis';
+                                    }
+                                    if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                                      return 'Seuls les chiffres sont autorisés';
+                                    }
+                                    // Vérifier que c'est un compte de trésorerie
+                                    final isTresorerie = [
+                                      '52',
+                                      '57',
+                                      '50',
+                                      '51',
+                                      '53',
+                                      '55',
+                                      '56',
+                                      '58',
+                                      '59',
+                                    ].any((prefix) => value.startsWith(prefix));
+
+                                    if (!isTresorerie) {
+                                      return 'Le compte doit être de trésorerie (classe 5)';
+                                    }
+                                    return null;
+                                  },
+                                  onChanged: (value) {
+                                    setDialogState(() {
+                                      calculatedNature =
+                                          calculateNatureFromNumeroCompte(
+                                            value,
+                                          );
+                                    });
+                                  },
+                                ),
+                                const SizedBox(height: 10),
+
+                                // Intitulé
+                                TextFormField(
+                                  controller: intituleController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Intitulé *',
+                                    prefixIcon: const Icon(Icons.title),
+                                    hintText:
+                                        'Ex: Caisse principale, Banque ABC...',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade400,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: Colors.indigo.shade700,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    filled: true,
+                                    fillColor: Colors.grey.shade50,
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Champ requis';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 10),
+
+                                // Type (fixé à "détail" pour les comptes de trésorerie)
+                                DropdownButtonFormField<TypeCompte>(
+                                  value: selectedType,
+                                  decoration: InputDecoration(
+                                    labelText: 'Type',
+                                    prefixIcon: const Icon(Icons.category),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade400,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: Colors.indigo.shade700,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    filled: true,
+                                    fillColor: Colors.grey.shade50,
+                                  ),
+                                  dropdownColor: Colors.white,
+                                  icon: Icon(
+                                    Icons.arrow_drop_down_circle,
+                                    color: Colors.indigo.shade700,
+                                  ),
+                                  items:
+                                      TypeCompte.values.map((type) {
+                                        return DropdownMenuItem(
+                                          value: type,
+                                          child: Text(type.toLabel()),
+                                        );
+                                      }).toList(),
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setDialogState(() {
+                                        selectedType = value;
+                                      });
+                                    }
+                                  },
+                                ),
+                                const SizedBox(height: 10),
+
+                                // Nature (auto-détectée)
+                                DropdownButtonFormField<NatureCompte>(
+                                  value: calculatedNature,
+                                  decoration: InputDecoration(
+                                    labelText: 'Nature *',
+                                    prefixIcon: const Icon(Icons.layers),
+                                    helperText:
+                                        'Auto-détecté du numéro de compte',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade400,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: Colors.indigo.shade700,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    filled: true,
+                                    fillColor: Colors.grey.shade50,
+                                  ),
+                                  dropdownColor: Colors.white,
+                                  icon: Icon(
+                                    Icons.arrow_drop_down_circle,
+                                    color: Colors.indigo.shade700,
+                                  ),
+                                  items:
+                                      NatureCompte.values.map((nature) {
+                                        return DropdownMenuItem(
+                                          value: nature,
+                                          child: Text(nature.toLabel()),
+                                        );
+                                      }).toList(),
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setDialogState(() {
+                                        calculatedNature = value;
+                                      });
+                                    }
+                                  },
+                                  validator: (value) {
+                                    if (value == null) {
+                                      return 'Sélectionnez une nature';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 10),
+
+                                // Description
+                                TextFormField(
+                                  controller: descriptionController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Description',
+                                    prefixIcon: const Icon(Icons.notes),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade400,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: Colors.indigo.shade700,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    filled: true,
+                                    fillColor: Colors.grey.shade50,
+                                  ),
+                                  maxLines: 2,
+                                ),
+                                const SizedBox(height: 10),
+
+                                // Rattachement de tiers
+                                CheckboxListTile(
+                                  title: const Text('Rattachement de tiers'),
+                                  subtitle: const Text(
+                                    'Permet de rattacher un tiers à ce compte',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                  value: liaisonTiers,
+                                  onChanged: (value) {
+                                    setDialogState(() {
+                                      liaisonTiers = value ?? false;
+                                    });
+                                  },
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(
+                                      color: Colors.grey.shade300,
+                                    ),
+                                  ),
+                                  tileColor: Colors.grey.shade50,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Annuler'),
+                        ),
+                        ElevatedButton(
+                          onPressed: handleSubmit,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade400,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Créer le compte'),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Annuler'),
-                  ),
-                  ElevatedButton(
-                    onPressed: handleSubmit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade400,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Créer le compte'),
-                  ),
-                ],
               ),
             );
           },
@@ -1237,398 +1290,484 @@ class _JournalDialogState extends State<JournalDialog> {
       formKey: _formKey,
       onSubmit: _save,
       enabled: !_isSaving,
-      child: AlertDialog(
-        title: Row(
-          children: [
-            Icon(
-              isEditing ? Icons.edit : Icons.add_circle,
-              color: Colors.indigo.shade700,
+      child: Shortcuts(
+        shortcuts: <ShortcutActivator, Intent>{
+          const SingleActivator(LogicalKeyboardKey.escape):
+              const DismissIntent(),
+          const SingleActivator(LogicalKeyboardKey.enter, control: true):
+              const ActivateIntent(),
+        },
+        child: Actions(
+          actions: <Type, Action<Intent>>{
+            DismissIntent: CallbackAction<DismissIntent>(
+              onInvoke: (intent) {
+                if (!_isSaving && Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                }
+                return null;
+              },
             ),
-            const SizedBox(width: 12),
-            Text(
-              isEditing ? 'Modifier le journal' : 'Nouveau journal',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (intent) {
+                if (!_isSaving) {
+                  _save();
+                }
+                return null;
+              },
             ),
-          ],
-        ),
-        content: SizedBox(
-          width: 550,
-          child: Form(
-            key: _formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+          },
+          child: Focus(
+            autofocus: true,
+            child: AlertDialog(
+              title: Row(
                 children: [
-                  // Code et Intitulé
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _codeController,
-                          decoration: InputDecoration(
-                            labelText: 'Code *',
-                            prefixIcon: const Icon(Icons.code),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Colors.grey.shade400,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Colors.indigo.shade700,
-                                width: 2,
-                              ),
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey.shade50,
-                          ),
-                          enabled: !_isSaving,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Champ requis';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        flex: 2,
-                        child: TextFormField(
-                          controller: _intituleController,
-                          decoration: InputDecoration(
-                            labelText: 'Intitulé *',
-                            prefixIcon: const Icon(Icons.title),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Colors.grey.shade400,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Colors.indigo.shade700,
-                                width: 2,
-                              ),
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey.shade50,
-                          ),
-                          enabled: !_isSaving,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Champ requis';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                    ],
+                  Icon(
+                    isEditing ? Icons.edit : Icons.add_circle,
+                    color: Colors.indigo.shade700,
                   ),
-                  const SizedBox(height: 16),
-                  // Type de Journal
-                  DropdownButtonFormField<TypeJournal>(
-                    value: _selectedType,
-                    decoration: InputDecoration(
-                      labelText: 'Type *',
-                      prefixIcon: const Icon(Icons.category),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade400),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Colors.indigo.shade700,
-                          width: 2,
-                        ),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                    ),
-                    dropdownColor: Colors.white,
-                    icon: Icon(
-                      Icons.arrow_drop_down_circle,
-                      color: Colors.indigo.shade700,
-                    ),
-                    items:
-                        TypeJournal.values
-                            .map(
-                              (type) => DropdownMenuItem(
-                                value: type,
-                                child: Text(type.toLabel()),
-                              ),
-                            )
-                            .toList(),
-                    onChanged:
-                        _isSaving
-                            ? null
-                            : (value) {
-                              setState(() => _selectedType = value);
-                            },
-                    validator: (value) {
-                      if (value == null) {
-                        return 'Sélectionnez un type';
-                      }
-                      return null;
-                    },
+                  const SizedBox(width: 12),
+                  Text(
+                    isEditing ? 'Modifier le journal' : 'Nouveau journal',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 16),
-                  // Compte de Trésorerie (seulement si financier)
-                  if (_selectedType == TypeJournal.financier)
-                    Column(
+                ],
+              ),
+              content: SizedBox(
+                width: 550,
+                child: Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (_selectedType == TypeJournal.financier &&
+                            _selectedCompteFresorerie != null) ...[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.green.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.account_balance,
+                                  size: 18,
+                                  color: Colors.green.shade700,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Compte sélectionné: ${_selectedCompteFresorerie!.numeroCompte} - ${_selectedCompteFresorerie!.intitule}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.green.shade800,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        // Code et Intitulé
                         Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
-                              child: Autocomplete<Compte>(
-                                displayStringForOption:
-                                    (Compte option) =>
-                                        '${option.numeroCompte} - ${option.intitule}',
-                                optionsBuilder: (
-                                  TextEditingValue textEditingValue,
-                                ) {
-                                  if (textEditingValue.text.isEmpty) {
-                                    return const Iterable<Compte>.empty();
-                                  }
-                                  final comptesFresorerie =
-                                      _getFilteredComptes();
-                                  return comptesFresorerie.where(
-                                    (c) =>
-                                        c.numeroCompte.toLowerCase().startsWith(
-                                          textEditingValue.text.toLowerCase(),
-                                        ),
-                                  );
-                                },
-                                onSelected: (Compte selection) {
-                                  setState(() {
-                                    _selectedCompteFresorerie = selection;
-                                    _compteFresorerieController.text =
-                                        '${selection.numeroCompte} - ${selection.intitule}';
-                                    _compteError = null;
-                                  });
-                                },
-                                fieldViewBuilder: (
-                                  BuildContext context,
-                                  TextEditingController textEditingController,
-                                  FocusNode focusNode,
-                                  VoidCallback onFieldSubmitted,
-                                ) {
-                                  // Initialiser le texte la première fois si on a un compte sélectionné
-                                  if (!_compteFieldInitialized &&
-                                      _selectedCompteFresorerie != null) {
-                                    _compteFieldInitialized = true;
-                                    WidgetsBinding.instance.addPostFrameCallback((
-                                      _,
-                                    ) {
-                                      textEditingController.text =
-                                          '${_selectedCompteFresorerie!.numeroCompte} - ${_selectedCompteFresorerie!.intitule}';
-                                    });
-                                  }
-
-                                  return TextFormField(
-                                    controller: textEditingController,
-                                    focusNode: focusNode,
-                                    onChanged: (String value) {
-                                      _searchCompteFresorerie(value);
-                                    },
-                                    decoration: InputDecoration(
-                                      labelText: 'Compte de Trésorerie *',
-                                      hintText: 'Tapez le numéro de compte...',
-                                      prefixIcon: const Icon(
-                                        Icons.account_balance,
-                                      ),
-                                      errorText: _compteError,
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color:
-                                              _compteError != null
-                                                  ? Colors.red
-                                                  : (_selectedCompteFresorerie !=
-                                                          null
-                                                      ? Colors.green
-                                                      : Colors.grey.shade400),
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.indigo.shade700,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      filled: true,
-                                      fillColor: Colors.grey.shade50,
+                              child: TextFormField(
+                                controller: _codeController,
+                                decoration: InputDecoration(
+                                  labelText: 'Code *',
+                                  prefixIcon: const Icon(Icons.code),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: Colors.grey.shade400,
                                     ),
-                                    enabled: !_isSaving,
-                                    validator: (value) {
-                                      if (_selectedType ==
-                                              TypeJournal.financier &&
-                                          _selectedCompteFresorerie == null) {
-                                        return _compteError ??
-                                            'Sélectionnez un compte de trésorerie valide';
-                                      }
-                                      return null;
-                                    },
-                                  );
-                                },
-                                optionsViewBuilder: (
-                                  BuildContext context,
-                                  AutocompleteOnSelected<Compte> onSelected,
-                                  Iterable<Compte> options,
-                                ) {
-                                  return Align(
-                                    alignment: Alignment.topLeft,
-                                    child: Material(
-                                      elevation: 4.0,
-                                      child: SizedBox(
-                                        width: 400,
-                                        child: ListView.builder(
-                                          padding: EdgeInsets.zero,
-                                          shrinkWrap: true,
-                                          itemCount: options.length,
-                                          itemBuilder: (
-                                            BuildContext context,
-                                            int index,
-                                          ) {
-                                            final Compte option = options
-                                                .elementAt(index);
-                                            return InkWell(
-                                              onTap: () {
-                                                onSelected(option);
-                                              },
-                                              child: Container(
-                                                color:
-                                                    index.isEven
-                                                        ? Colors.grey.shade50
-                                                        : Colors.white,
-                                                padding: const EdgeInsets.all(
-                                                  12,
-                                                ),
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      option.numeroCompte,
-                                                      style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        fontSize: 14,
-                                                      ),
-                                                    ),
-                                                    Text(
-                                                      option.intitule,
-                                                      style: TextStyle(
-                                                        color:
-                                                            Colors
-                                                                .grey
-                                                                .shade600,
-                                                        fontSize: 12,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: Colors.indigo.shade700,
+                                      width: 2,
                                     ),
-                                  );
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.grey.shade50,
+                                ),
+                                enabled: !_isSaving,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Champ requis';
+                                  }
+                                  return null;
                                 },
                               ),
                             ),
                             const SizedBox(width: 12),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: ElevatedButton.icon(
-                                onPressed:
-                                    _isSaving
-                                        ? null
-                                        : _showCompteCreationDialog,
-                                icon: const Icon(
-                                  Icons.add_circle,
-                                  color: Colors.white,
-                                ),
-                                label: const Text('Créer'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue.shade400,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 16,
+                            Expanded(
+                              flex: 2,
+                              child: TextFormField(
+                                controller: _intituleController,
+                                decoration: InputDecoration(
+                                  labelText: 'Intitulé *',
+                                  prefixIcon: const Icon(Icons.title),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: Colors.grey.shade400,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: Colors.indigo.shade700,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.grey.shade50,
                                 ),
+                                enabled: !_isSaving,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Champ requis';
+                                  }
+                                  return null;
+                                },
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 10),
+                        // Type de Journal
+                        DropdownButtonFormField<TypeJournal>(
+                          value: _selectedType,
+                          decoration: InputDecoration(
+                            labelText: 'Type *',
+                            prefixIcon: const Icon(Icons.category),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade400,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.indigo.shade700,
+                                width: 2,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                          ),
+                          dropdownColor: Colors.white,
+                          icon: Icon(
+                            Icons.arrow_drop_down_circle,
+                            color: Colors.indigo.shade700,
+                          ),
+                          items:
+                              TypeJournal.values
+                                  .map(
+                                    (type) => DropdownMenuItem(
+                                      value: type,
+                                      child: Text(type.toLabel()),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged:
+                              _isSaving
+                                  ? null
+                                  : (value) {
+                                    setState(() => _selectedType = value);
+                                  },
+                          validator: (value) {
+                            if (value == null) {
+                              return 'Sélectionnez un type';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                        // Compte de Trésorerie (seulement si financier)
+                        if (_selectedType == TypeJournal.financier)
+                          Column(
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Autocomplete<Compte>(
+                                      displayStringForOption:
+                                          (Compte option) =>
+                                              '${option.numeroCompte} - ${option.intitule}',
+                                      optionsBuilder: (
+                                        TextEditingValue textEditingValue,
+                                      ) {
+                                        if (textEditingValue.text.isEmpty) {
+                                          return const Iterable<Compte>.empty();
+                                        }
+                                        final comptesFresorerie =
+                                            _getFilteredComptes();
+                                        return comptesFresorerie.where(
+                                          (c) => c.numeroCompte
+                                              .toLowerCase()
+                                              .startsWith(
+                                                textEditingValue.text
+                                                    .toLowerCase(),
+                                              ),
+                                        );
+                                      },
+                                      onSelected: (Compte selection) {
+                                        setState(() {
+                                          _selectedCompteFresorerie = selection;
+                                          _compteFresorerieController.text =
+                                              '${selection.numeroCompte} - ${selection.intitule}';
+                                          _compteError = null;
+                                        });
+                                      },
+                                      fieldViewBuilder: (
+                                        BuildContext context,
+                                        TextEditingController
+                                        textEditingController,
+                                        FocusNode focusNode,
+                                        VoidCallback onFieldSubmitted,
+                                      ) {
+                                        // Initialiser le texte la première fois si on a un compte sélectionné
+                                        if (!_compteFieldInitialized &&
+                                            _selectedCompteFresorerie != null) {
+                                          _compteFieldInitialized = true;
+                                          WidgetsBinding.instance
+                                              .addPostFrameCallback((_) {
+                                                textEditingController.text =
+                                                    '${_selectedCompteFresorerie!.numeroCompte} - ${_selectedCompteFresorerie!.intitule}';
+                                              });
+                                        }
+
+                                        return TextFormField(
+                                          controller: textEditingController,
+                                          focusNode: focusNode,
+                                          onChanged: (String value) {
+                                            _searchCompteFresorerie(value);
+                                          },
+                                          decoration: InputDecoration(
+                                            labelText: 'Compte de Trésorerie *',
+                                            hintText:
+                                                'Tapez le numéro de compte...',
+                                            prefixIcon: const Icon(
+                                              Icons.account_balance,
+                                            ),
+                                            errorText: _compteError,
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              borderSide: BorderSide(
+                                                color:
+                                                    _compteError != null
+                                                        ? Colors.red
+                                                        : (_selectedCompteFresorerie !=
+                                                                null
+                                                            ? Colors.green
+                                                            : Colors
+                                                                .grey
+                                                                .shade400),
+                                              ),
+                                            ),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              borderSide: BorderSide(
+                                                color: Colors.indigo.shade700,
+                                                width: 2,
+                                              ),
+                                            ),
+                                            filled: true,
+                                            fillColor: Colors.grey.shade50,
+                                          ),
+                                          enabled: !_isSaving,
+                                          validator: (value) {
+                                            if (_selectedType ==
+                                                    TypeJournal.financier &&
+                                                _selectedCompteFresorerie ==
+                                                    null) {
+                                              return _compteError ??
+                                                  'Sélectionnez un compte de trésorerie valide';
+                                            }
+                                            return null;
+                                          },
+                                        );
+                                      },
+                                      optionsViewBuilder: (
+                                        BuildContext context,
+                                        AutocompleteOnSelected<Compte>
+                                        onSelected,
+                                        Iterable<Compte> options,
+                                      ) {
+                                        return Align(
+                                          alignment: Alignment.topLeft,
+                                          child: Material(
+                                            elevation: 4.0,
+                                            child: SizedBox(
+                                              width: 400,
+                                              child: ListView.builder(
+                                                padding: EdgeInsets.zero,
+                                                shrinkWrap: true,
+                                                itemCount: options.length,
+                                                itemBuilder: (
+                                                  BuildContext context,
+                                                  int index,
+                                                ) {
+                                                  final Compte option = options
+                                                      .elementAt(index);
+                                                  return InkWell(
+                                                    onTap: () {
+                                                      onSelected(option);
+                                                    },
+                                                    child: Container(
+                                                      color:
+                                                          index.isEven
+                                                              ? Colors
+                                                                  .grey
+                                                                  .shade50
+                                                              : Colors.white,
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                            12,
+                                                          ),
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            option.numeroCompte,
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontSize: 14,
+                                                                ),
+                                                          ),
+                                                          Text(
+                                                            option.intitule,
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Colors
+                                                                      .grey
+                                                                      .shade600,
+                                                              fontSize: 12,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8.0),
+                                    child: ElevatedButton.icon(
+                                      onPressed:
+                                          _isSaving
+                                              ? null
+                                              : _showCompteCreationDialog,
+                                      icon: const Icon(
+                                        Icons.add_circle,
+                                        color: Colors.white,
+                                      ),
+                                      label: const Text('Créer'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blue.shade400,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 16,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                            ],
+                          ),
+                        // Saisie Analytique
+                        CheckboxListTile(
+                          title: const Text('Saisie Analytique'),
+                          value: _saisieAnalytique,
+                          onChanged:
+                              _isSaving
+                                  ? null
+                                  : (value) {
+                                    setState(
+                                      () => _saisieAnalytique = value ?? false,
+                                    );
+                                  },
+                          contentPadding: EdgeInsets.zero,
+                          activeColor: Colors.indigo.shade700,
+                        ),
                       ],
                     ),
-                  // Saisie Analytique
-                  CheckboxListTile(
-                    title: const Text('Saisie Analytique'),
-                    value: _saisieAnalytique,
-                    onChanged:
-                        _isSaving
-                            ? null
-                            : (value) {
-                              setState(
-                                () => _saisieAnalytique = value ?? false,
-                              );
-                            },
-                    contentPadding: EdgeInsets.zero,
-                    activeColor: Colors.indigo.shade700,
                   ),
-                ],
+                ),
               ),
+              actions: [
+                TextButton(
+                  onPressed: _isSaving ? null : () => Navigator.pop(context),
+                  child: const Text('Annuler'),
+                ),
+                ElevatedButton(
+                  onPressed: _isSaving ? null : _save,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade400,
+                    foregroundColor: Colors.white,
+                  ),
+                  child:
+                      _isSaving
+                          ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
+                            ),
+                          )
+                          : Text(isEditing ? 'Modifier' : 'Créer'),
+                ),
+              ],
             ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: _isSaving ? null : () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: _isSaving ? null : _save,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade400,
-              foregroundColor: Colors.white,
-            ),
-            child:
-                _isSaving
-                    ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(Colors.white),
-                      ),
-                    )
-                    : Text(isEditing ? 'Modifier' : 'Créer'),
-          ),
-        ],
       ),
     );
   }

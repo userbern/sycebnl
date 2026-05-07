@@ -1122,6 +1122,939 @@ class ExportService {
     }
   }
 
+  // ==================== EXPORT PLAN COMPTABLE ====================
+
+  /// Exporte le plan comptable en PDF
+  static Future<void> exportPlanComptablePDF({
+    required List<Map<String, dynamic>> comptes,
+    required BuildContext context,
+  }) async {
+    try {
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(12),
+          build: (context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Titre
+                pw.Center(
+                  child: pw.Text(
+                    'PLAN COMPTABLE',
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.blue800,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Center(
+                  child: pw.Text(
+                    'Date d\'export: ${DateTime.now().toString().split(' ')[0]}',
+                    style: const pw.TextStyle(fontSize: 10),
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+                // Tableau
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.black),
+                  children: [
+                    // En-tête
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(
+                        color: PdfColors.blue100,
+                      ),
+                      children: [
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'N° Compte',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Intitulé',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Nature',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Type',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Données
+                    ...comptes.map((compte) {
+                      return pw.TableRow(
+                        children: [
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              compte['numeroCompte']?.toString() ?? '-',
+                              style: const pw.TextStyle(fontSize: 8),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              compte['intitule']?.toString() ?? '-',
+                              style: const pw.TextStyle(fontSize: 8),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              compte['nature']?.toString() ?? '-',
+                              style: const pw.TextStyle(fontSize: 8),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              compte['type']?.toString() ?? '-',
+                              style: const pw.TextStyle(fontSize: 8),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      final directory = await _getExportDirectory();
+      final fileName =
+          'plan_comptable_${DateTime.now().toString().split(' ')[0]}.pdf';
+      final filePath = '${directory.path}/$fileName';
+      final file = File(filePath);
+      await file.writeAsBytes(await pdf.save());
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF généré: $fileName'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Erreur PDF: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Exporte le plan comptable en Excel
+  static Future<void> exportPlanComptableExcel({
+    required List<Map<String, dynamic>> comptes,
+    required BuildContext context,
+  }) async {
+    try {
+      final excel = Excel.createExcel();
+      const sheetName = 'Plan Comptable';
+      final defaultSheet = excel.getDefaultSheet();
+      if (defaultSheet != null && defaultSheet != sheetName) {
+        excel.rename(defaultSheet, sheetName);
+      }
+      final sheet = excel[sheetName]!;
+
+      final headerStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Center,
+        backgroundColorHex: ExcelColor.fromHexString('#DCE6F1'),
+      );
+
+      final dataStyle = CellStyle(horizontalAlign: HorizontalAlign.Left);
+
+      int row = 0;
+      final headers = ['N° Compte', 'Intitulé', 'Nature', 'Type'];
+
+      for (int col = 0; col < headers.length; col++) {
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+        );
+        cell.value = TextCellValue(headers[col]);
+        cell.cellStyle = headerStyle;
+      }
+      row++;
+
+      for (final compte in comptes) {
+        final values = [
+          compte['numeroCompte']?.toString() ?? '',
+          compte['intitule']?.toString() ?? '',
+          compte['nature']?.toString() ?? '',
+          compte['type']?.toString() ?? '',
+        ];
+
+        for (int col = 0; col < values.length; col++) {
+          final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+          );
+          cell.value = TextCellValue(values[col]);
+          cell.cellStyle = dataStyle;
+        }
+        row++;
+      }
+
+      final directory = await _getExportDirectory();
+      final fileName =
+          'plan_comptable_${DateTime.now().toString().split(' ')[0]}.xlsx';
+      final filePath = '${directory.path}/$fileName';
+      final file = File(filePath);
+      final bytes = excel.encode();
+      if (bytes != null) {
+        await file.writeAsBytes(bytes);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Excel généré: $fileName'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Erreur Excel: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // ==================== EXPORT LISTE TIERS ====================
+
+  /// Exporte la liste des tiers en PDF
+  static Future<void> exportTiersPDF({
+    required List<Map<String, dynamic>> tiers,
+    required BuildContext context,
+  }) async {
+    try {
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(12),
+          build: (context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Center(
+                  child: pw.Text(
+                    'LISTE DES TIERS',
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.blue800,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Center(
+                  child: pw.Text(
+                    'Date d\'export: ${DateTime.now().toString().split(' ')[0]}',
+                    style: const pw.TextStyle(fontSize: 10),
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.black),
+                  children: [
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(
+                        color: PdfColors.blue100,
+                      ),
+                      children: [
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'N° Compte',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Intitulé',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Type',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'NIF',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    ...tiers.map((t) {
+                      return pw.TableRow(
+                        children: [
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              t['numeroCompte']?.toString() ?? '-',
+                              style: const pw.TextStyle(fontSize: 8),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              t['intitule']?.toString() ?? '-',
+                              style: const pw.TextStyle(fontSize: 8),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              t['type']?.toString() ?? '-',
+                              style: const pw.TextStyle(fontSize: 8),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              t['nif']?.toString() ?? '-',
+                              style: const pw.TextStyle(fontSize: 8),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      final directory = await _getExportDirectory();
+      final fileName =
+          'liste_tiers_${DateTime.now().toString().split(' ')[0]}.pdf';
+      final filePath = '${directory.path}/$fileName';
+      final file = File(filePath);
+      await file.writeAsBytes(await pdf.save());
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF généré: $fileName'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Erreur PDF: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Exporte la liste des tiers en Excel
+  static Future<void> exportTiersExcel({
+    required List<Map<String, dynamic>> tiers,
+    required BuildContext context,
+  }) async {
+    try {
+      final excel = Excel.createExcel();
+      const sheetName = 'Liste Tiers';
+      final defaultSheet = excel.getDefaultSheet();
+      if (defaultSheet != null && defaultSheet != sheetName) {
+        excel.rename(defaultSheet, sheetName);
+      }
+      final sheet = excel[sheetName]!;
+
+      final headerStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Center,
+        backgroundColorHex: ExcelColor.fromHexString('#DCE6F1'),
+      );
+
+      final dataStyle = CellStyle(horizontalAlign: HorizontalAlign.Left);
+
+      int row = 0;
+      final headers = ['N° Compte', 'Intitulé', 'Type', 'NIF'];
+
+      for (int col = 0; col < headers.length; col++) {
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+        );
+        cell.value = TextCellValue(headers[col]);
+        cell.cellStyle = headerStyle;
+      }
+      row++;
+
+      for (final t in tiers) {
+        final values = [
+          t['numeroCompte']?.toString() ?? '',
+          t['intitule']?.toString() ?? '',
+          t['type']?.toString() ?? '',
+          t['nif']?.toString() ?? '',
+        ];
+
+        for (int col = 0; col < values.length; col++) {
+          final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+          );
+          cell.value = TextCellValue(values[col]);
+          cell.cellStyle = dataStyle;
+        }
+        row++;
+      }
+
+      final directory = await _getExportDirectory();
+      final fileName =
+          'liste_tiers_${DateTime.now().toString().split(' ')[0]}.xlsx';
+      final filePath = '${directory.path}/$fileName';
+      final file = File(filePath);
+      final bytes = excel.encode();
+      if (bytes != null) {
+        await file.writeAsBytes(bytes);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Excel généré: $fileName'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Erreur Excel: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // ==================== EXPORT LISTE BAILLEURS ====================
+
+  /// Exporte la liste des bailleurs en PDF
+  static Future<void> exportBailleursListPDF({
+    required List<Map<String, dynamic>> bailleurs,
+    required BuildContext context,
+  }) async {
+    try {
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(12),
+          build: (context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Center(
+                  child: pw.Text(
+                    'LISTE DES BAILLEURS',
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.blue800,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Center(
+                  child: pw.Text(
+                    'Date d\'export: ${DateTime.now().toString().split(' ')[0]}',
+                    style: const pw.TextStyle(fontSize: 10),
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.black),
+                  children: [
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(
+                        color: PdfColors.blue100,
+                      ),
+                      children: [
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Sigle',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Désignation',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    ...bailleurs.map((b) {
+                      return pw.TableRow(
+                        children: [
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              b['sigle']?.toString() ?? '-',
+                              style: const pw.TextStyle(fontSize: 8),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              b['designation']?.toString() ?? '-',
+                              style: const pw.TextStyle(fontSize: 8),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      final directory = await _getExportDirectory();
+      final fileName =
+          'liste_bailleurs_${DateTime.now().toString().split(' ')[0]}.pdf';
+      final filePath = '${directory.path}/$fileName';
+      final file = File(filePath);
+      await file.writeAsBytes(await pdf.save());
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF généré: $fileName'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Erreur PDF: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Exporte la liste des bailleurs en Excel
+  static Future<void> exportBailleursListExcel({
+    required List<Map<String, dynamic>> bailleurs,
+    required BuildContext context,
+  }) async {
+    try {
+      final excel = Excel.createExcel();
+      const sheetName = 'Liste Bailleurs';
+      final defaultSheet = excel.getDefaultSheet();
+      if (defaultSheet != null && defaultSheet != sheetName) {
+        excel.rename(defaultSheet, sheetName);
+      }
+      final sheet = excel[sheetName]!;
+
+      final headerStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Center,
+        backgroundColorHex: ExcelColor.fromHexString('#DCE6F1'),
+      );
+
+      final dataStyle = CellStyle(horizontalAlign: HorizontalAlign.Left);
+
+      int row = 0;
+      final headers = ['Sigle', 'Désignation'];
+
+      for (int col = 0; col < headers.length; col++) {
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+        );
+        cell.value = TextCellValue(headers[col]);
+        cell.cellStyle = headerStyle;
+      }
+      row++;
+
+      for (final b in bailleurs) {
+        final values = [
+          b['sigle']?.toString() ?? '',
+          b['designation']?.toString() ?? '',
+        ];
+
+        for (int col = 0; col < values.length; col++) {
+          final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+          );
+          cell.value = TextCellValue(values[col]);
+          cell.cellStyle = dataStyle;
+        }
+        row++;
+      }
+
+      final directory = await _getExportDirectory();
+      final fileName =
+          'liste_bailleurs_${DateTime.now().toString().split(' ')[0]}.xlsx';
+      final filePath = '${directory.path}/$fileName';
+      final file = File(filePath);
+      final bytes = excel.encode();
+      if (bytes != null) {
+        await file.writeAsBytes(bytes);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Excel généré: $fileName'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Erreur Excel: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // ==================== EXPORT LISTE PROJETS ====================
+
+  /// Exporte la liste des projets en PDF
+  static Future<void> exportProjetsPDF({
+    required List<Map<String, dynamic>> projets,
+    required BuildContext context,
+  }) async {
+    try {
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(12),
+          build: (context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Center(
+                  child: pw.Text(
+                    'LISTE DES PROJETS',
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.blue800,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Center(
+                  child: pw.Text(
+                    'Date d\'export: ${DateTime.now().toString().split(' ')[0]}',
+                    style: const pw.TextStyle(fontSize: 10),
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.black),
+                  children: [
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(
+                        color: PdfColors.blue100,
+                      ),
+                      children: [
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Code',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Désignation',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Bailleur',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    ...projets.map((p) {
+                      return pw.TableRow(
+                        children: [
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              p['code']?.toString() ?? '-',
+                              style: const pw.TextStyle(fontSize: 8),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              p['designation']?.toString() ?? '-',
+                              style: const pw.TextStyle(fontSize: 8),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              p['bailleur']?.toString() ?? '-',
+                              style: const pw.TextStyle(fontSize: 8),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      final directory = await _getExportDirectory();
+      final fileName =
+          'liste_projets_${DateTime.now().toString().split(' ')[0]}.pdf';
+      final filePath = '${directory.path}/$fileName';
+      final file = File(filePath);
+      await file.writeAsBytes(await pdf.save());
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF généré: $fileName'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Erreur PDF: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Exporte la liste des projets en Excel
+  static Future<void> exportProjetsExcel({
+    required List<Map<String, dynamic>> projets,
+    required BuildContext context,
+  }) async {
+    try {
+      final excel = Excel.createExcel();
+      const sheetName = 'Liste Projets';
+      final defaultSheet = excel.getDefaultSheet();
+      if (defaultSheet != null && defaultSheet != sheetName) {
+        excel.rename(defaultSheet, sheetName);
+      }
+      final sheet = excel[sheetName]!;
+
+      final headerStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Center,
+        backgroundColorHex: ExcelColor.fromHexString('#DCE6F1'),
+      );
+
+      final dataStyle = CellStyle(horizontalAlign: HorizontalAlign.Left);
+
+      int row = 0;
+      final headers = ['Code', 'Désignation', 'Bailleur'];
+
+      for (int col = 0; col < headers.length; col++) {
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+        );
+        cell.value = TextCellValue(headers[col]);
+        cell.cellStyle = headerStyle;
+      }
+      row++;
+
+      for (final p in projets) {
+        final values = [
+          p['code']?.toString() ?? '',
+          p['designation']?.toString() ?? '',
+          p['bailleur']?.toString() ?? '',
+        ];
+
+        for (int col = 0; col < values.length; col++) {
+          final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+          );
+          cell.value = TextCellValue(values[col]);
+          cell.cellStyle = dataStyle;
+        }
+        row++;
+      }
+
+      final directory = await _getExportDirectory();
+      final fileName =
+          'liste_projets_${DateTime.now().toString().split(' ')[0]}.xlsx';
+      final filePath = '${directory.path}/$fileName';
+      final file = File(filePath);
+      final bytes = excel.encode();
+      if (bytes != null) {
+        await file.writeAsBytes(bytes);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Excel généré: $fileName'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Erreur Excel: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  static Future<Directory> _getExportDirectory() async {
+    if (Platform.isWindows) {
+      final userProfile = Platform.environment['USERPROFILE'];
+      if (userProfile != null && userProfile.isNotEmpty) {
+        final desktop = Directory('$userProfile\\Desktop');
+        if (await desktop.exists()) {
+          return desktop;
+        }
+      }
+    }
+
+    final downloads = await getDownloadsDirectory();
+    if (downloads != null) {
+      return downloads;
+    }
+
+    return getApplicationDocumentsDirectory();
+  }
+
   static String _formatNumber(dynamic value) {
     if (value == null || value == 0) return '-';
     final numValue = (value as num).toInt();

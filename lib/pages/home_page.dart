@@ -18,6 +18,7 @@ import 'journaux_de_saisie_page.dart';
 import 'saisie_ecriture_page.dart';
 import 'balance_comptes_page.dart';
 import 'permissions_page.dart';
+import 'interrogations_lettrages_page.dart';
 import '../models/saisie_comptable.dart';
 
 class HomePage extends StatefulWidget {
@@ -1093,7 +1094,20 @@ class _HomePageState extends State<HomePage> {
           onOpenPeriode: _openSaisie,
         );
       case 11:
-        return _buildPlaceholderPage('Interrogations & Lettrages');
+        return InterrogationsLettragesPage(
+          userSession:
+              widget.userSession ??
+              UserSession(
+                id: '0',
+                login: 'admin',
+                nom: 'Admin',
+                prenom: 'Système',
+                email: 'admin@system.local',
+                role: 'admin',
+                permissions: [],
+              ),
+          showAppBar: false,
+        );
       case 12:
         return NouvelExercicePage(
           userSession: UserSession(

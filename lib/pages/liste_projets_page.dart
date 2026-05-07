@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/user_session.dart';
 import '../services/auth_service.dart';
+import '../services/export_service.dart';
 
 class ListeProjetsPage extends StatefulWidget {
   final bool showAppBar;
@@ -88,7 +89,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
   }
 
   List<Map<String, dynamic>> get _filteredProjets {
-    var filtered = _projets;
+    var filtered = List<Map<String, dynamic>>.from(_projets);
 
     if (_searchQuery.isNotEmpty) {
       final query = _searchQuery.toLowerCase();
@@ -401,28 +402,109 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                                 ],
                               ),
                             ),
-                            if (_canCreate)
-                              ElevatedButton.icon(
-                                onPressed: () => _showProjetDialog(null),
-                                icon: const Icon(
-                                  Icons.add,
-                                  size: 20,
-                                  color: Colors.white,
-                                ),
-                                label: const Text('Nouveau projet'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue.shade400,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 12,
+                            Row(
+                              children: [
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    final projets =
+                                        _filteredProjets.map((p) {
+                                          return {
+                                            'code': p['code']?.toString() ?? '',
+                                            'designation':
+                                                p['designation']?.toString() ??
+                                                '',
+                                            'bailleur':
+                                                p['bailleur']?.toString() ?? '',
+                                          };
+                                        }).toList();
+                                    ExportService.exportProjetsPDF(
+                                      projets: projets,
+                                      context: context,
+                                    );
+                                  },
+                                  icon: const Icon(
+                                    Icons.picture_as_pdf,
+                                    size: 20,
+                                    color: Colors.white,
                                   ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                                  label: const Text('PDF'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red.shade400,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    elevation: 2,
                                   ),
-                                  elevation: 2,
                                 ),
-                              ),
+                                const SizedBox(width: 8),
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    final projets =
+                                        _filteredProjets.map((p) {
+                                          return {
+                                            'code': p['code']?.toString() ?? '',
+                                            'designation':
+                                                p['designation']?.toString() ??
+                                                '',
+                                            'bailleur':
+                                                p['bailleur']?.toString() ?? '',
+                                          };
+                                        }).toList();
+                                    ExportService.exportProjetsExcel(
+                                      projets: projets,
+                                      context: context,
+                                    );
+                                  },
+                                  icon: const Icon(
+                                    Icons.table_chart,
+                                    size: 20,
+                                    color: Colors.white,
+                                  ),
+                                  label: const Text('Excel'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green.shade400,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    elevation: 2,
+                                  ),
+                                ),
+                                if (_canCreate) ...[
+                                  const SizedBox(width: 8),
+                                  ElevatedButton.icon(
+                                    onPressed: () => _showProjetDialog(null),
+                                    icon: const Icon(
+                                      Icons.add,
+                                      size: 20,
+                                      color: Colors.white,
+                                    ),
+                                    label: const Text('Nouveau projet'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blue.shade400,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                        vertical: 12,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      elevation: 2,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -725,6 +807,7 @@ class _ProjetDialogState extends State<_ProjetDialog> {
   late TextEditingController _designationController;
   late TextEditingController _dateDebutController;
   late TextEditingController _dateFinController;
+  late TextEditingController _bailleurSearchController;
   List<Map<String, dynamic>> _availableBailleurs = [];
   List<Map<String, dynamic>> _selectedBailleurs = [];
   bool _isSaving = false;
@@ -748,6 +831,7 @@ class _ProjetDialogState extends State<_ProjetDialog> {
     _dateFinController = TextEditingController(
       text: widget.projet?['date_fin'] ?? '',
     );
+    _bailleurSearchController = TextEditingController();
 
     // Initialiser les dropdowns de date
     final debutDate =
@@ -844,6 +928,7 @@ class _ProjetDialogState extends State<_ProjetDialog> {
     _designationController.dispose();
     _dateDebutController.dispose();
     _dateFinController.dispose();
+    _bailleurSearchController.dispose();
     super.dispose();
   }
 
@@ -1097,9 +1182,18 @@ class _ProjetDialogState extends State<_ProjetDialog> {
     return Autocomplete<Map<String, dynamic>>(
       optionsBuilder: (TextEditingValue textEditingValue) {
         if (textEditingValue.text.isEmpty) {
-          return _availableBailleurs;
+          return _availableBailleurs.where((bailleur) {
+            return !_selectedBailleurs.any(
+              (selected) => selected['id'] == bailleur['id'],
+            );
+          });
         }
         return _availableBailleurs.where((bailleur) {
+          if (_selectedBailleurs.any(
+            (selected) => selected['id'] == bailleur['id'],
+          )) {
+            return false;
+          }
           final code = (bailleur['code'] ?? '').toString().toLowerCase();
           final sigle = (bailleur['sigle'] ?? '').toString().toLowerCase();
           final designation =
@@ -1119,11 +1213,14 @@ class _ProjetDialogState extends State<_ProjetDialog> {
         focusNode,
         onFieldSubmitted,
       ) {
+        _bailleurSearchController = textEditingController;
         return TextFormField(
-          controller: textEditingController,
+          controller: _bailleurSearchController,
           focusNode: focusNode,
           decoration: InputDecoration(
             labelText: 'Sélectionner un bailleur',
+            helperText:
+                'Sélectionnez un bailleur puis recommencez pour en ajouter un autre',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           validator:
@@ -1137,10 +1234,79 @@ class _ProjetDialogState extends State<_ProjetDialog> {
         if (!_selectedBailleurs.any((b) => b['id'] == selection['id'])) {
           setState(() {
             _selectedBailleurs.add(selection);
+            _bailleurSearchController.clear();
           });
         }
       },
     );
+  }
+
+  Future<void> _saveAndContinue() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedBailleurs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez sélectionner au moins un bailleur'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      await AuthService.createProjet(
+        code: _codeController.text,
+        designation: _designationController.text,
+        bailleurIds: _selectedBailleurs.map((b) => b['id'] as int).toList(),
+        dateDebut:
+            _dateDebutController.text.isNotEmpty
+                ? DateTime.parse(_dateDebutController.text)
+                : null,
+        dateFin:
+            _dateFinController.text.isNotEmpty
+                ? DateTime.parse(_dateFinController.text)
+                : null,
+      );
+
+      if (!mounted) return;
+
+      // Réinitialiser les champs
+      _codeController.clear();
+      _designationController.clear();
+      _dateDebutController.clear();
+      _dateFinController.clear();
+      setState(() {
+        _selectedBailleurs.clear();
+        _debutDay = 1;
+        _debutMonth = 1;
+        _debutYear = DateTime.now().year;
+        _finDay = 31;
+        _finMonth = 12;
+        _finYear = DateTime.now().year;
+        _isSaving = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Projet créé avec succès'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 1),
+        ),
+      );
+
+      // Focus sur le premier champ
+      FocusScope.of(context).requestFocus(FocusNode());
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() => _isSaving = false);
+    }
   }
 
   Future<void> _save() async {
@@ -1493,6 +1659,26 @@ class _ProjetDialogState extends State<_ProjetDialog> {
                   )
                   : const Text('Enregistrer'),
         ),
+        if (widget.projet == null)
+          ElevatedButton.icon(
+            onPressed: _isSaving ? null : _saveAndContinue,
+            icon:
+                _isSaving
+                    ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                    : const Icon(Icons.add_circle),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade600,
+              foregroundColor: Colors.white,
+            ),
+            label: const Text('Ajouter et continuer'),
+          ),
       ],
     );
   }

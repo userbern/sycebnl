@@ -997,17 +997,37 @@ class DatabaseService {
     String? description,
   }) async {
     await ensureDatabaseOpen();
-    await database.insert('compte', {
-      'numero_compte': numeroCompte,
-      'intitule': intitule,
-      'type': type,
-      'nature': nature,
-      'liaison_tiers': (liaisonTiers ?? false) ? 1 : 0,
-      'description': description,
-      'is_active': 1,
-      'created_at': DateTime.now().toIso8601String(),
-      'updated_at': DateTime.now().toIso8601String(),
-    });
+    
+    // Check if account already exists
+    final existing = await database.query(
+      'compte',
+      where: 'numero_compte = ?',
+      whereArgs: [numeroCompte],
+      limit: 1,
+    );
+    
+    if (existing.isNotEmpty) {
+      throw Exception('Le compte $numeroCompte existe déjà');
+    }
+    
+    try {
+      await database.insert('compte', {
+        'numero_compte': numeroCompte,
+        'intitule': intitule,
+        'type': type,
+        'nature': nature,
+        'liaison_tiers': (liaisonTiers ?? false) ? 1 : 0,
+        'description': description,
+        'is_active': 1,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      if (e.toString().contains('UNIQUE constraint')) {
+        throw Exception('Le compte $numeroCompte existe déjà');
+      }
+      rethrow;
+    }
   }
 
   static Future<void> updateCompte({

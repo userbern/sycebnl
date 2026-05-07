@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/user_session.dart';
 import '../services/auth_service.dart';
+import '../services/export_service.dart';
 
 class ListeBailleursPage extends StatefulWidget {
   final bool showAppBar;
@@ -89,7 +90,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
   }
 
   List<Map<String, dynamic>> get _filteredBailleurs {
-    var filtered = _bailleurs;
+    var filtered = List<Map<String, dynamic>>.from(_bailleurs);
 
     // Filtrer par texte de recherche
     if (_searchQuery.isNotEmpty) {
@@ -228,20 +229,69 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                       ),
                     ],
                   ),
-                  if (_canCreate)
-                    ElevatedButton.icon(
-                      onPressed: () => _showBailleurDialog(null),
-                      icon: const Icon(Icons.add, color: Colors.white),
-                      label: const Text('Nouveau bailleur (Ctrl+N)'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade400,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 16,
+                  Row(
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          ExportService.exportBailleursListPDF(
+                            bailleurs: _filteredBailleurs,
+                            context: context,
+                          );
+                        },
+                        icon: const Icon(
+                          Icons.picture_as_pdf,
+                          color: Colors.white,
+                        ),
+                        label: const Text('PDF'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade400,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          ExportService.exportBailleursListExcel(
+                            bailleurs: _filteredBailleurs,
+                            context: context,
+                          );
+                        },
+                        icon: const Icon(
+                          Icons.table_chart,
+                          color: Colors.white,
+                        ),
+                        label: const Text('Excel'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade400,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                      if (_canCreate) ...[
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: () => _showBailleurDialog(null),
+                          icon: const Icon(Icons.add, color: Colors.white),
+                          label: const Text('Nouveau bailleur (Ctrl+N)'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade400,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: 24),
@@ -828,6 +878,52 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                     ),
                     child: Text(isEdit ? 'Modifier' : 'Créer'),
                   ),
+                  if (!isEdit)
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        if (formKey.currentState!.validate()) {
+                          try {
+                            await AuthService.createBailleur(
+                              code: sigleController.text.trim(),
+                              nom: designationController.text.trim(),
+                            );
+
+                            if (!mounted) return;
+                            _loadBailleurs();
+
+                            // Réinitialiser les champs
+                            sigleController.clear();
+                            designationController.clear();
+                            setDialogState(() {});
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Bailleur créé avec succès'),
+                                backgroundColor: Colors.green,
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+
+                            // Focus sur le premier champ pour continuer la saisie
+                            FocusScope.of(context).requestFocus(FocusNode());
+                          } catch (e) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Erreur: ${e.toString()}'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.add_circle),
+                      label: const Text('Ajouter et continuer'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade600,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
                 ],
               ),
             );

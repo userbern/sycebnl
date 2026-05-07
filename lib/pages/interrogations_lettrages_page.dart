@@ -7,11 +7,13 @@ import '../services/saisie_comptable_service.dart';
 class InterrogationsLettragesPage extends StatefulWidget {
   final UserSession userSession;
   final bool showAppBar;
+  final String? initialCompte;
 
   const InterrogationsLettragesPage({
     super.key,
     required this.userSession,
     this.showAppBar = true,
+    this.initialCompte,
   });
 
   @override
@@ -46,6 +48,19 @@ class _InterrogationsLettragesPageState
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    // If opened with a prefilled account, set the controllers
+    if (widget.initialCompte != null && widget.initialCompte!.isNotEmpty) {
+      _numeroCompteInterrogController.text = widget.initialCompte!;
+      _numeroCompteLettrageController.text = widget.initialCompte!;
+
+      // After first frame, trigger searches so the page is populated
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _rechercher();
+          _chargerLettrage();
+        }
+      });
+    }
   }
 
   @override
@@ -140,7 +155,7 @@ class _InterrogationsLettragesPageState
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur d’interrogation: $e'),
+          content: Text('Erreur d\'interrogation: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -275,6 +290,133 @@ class _InterrogationsLettragesPageState
       if (mounted) {
         setState(() => isLoadingLettrage = false);
       }
+    }
+  }
+
+  bool _hasSelectedLettrie() {
+    for (final e in _lettrageResultats) {
+      if (e.id != null && _selectedLettrageIds.contains(e.id) && e.isLettrie) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<void> _delettrerSelected() async {
+    final idsToDelete =
+        _lettrageResultats
+            .where(
+              (e) =>
+                  e.id != null &&
+                  _selectedLettrageIds.contains(e.id) &&
+                  e.isLettrie,
+            )
+            .map((e) => e.id!)
+            .toList();
+    if (idsToDelete.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Aucune écriture lettrée sélectionnée pour délettrage'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirmer délettrage'),
+            content: Text(
+              'Désirez-vous délettrer ${idsToDelete.length} écriture(s) ?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Confirmer'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => isLoadingLettrage = true);
+    try {
+      await DatabaseService.ensureDatabaseOpen();
+      await SaisieComptableService.delettrerEcritures(idsToDelete);
+      await _chargerLettrage();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Délettrage effectué sur ${idsToDelete.length} écriture(s)',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur de délettrage: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => isLoadingLettrage = false);
+    }
+  }
+
+  Future<void> _delettrerSingle(int id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirmer délettrage'),
+            content: const Text('Désirez-vous délettrer cette écriture ?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Confirmer'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => isLoadingLettrage = true);
+    try {
+      await DatabaseService.ensureDatabaseOpen();
+      await SaisieComptableService.delettrerEcritures([id]);
+      await _chargerLettrage();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Écriture délettrée'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur de délettrage: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => isLoadingLettrage = false);
     }
   }
 
@@ -483,13 +625,15 @@ class _InterrogationsLettragesPageState
                       children: [
                         OutlinedButton.icon(
                           onPressed: () {
-                            _numeroCompteInterrogController.clear();
-                            _dateDebutInterrogController.clear();
-                            _dateFinInterrogController.clear();
-                            _dateDebutInterrog = null;
-                            _dateFinInterrog = null;
-                            _interrogationResultats = [];
-                            _interrogationMessage = null;
+                            setState(() {
+                              _numeroCompteInterrogController.clear();
+                              _dateDebutInterrogController.clear();
+                              _dateFinInterrogController.clear();
+                              _dateDebutInterrog = null;
+                              _dateFinInterrog = null;
+                              _interrogationResultats = [];
+                              _interrogationMessage = null;
+                            });
                           },
                           icon: const Icon(Icons.clear),
                           label: const Text('Réinitialiser'),
@@ -579,7 +723,7 @@ class _InterrogationsLettragesPageState
                                 Expanded(
                                   child: Text(
                                     _interrogationMessage ??
-                                        'Résultats de l’interrogation',
+                                        'Résultats de l\'interrogation',
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -725,7 +869,12 @@ class _InterrogationsLettragesPageState
                         const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: isLoadingLettrage ? null : _lettrer,
+                            onPressed:
+                                (isLoadingLettrage ||
+                                        (selectedMode == 'manuel' &&
+                                            _selectedLettrageIds.length < 2))
+                                    ? null
+                                    : _lettrer,
                             icon:
                                 isLoadingLettrage
                                     ? const SizedBox(
@@ -749,6 +898,32 @@ class _InterrogationsLettragesPageState
                             ),
                           ),
                         ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed:
+                                isLoadingLettrage || !_hasSelectedLettrie()
+                                    ? null
+                                    : _delettrerSelected,
+                            icon:
+                                isLoadingLettrage
+                                    ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                    : const Icon(Icons.link_off),
+                            label: const Text('Délétrer'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 20,
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -757,7 +932,10 @@ class _InterrogationsLettragesPageState
             ),
           ),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: screenHeight * 0.02),
+            padding: EdgeInsets.symmetric(
+              horizontal: screenHeight * 0.02,
+              vertical: screenHeight * 0.01,
+            ),
             child:
                 _lettrageResultats.isEmpty
                     ? Card(
@@ -799,13 +977,13 @@ class _InterrogationsLettragesPageState
                             const SizedBox(height: 12),
                             _buildInfoItem(
                               'Lettrage automatique',
-                              'Regroupe les écritures qui s’équilibrent par montant et référence.',
+                              'Regroupe les écritures qui s\'équilibrent par montant et référence.',
                               Icons.auto_awesome,
                             ),
                             const SizedBox(height: 12),
                             _buildInfoItem(
                               'Délettrage',
-                              'L’opération inverse peut être exécutée depuis le service si besoin.',
+                              'L\'opération inverse peut être exécutée depuis le service si besoin.',
                               Icons.link_off,
                             ),
                             if (_lettrageMessage != null) ...[
@@ -868,16 +1046,6 @@ class _InterrogationsLettragesPageState
                                 );
                               },
                             ),
-                            if (_lettrageMessage != null) ...[
-                              const SizedBox(height: 12),
-                              Text(
-                                _lettrageMessage!,
-                                style: TextStyle(
-                                  color: Colors.grey.shade700,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ],
                           ],
                         ),
                       ),
@@ -1041,7 +1209,16 @@ class _InterrogationsLettragesPageState
                   ],
                 ),
               ),
-              if (showLettrageActions) const SizedBox.shrink(),
+              if (showLettrageActions && ecriture.isLettrie)
+                IconButton(
+                  icon: const Icon(Icons.link_off),
+                  color: Colors.orange,
+                  tooltip: 'Délétrer',
+                  onPressed:
+                      ecriture.id == null
+                          ? null
+                          : () => _delettrerSingle(ecriture.id!),
+                ),
             ],
           ),
         ),

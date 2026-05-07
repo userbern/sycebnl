@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/compte.dart';
 import '../services/database_service.dart';
+import '../services/export_service.dart';
 
 class PlanComptablePage extends StatefulWidget {
   const PlanComptablePage({super.key});
@@ -71,7 +72,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
   }
 
   List<Compte> get _filteredComptes {
-    var filtered = _comptes;
+    var filtered = List<Compte>.from(_comptes);
 
     // Filtrer par texte de recherche
     if (_searchQuery.isNotEmpty) {
@@ -744,6 +745,63 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                     ),
                   ),
                   const Spacer(),
+                  // Boutons d'export
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      final comptes =
+                          _filteredComptes.map((c) {
+                            return {
+                              'numeroCompte': c.numeroCompte,
+                              'intitule': c.intitule,
+                              'nature': c.nature.toLabel(),
+                              'type': c.type.toLabel(),
+                            };
+                          }).toList();
+                      ExportService.exportPlanComptablePDF(
+                        comptes: comptes,
+                        context: context,
+                      );
+                    },
+                    icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+                    label: const Text('PDF'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade400,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      final comptes =
+                          _filteredComptes.map((c) {
+                            return {
+                              'numeroCompte': c.numeroCompte,
+                              'intitule': c.intitule,
+                              'nature': c.nature.toLabel(),
+                              'type': c.type.toLabel(),
+                            };
+                          }).toList();
+                      ExportService.exportPlanComptableExcel(
+                        comptes: comptes,
+                        context: context,
+                      );
+                    },
+                    icon: const Icon(Icons.table_chart, color: Colors.white),
+                    label: const Text('Excel'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade400,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   ElevatedButton.icon(
                     onPressed: () => _showCompteDialog(),
                     icon: const Icon(Icons.add, color: Colors.white),
@@ -1117,7 +1175,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 32),
                             // Contrôles de pagination
                             _buildPaginationControls(),
                           ],
