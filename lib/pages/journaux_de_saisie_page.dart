@@ -691,14 +691,14 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
           headingRowColor: WidgetStateProperty.resolveWith(
             (states) => Colors.blue.shade300,
           ),
-          dataRowMinHeight: 32,
-          dataRowMaxHeight: 40,
+          dataRowMinHeight: 14,
+          dataRowMaxHeight: 18,
           horizontalMargin: 0,
-          columnSpacing: 20,
+          columnSpacing: 10,
           columns: const [
             DataColumn(
               label: Padding(
-                padding: EdgeInsets.only(left: 12),
+                padding: EdgeInsets.only(left: 6),
                 child: Text('Période', style: TextStyle(color: Colors.white)),
               ),
             ),
@@ -749,12 +749,22 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
       cells: [
         DataCell(
           Padding(
-            padding: const EdgeInsets.only(left: 12),
-            child: Text(_formatMonthLabel(row.mois, row.annee)),
+            padding: const EdgeInsets.only(left: 6),
+            child: Text(
+              _formatMonthLabel(row.mois, row.annee),
+              style: const TextStyle(fontSize: 10),
+            ),
           ),
         ),
-        DataCell(Text(row.journal.code.toUpperCase())),
-        DataCell(Text(row.journal.intitule)),
+        DataCell(
+          Text(
+            row.journal.code.toUpperCase(),
+            style: const TextStyle(fontSize: 10),
+          ),
+        ),
+        DataCell(
+          Text(row.journal.intitule, style: const TextStyle(fontSize: 10)),
+        ),
         DataCell(_buildStatusChip(status)),
       ],
     );
@@ -763,11 +773,16 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
   Widget _buildStatusChip(_RowStatus status) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: Chip(
-        label: Text(status.label, style: TextStyle(color: status.textColor)),
-        backgroundColor: status.badgeColor,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        decoration: BoxDecoration(
+          color: status.badgeColor,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          status.label,
+          style: TextStyle(color: status.textColor, fontSize: 10),
+        ),
       ),
     );
   }

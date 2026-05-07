@@ -362,13 +362,13 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     return Tooltip(
       message: tooltipMessage,
       child: Container(
-        padding: const EdgeInsets.all(4),
+        padding: EdgeInsets.zero,
         decoration: BoxDecoration(
           color: backgroundColor,
           border: Border.all(color: borderColor),
           borderRadius: BorderRadius.circular(4),
         ),
-        child: Icon(iconData, color: iconColor, size: 18),
+        child: Icon(iconData, color: iconColor, size: 10),
       ),
     );
   }
@@ -2132,97 +2132,133 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
 
   // Lignes 3+: Données
   Widget _buildDataRow(int index, LigneEcriture ecriture, bool isEvenRow) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isEvenRow ? Colors.white : Colors.grey.shade50,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-      ),
-      child: Row(
-        children: [
-          _buildDataCell(ecriture.numeroEnregistrement.toString(), 120),
-          _buildDataCell(ecriture.jour.toString(), 85),
-          _buildDataCell(ecriture.numeroDocument, 130),
-          _buildDataCell(ecriture.reference ?? '-', 120),
-          _buildDataCell(ecriture.numeroCompte, 170),
-          _buildDataCell(ecriture.numeroTiers ?? '-', 120),
-          _buildDataCell(ecriture.libelle, 200),
-          _buildDataCell(
-            ecriture.montantDebit > 0
-                ? formatMontantCFA(ecriture.montantDebit)
-                : '-',
-            110,
-            isDebit: true,
+    return Material(
+      color: isEvenRow ? Colors.white : Colors.grey.shade50,
+      child: InkWell(
+        onTap: () => _showLigneLibelle(ecriture),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
           ),
-          _buildDataCell(
-            ecriture.montantCredit > 0
-                ? formatMontantCFA(ecriture.montantCredit)
-                : '-',
-            110,
-            isCredit: true,
-          ),
-          // Colonne Ventilation
-          _buildCell(
-            width: 120,
-            child: Center(
-              child: GestureDetector(
-                onTap: () {
-                  _showVentilationDialog(ecriture);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: _buildVentilationBadge(ecriture),
+          child: Row(
+            children: [
+              _buildDataCell(ecriture.numeroEnregistrement.toString(), 120),
+              _buildDataCell(ecriture.jour.toString(), 85),
+              _buildDataCell(ecriture.numeroDocument, 130),
+              _buildDataCell(ecriture.reference ?? '-', 120),
+              _buildDataCell(ecriture.numeroCompte, 170),
+              _buildDataCell(ecriture.numeroTiers ?? '-', 120),
+              _buildDataCell(ecriture.libelle, 200),
+              _buildDataCell(
+                ecriture.montantDebit > 0
+                    ? formatMontantCFA(ecriture.montantDebit)
+                    : '-',
+                110,
+                isDebit: true,
+              ),
+              _buildDataCell(
+                ecriture.montantCredit > 0
+                    ? formatMontantCFA(ecriture.montantCredit)
+                    : '-',
+                110,
+                isCredit: true,
+              ),
+              // Colonne Ventilation
+              _buildCell(
+                width: 120,
+                minHeight: 14,
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () {
+                      _showVentilationDialog(ecriture);
+                    },
+                    child: Container(
+                      padding: EdgeInsets.zero,
+                      child: _buildVentilationBadge(ecriture),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          // Colonne Actions
-          _buildCell(
-            width: 150,
-            child: PopupMenuButton<String>(
-              icon: Icon(
-                Icons.more_vert,
-                size: 18,
-                color: Colors.grey.shade600,
+              // Colonne Actions
+              _buildCell(
+                width: 150,
+                minHeight: 14,
+                child: PopupMenuButton<String>(
+                  padding: EdgeInsets.zero,
+                  child: SizedBox(
+                    width: 28,
+                    height: 16,
+                    child: Icon(
+                      Icons.more_vert,
+                      size: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  itemBuilder:
+                      (context) => [
+                        PopupMenuItem<String>(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit, size: 16, color: Colors.blue),
+                              const SizedBox(width: 8),
+                              const Text('Modifier'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem<String>(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete, size: 16, color: Colors.red),
+                              const SizedBox(width: 8),
+                              const Text('Supprimer'),
+                            ],
+                          ),
+                        ),
+                      ],
+                  onSelected: (value) {
+                    // Defer actions outside mouse tracking cycle
+                    if (value == 'edit') {
+                      Future.delayed(const Duration(milliseconds: 0), () {
+                        if (mounted) _editEcriture(index, ecriture);
+                      });
+                    } else if (value == 'delete') {
+                      Future.delayed(const Duration(milliseconds: 0), () {
+                        if (mounted) _showDeleteConfirmation(index, ecriture);
+                      });
+                    }
+                  },
+                ),
               ),
-              itemBuilder:
-                  (context) => [
-                    PopupMenuItem<String>(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit, size: 16, color: Colors.blue),
-                          const SizedBox(width: 8),
-                          const Text('Modifier'),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem<String>(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete, size: 16, color: Colors.red),
-                          const SizedBox(width: 8),
-                          const Text('Supprimer'),
-                        ],
-                      ),
-                    ),
-                  ],
-              onSelected: (value) {
-                // Defer actions outside mouse tracking cycle
-                if (value == 'edit') {
-                  Future.delayed(const Duration(milliseconds: 0), () {
-                    if (mounted) _editEcriture(index, ecriture);
-                  });
-                } else if (value == 'delete') {
-                  Future.delayed(const Duration(milliseconds: 0), () {
-                    if (mounted) _showDeleteConfirmation(index, ecriture);
-                  });
-                }
-              },
-            ),
+            ],
           ),
-        ],
+        ),
       ),
+    );
+  }
+
+  void _showLigneLibelle(LigneEcriture ecriture) {
+    final libelle = ecriture.libelle.trim();
+    showDialog<void>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Libelle de la ligne'),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: SelectableText(
+                libelle.isEmpty ? 'Aucun libelle renseigne' : libelle,
+                style: const TextStyle(fontSize: 15, height: 1.35),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
     );
   }
 
@@ -2238,15 +2274,16 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
 
     return _buildCell(
       width: width,
+      minHeight: 14,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
         alignment: Alignment.centerLeft,
         child: Text(
           content,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: isMontantCell ? amountColor : Colors.black,
-            fontSize: 15,
+            fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -2274,10 +2311,14 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
   }
 
   // Conteneur de cellule
-  Widget _buildCell({required double width, required Widget child}) {
+  Widget _buildCell({
+    required double width,
+    required Widget child,
+    double minHeight = 58,
+  }) {
     return Container(
       width: width,
-      constraints: const BoxConstraints(minHeight: 58),
+      constraints: BoxConstraints(minHeight: minHeight),
       decoration: BoxDecoration(
         border: Border(right: BorderSide(color: Colors.grey.shade300)),
       ),
