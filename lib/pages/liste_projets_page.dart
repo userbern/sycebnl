@@ -198,7 +198,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
 
   Widget _buildProjetCard(Map<String, dynamic> projet) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 1),
+      margin: EdgeInsets.zero,
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: Colors.grey.shade200),
@@ -211,7 +211,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(
           children: [
             // Code
@@ -222,7 +222,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                 child: Text(
                   projet['code'] ?? 'N/A',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
                     color: Colors.blue.shade400,
                   ),
@@ -234,13 +234,13 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
             Expanded(
               flex: 3,
               child: Padding(
-                padding: const EdgeInsets.only(left: 16),
+                padding: const EdgeInsets.only(left: 8),
                 child: GestureDetector(
                   onTap: () => _showProjetDialog(projet),
                   child: Text(
                     projet['designation'] ?? 'N/A',
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 10,
                       fontWeight: FontWeight.w500,
                       color: Colors.black,
                     ),
@@ -254,12 +254,12 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
             Expanded(
               flex: 3,
               child: Padding(
-                padding: const EdgeInsets.only(left: 16),
+                padding: const EdgeInsets.only(left: 8),
                 child: GestureDetector(
                   onTap: () => _showProjetDialog(projet),
                   child: Text(
                     _getBailleursString(projet),
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
@@ -268,7 +268,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
             ),
             // Actions
             SizedBox(
-              width: 120,
+              width: 96,
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 0),
                 child: Row(
@@ -278,30 +278,30 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                       IconButton(
                         icon: Icon(
                           Icons.edit,
-                          size: 18,
+                          size: 14,
                           color: Colors.blue.shade400,
                         ),
                         onPressed: () => _showProjetDialog(projet),
                         tooltip: 'Modifier',
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(
-                          minWidth: 36,
-                          minHeight: 36,
+                          minWidth: 18,
+                          minHeight: 18,
                         ),
                       ),
                     if (_canDelete)
                       IconButton(
                         icon: const Icon(
                           Icons.delete,
-                          size: 18,
+                          size: 14,
                           color: Colors.red,
                         ),
                         onPressed: () => _deleteProjet(projet),
                         tooltip: 'Supprimer',
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(
-                          minWidth: 36,
-                          minHeight: 36,
+                          minWidth: 18,
+                          minHeight: 18,
                         ),
                       ),
                   ],
@@ -508,7 +508,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 12),
 
                       // Barre de recherche et filtres responsive
                       Container(
@@ -672,8 +672,8 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                       // En-tête des colonnes
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+                          horizontal: 8,
+                          vertical: 6,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.blue.shade400,
@@ -690,7 +690,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                               child: Text(
                                 'Code',
                                 style: const TextStyle(
-                                  fontSize: 13,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.white,
                                 ),
@@ -700,11 +700,11 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                             Expanded(
                               flex: 3,
                               child: Padding(
-                                padding: const EdgeInsets.only(left: 16),
+                                padding: const EdgeInsets.only(left: 8),
                                 child: Text(
                                   'Désignation',
                                   style: const TextStyle(
-                                    fontSize: 13,
+                                    fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                     color: Colors.white,
                                   ),
@@ -715,11 +715,11 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                             Expanded(
                               flex: 3,
                               child: Padding(
-                                padding: const EdgeInsets.only(left: 16),
+                                padding: const EdgeInsets.only(left: 8),
                                 child: Text(
                                   'Bailleurs',
                                   style: const TextStyle(
-                                    fontSize: 13,
+                                    fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                     color: Colors.white,
                                   ),
@@ -728,13 +728,13 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                             ),
                             // Actions header
                             SizedBox(
-                              width: 120,
+                              width: 96,
                               child: Align(
                                 alignment: Alignment.centerRight,
                                 child: Text(
                                   'Actions',
                                   style: const TextStyle(
-                                    fontSize: 13,
+                                    fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                     color: Colors.white,
                                   ),

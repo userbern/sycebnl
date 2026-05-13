@@ -2529,7 +2529,7 @@ class _VentilationDialogState extends State<VentilationDialog> {
 
       return true;
     } catch (e) {
-      debugPrint('❌ Erreur sauvegarde ventilations: $e');
+      debugPrint('Erreur sauvegarde ventilations: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,

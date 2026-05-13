@@ -1379,7 +1379,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                             innerConstraints.maxWidth;
                                         final double columnSpacing =
                                             (tableWidth * 0.02)
-                                                .clamp(10, 56)
+                                                .clamp(6, 24)
                                                 .toDouble();
 
                                         double clampWidth(
@@ -1433,11 +1433,13 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                             headingTextStyle: TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.bold,
+                                              fontSize: 10,
                                             ),
-                                            dataRowMinHeight: 24,
-                                            dataRowMaxHeight: 32,
+                                            headingRowHeight: 22,
+                                            dataRowMinHeight: 14,
+                                            dataRowMaxHeight: 18,
                                             columnSpacing: columnSpacing,
-                                            horizontalMargin: 12,
+                                            horizontalMargin: 6,
                                             columns: const [
                                               DataColumn(
                                                 label: Text('N° Compte'),
@@ -1470,6 +1472,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                                                   fontWeight:
                                                                       FontWeight
                                                                           .bold,
+                                                                  fontSize: 10,
                                                                 ),
                                                           ),
                                                         ),
@@ -1482,6 +1485,10 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                                             overflow:
                                                                 TextOverflow
                                                                     .ellipsis,
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 10,
+                                                                ),
                                                           ),
                                                         ),
                                                       ),
@@ -1502,6 +1509,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                                               fontWeight:
                                                                   FontWeight
                                                                       .bold,
+                                                              fontSize: 10,
                                                             ),
                                                           ),
                                                         ),
@@ -1515,6 +1523,10 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                                             overflow:
                                                                 TextOverflow
                                                                     .ellipsis,
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 10,
+                                                                ),
                                                           ),
                                                         ),
                                                       ),
@@ -1531,7 +1543,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                                                     const Icon(
                                                                       Icons
                                                                           .edit,
-                                                                      size: 22,
+                                                                      size: 14,
                                                                     ),
                                                                 color:
                                                                     Colors.blue,
@@ -1542,11 +1554,21 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                                                     ),
                                                                 tooltip:
                                                                     'Modifier',
+                                                                padding:
+                                                                    EdgeInsets
+                                                                        .zero,
+                                                                constraints:
+                                                                    const BoxConstraints(
+                                                                      minWidth:
+                                                                          18,
+                                                                      minHeight:
+                                                                          18,
+                                                                    ),
                                                               ),
                                                               IconButton(
                                                                 icon: const Icon(
                                                                   Icons.delete,
-                                                                  size: 22,
+                                                                  size: 14,
                                                                 ),
                                                                 color:
                                                                     Colors.red,
@@ -1557,6 +1579,16 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                                                         ),
                                                                 tooltip:
                                                                     'Supprimer',
+                                                                padding:
+                                                                    EdgeInsets
+                                                                        .zero,
+                                                                constraints:
+                                                                    const BoxConstraints(
+                                                                      minWidth:
+                                                                          18,
+                                                                      minHeight:
+                                                                          18,
+                                                                    ),
                                                               ),
                                                             ],
                                                           ),

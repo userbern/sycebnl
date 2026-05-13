@@ -294,7 +294,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
 
               // Barre de recherche et filtres sur une ligne responsive
               LayoutBuilder(
@@ -485,8 +485,8 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                               // En-tête des colonnes
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
+                                  horizontal: 8,
+                                  vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
                                   color: Colors.blue.shade400,
@@ -504,28 +504,26 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w900,
-                                          fontSize: 14,
+                                          fontSize: 10,
                                         ),
                                       ),
                                     ),
                                     Expanded(
                                       flex: 3,
                                       child: Padding(
-                                        padding: const EdgeInsets.only(
-                                          left: 16,
-                                        ),
+                                        padding: const EdgeInsets.only(left: 8),
                                         child: Text(
                                           'Désignation',
                                           style: TextStyle(
                                             color: Colors.white,
                                             fontWeight: FontWeight.w900,
-                                            fontSize: 14,
+                                            fontSize: 10,
                                           ),
                                         ),
                                       ),
                                     ),
                                     SizedBox(
-                                      width: 120,
+                                      width: 96,
                                       child: Align(
                                         alignment: Alignment.centerRight,
                                         child: Text(
@@ -533,7 +531,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                                           style: TextStyle(
                                             color: Colors.white,
                                             fontWeight: FontWeight.w900,
-                                            fontSize: 14,
+                                            fontSize: 10,
                                           ),
                                         ),
                                       ),
@@ -560,7 +558,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
 
   Widget _buildBailleurCard(Map<String, dynamic> bailleur) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 1),
+      margin: EdgeInsets.zero,
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: Colors.grey.shade200),
@@ -573,7 +571,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(
           children: [
             Expanded(
@@ -581,7 +579,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
               child: Text(
                 bailleur['sigle'] ?? '',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color:
                       _isActive(bailleur)
@@ -593,11 +591,11 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
             Expanded(
               flex: 3,
               child: Padding(
-                padding: const EdgeInsets.only(left: 16),
+                padding: const EdgeInsets.only(left: 8),
                 child: Text(
                   bailleur['designation'] ?? '',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 10,
                     color:
                         _isActive(bailleur)
                             ? Colors.black87
@@ -607,7 +605,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
               ),
             ),
             SizedBox(
-              width: 120,
+              width: 96,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -617,23 +615,26 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                       icon: Icon(
                         Icons.edit,
                         color: Colors.indigo.shade700,
-                        size: 18,
+                        size: 14,
                       ),
                       onPressed: () {
                         _showBailleurDialog(bailleur);
                       },
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
                   Tooltip(
                     message: 'Supprimer',
                     child: IconButton(
                       icon: const Icon(
                         Icons.delete,
                         color: Colors.red,
-                        size: 18,
+                        size: 14,
                       ),
                       onPressed: () {
                         _deleteBailleur(
@@ -642,7 +643,10 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                         );
                       },
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
                     ),
                   ),
                 ],

@@ -75,34 +75,34 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadDatabaseInfo() async {
-    print('🔍 DEBUG: Début du chargement des données...');
+    print('DEBUG: Début du chargement des données...');
     try {
-      print('🔍 DEBUG: Récupération de l\'entité...');
+      print('DEBUG: Récupération de l\'entité...');
       final entite = await DatabaseService.getEntite();
-      print('🔍 DEBUG: Entité récupérée: $entite');
+      print('DEBUG: Entité récupérée: $entite');
 
-      print('🔍 DEBUG: Récupération de la config...');
+      print('DEBUG: Récupération de la config...');
       final config = await DatabaseService.getConfig();
-      print('🔍 DEBUG: Config récupérée: $config');
+      print('DEBUG: Config récupérée: $config');
 
-      print('🔍 DEBUG: Récupération des exercices...');
+      print('DEBUG: Récupération des exercices...');
       final exercices = await DatabaseService.getExercices();
-      print('🔍 DEBUG: Exercices récupérés: $exercices');
+      print('DEBUG: Exercices récupérés: $exercices');
 
       final activeExercice = exercices.firstWhere(
         (e) => e['is_active'] == 1,
         orElse: () => exercices.isNotEmpty ? exercices.first : {},
       );
 
-      print('🔍 DEBUG: Mise à jour du state...');
+      print('DEBUG: Mise à jour du state...');
       setState(() {
         _entiteData = entite;
         _exercices = exercices;
         _activeExerciceId = activeExercice['id'];
       });
-      print('🔍 DEBUG: State mis à jour avec succès!');
+      print('DEBUG: State mis à jour avec succès!');
     } catch (e) {
-      print('❌ DEBUG: Erreur lors du chargement: $e');
+      print('DEBUG: Erreur lors du chargement: $e');
       // Ignorer les erreurs de chargement
     }
   }
@@ -119,7 +119,7 @@ class _HomePageState extends State<HomePage> {
         _activeExerciceId = activeExercice['id'];
       });
     } catch (e) {
-      print('❌ Erreur lors du rafraîchissement des exercices: $e');
+      print('Erreur lors du rafraîchissement des exercices: $e');
     }
   }
 

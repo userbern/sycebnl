@@ -1013,16 +1013,16 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                                 WidgetStateProperty.all(
                                                   Colors.blue.shade400,
                                                 ),
-                                            headingRowHeight: 45,
+                                            headingRowHeight: 26,
                                             headingTextStyle: TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 14,
+                                              fontSize: 11,
                                             ),
-                                            dataRowMinHeight: 24,
-                                            dataRowMaxHeight: 32,
-                                            columnSpacing: colSpacing,
-                                            horizontalMargin: 24,
+                                            dataRowMinHeight: 14,
+                                            dataRowMaxHeight: 18,
+                                            columnSpacing: colSpacing * 0.5,
+                                            horizontalMargin: 8,
                                             columns: const [
                                               DataColumn(
                                                 label: Text('N° Compte'),
@@ -1055,7 +1055,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                                                           .bold,
                                                                   fontFamily:
                                                                       'monospace',
-                                                                  fontSize: 15,
+                                                                  fontSize: 10,
                                                                 ),
                                                           ),
                                                         ),
@@ -1070,7 +1070,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                                                     .ellipsis,
                                                             style:
                                                                 const TextStyle(
-                                                                  fontSize: 15,
+                                                                  fontSize: 10,
                                                                 ),
                                                           ),
                                                         ),
@@ -1086,7 +1086,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                                                     .ellipsis,
                                                             style:
                                                                 const TextStyle(
-                                                                  fontSize: 15,
+                                                                  fontSize: 10,
                                                                 ),
                                                           ),
                                                         ),
@@ -1101,7 +1101,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                                                 TextOverflow
                                                                     .ellipsis,
                                                             style: TextStyle(
-                                                              fontSize: 14,
+                                                              fontSize: 10,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .bold,
@@ -1126,7 +1126,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                                                 child: IconButton(
                                                                   icon: const Icon(
                                                                     Icons.edit,
-                                                                    size: 20,
+                                                                    size: 14,
                                                                   ),
                                                                   color:
                                                                       Colors
@@ -1139,6 +1139,16 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                                                       ),
                                                                   tooltip:
                                                                       'Modifier',
+                                                                  padding:
+                                                                      EdgeInsets
+                                                                          .zero,
+                                                                  constraints:
+                                                                      const BoxConstraints(
+                                                                        minWidth:
+                                                                            18,
+                                                                        minHeight:
+                                                                            18,
+                                                                      ),
                                                                 ),
                                                               ),
                                                               Flexible(
@@ -1146,7 +1156,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                                                   icon: const Icon(
                                                                     Icons
                                                                         .delete,
-                                                                    size: 20,
+                                                                    size: 14,
                                                                   ),
                                                                   color:
                                                                       Colors
@@ -1158,6 +1168,16 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                                                       ),
                                                                   tooltip:
                                                                       'Supprimer',
+                                                                  padding:
+                                                                      EdgeInsets
+                                                                          .zero,
+                                                                  constraints:
+                                                                      const BoxConstraints(
+                                                                        minWidth:
+                                                                            18,
+                                                                        minHeight:
+                                                                            18,
+                                                                      ),
                                                                 ),
                                                               ),
                                                             ],

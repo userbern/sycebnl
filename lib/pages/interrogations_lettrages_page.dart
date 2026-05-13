@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../models/user_session.dart';
 import '../models/saisie_comptable.dart';
 import '../services/database_service.dart';
 import '../services/saisie_comptable_service.dart';
+import '../services/export_service.dart';
 
 class InterrogationsLettragesPage extends StatefulWidget {
   final UserSession userSession;
@@ -25,6 +28,10 @@ class _InterrogationsLettragesPageState
     extends State<InterrogationsLettragesPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  Timer? _interrogationAutoTimer;
+  Timer? _lettrageAutoTimer;
+  String? _lastInterrogationAutoQuery;
+  String? _lastLettrageAutoQuery;
 
   // Interrogations
   final _numeroCompteInterrogController = TextEditingController();
@@ -35,6 +42,7 @@ class _InterrogationsLettragesPageState
   List<LigneEcriture> _interrogationResultats = [];
   String? _interrogationMessage;
   bool isLoadingInterrog = false;
+  List<_CompteSuggestion> _compteSuggestions = [];
 
   // Lettrages
   final _numeroCompteLettrageController = TextEditingController();
@@ -48,23 +56,26 @@ class _InterrogationsLettragesPageState
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _numeroCompteInterrogController.addListener(
+      _handleInterrogationCompteChange,
+    );
+    _numeroCompteLettrageController.addListener(_handleLettrageCompteChange);
+    _loadCompteSuggestions();
     // If opened with a prefilled account, set the controllers
     if (widget.initialCompte != null && widget.initialCompte!.isNotEmpty) {
       _numeroCompteInterrogController.text = widget.initialCompte!;
       _numeroCompteLettrageController.text = widget.initialCompte!;
-
-      // After first frame, trigger searches so the page is populated
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _rechercher();
-          _chargerLettrage();
-        }
-      });
     }
   }
 
   @override
   void dispose() {
+    _interrogationAutoTimer?.cancel();
+    _lettrageAutoTimer?.cancel();
+    _numeroCompteInterrogController.removeListener(
+      _handleInterrogationCompteChange,
+    );
+    _numeroCompteLettrageController.removeListener(_handleLettrageCompteChange);
     _tabController.dispose();
     _numeroCompteInterrogController.dispose();
     _dateDebutInterrogController.dispose();
@@ -103,15 +114,258 @@ class _InterrogationsLettragesPageState
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
-  Future<void> _rechercher() async {
-    final numeroCompte = _numeroCompteInterrogController.text.trim();
-    if (numeroCompte.isEmpty) {
+  void _handleInterrogationCompteChange() {
+    _interrogationAutoTimer?.cancel();
+
+    final query = _numeroCompteInterrogController.text.trim();
+    if (query.isEmpty) {
+      _lastInterrogationAutoQuery = null;
+      if (_interrogationResultats.isNotEmpty || _interrogationMessage != null) {
+        setState(() {
+          _interrogationResultats = [];
+          _interrogationMessage = null;
+        });
+      }
+      return;
+    }
+
+    _interrogationAutoTimer = Timer(const Duration(milliseconds: 450), () {
+      if (!mounted) return;
+
+      final currentQuery = _numeroCompteInterrogController.text.trim();
+      if (currentQuery.isEmpty || currentQuery != query) {
+        return;
+      }
+
+      if (_lastInterrogationAutoQuery == currentQuery) {
+        return;
+      }
+
+      _lastInterrogationAutoQuery = currentQuery;
+      _rechercher(showFeedback: false);
+    });
+  }
+
+  void _handleLettrageCompteChange() {
+    _lettrageAutoTimer?.cancel();
+
+    final query = _numeroCompteLettrageController.text.trim();
+    if (query.isEmpty) {
+      _lastLettrageAutoQuery = null;
+      if (_lettrageResultats.isNotEmpty || _lettrageMessage != null) {
+        setState(() {
+          _lettrageResultats = [];
+          _selectedLettrageIds.clear();
+          _lettrageMessage = null;
+        });
+      }
+      return;
+    }
+
+    _lettrageAutoTimer = Timer(const Duration(milliseconds: 450), () {
+      if (!mounted) return;
+
+      final currentQuery = _numeroCompteLettrageController.text.trim();
+      if (currentQuery.isEmpty || currentQuery != query) {
+        return;
+      }
+
+      if (_lastLettrageAutoQuery == currentQuery) {
+        return;
+      }
+
+      _lastLettrageAutoQuery = currentQuery;
+      _chargerLettrage(showFeedback: false);
+    });
+  }
+
+  Future<void> _loadCompteSuggestions() async {
+    try {
+      await DatabaseService.ensureDatabaseOpen();
+      final rows = await DatabaseService.database.query(
+        'compte',
+        columns: ['numero_compte', 'intitule'],
+        orderBy: 'numero_compte ASC',
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _compteSuggestions =
+            rows
+                .map(
+                  (row) => _CompteSuggestion(
+                    numero: row['numero_compte']?.toString() ?? '',
+                    intitule: row['intitule']?.toString() ?? '',
+                  ),
+                )
+                .where((item) => item.numero.isNotEmpty)
+                .toList();
+      });
+    } catch (_) {
+      // Pas bloquant: le champ reste saisissable sans suggestions.
+    }
+  }
+
+  Future<void> _exportInterrogationPdf() async {
+    if (_interrogationResultats.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Veuillez saisir un numéro de compte'),
+          content: Text('Aucun resultat a exporter en PDF'),
           backgroundColor: Colors.orange,
         ),
       );
+      return;
+    }
+
+    final rows =
+        _interrogationResultats
+            .map(
+              (e) => {
+                'date': _formatDate(e.dateComptable),
+                'numero_piece': e.numeroDocument,
+                'numero_compte': e.numeroCompte,
+                'debit': e.montantDebit,
+                'credit': e.montantCredit,
+              },
+            )
+            .toList();
+
+    await ExportService.exportInterrogationPDF(
+      rows: rows,
+      numeroCompte: _numeroCompteInterrogController.text.trim(),
+      dateDebut: _dateDebutInterrog,
+      dateFin: _dateFinInterrog,
+      context: context,
+    );
+  }
+
+  Future<void> _exportInterrogationExcel() async {
+    if (_interrogationResultats.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Aucun resultat a exporter en Excel'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final rows =
+        _interrogationResultats
+            .map(
+              (e) => {
+                'date': _formatDate(e.dateComptable),
+                'numero_piece': e.numeroDocument,
+                'numero_compte': e.numeroCompte,
+                'debit': e.montantDebit,
+                'credit': e.montantCredit,
+              },
+            )
+            .toList();
+
+    await ExportService.exportInterrogationExcel(
+      rows: rows,
+      numeroCompte: _numeroCompteInterrogController.text.trim(),
+      dateDebut: _dateDebutInterrog,
+      dateFin: _dateFinInterrog,
+      context: context,
+    );
+  }
+
+  Widget _buildCompteAutocomplete({
+    required TextEditingController controller,
+    required String labelText,
+    required String hintText,
+    String? helperText,
+    bool dense = false,
+  }) {
+    return Autocomplete<_CompteSuggestion>(
+      displayStringForOption: (option) => option.display,
+      optionsBuilder: (textEditingValue) {
+        final query = textEditingValue.text.trim();
+        if (query.isEmpty) {
+          return const Iterable<_CompteSuggestion>.empty();
+        }
+
+        return _compteSuggestions
+            .where((option) {
+              return option.numero.startsWith(query);
+            })
+            .take(12);
+      },
+      onSelected: (selection) {
+        controller.text = selection.numero;
+      },
+      fieldViewBuilder: (context, fieldController, focusNode, onSubmit) {
+        if (fieldController.text != controller.text) {
+          fieldController.value = controller.value;
+        }
+
+        return TextField(
+          controller: fieldController,
+          focusNode: focusNode,
+          onChanged: (value) {
+            controller.value = fieldController.value;
+          },
+          decoration: InputDecoration(
+            labelText: labelText,
+            hintText: hintText,
+            helperText: helperText,
+            prefixIcon: const Icon(Icons.account_balance),
+            isDense: dense,
+            contentPadding:
+                dense
+                    ? const EdgeInsets.symmetric(horizontal: 12, vertical: 10)
+                    : null,
+            prefixIconConstraints:
+                dense ? const BoxConstraints(minWidth: 40) : null,
+            helperStyle: dense ? const TextStyle(fontSize: 12) : null,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+          ),
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 420,
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: options.length,
+                itemBuilder: (context, index) {
+                  final option = options.elementAt(index);
+                  return ListTile(
+                    dense: true,
+                    title: Text(option.numero),
+                    subtitle: Text(option.intitule),
+                    onTap: () => onSelected(option),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _rechercher({bool showFeedback = true}) async {
+    final numeroCompte = _numeroCompteInterrogController.text.trim();
+    if (numeroCompte.isEmpty) {
+      if (showFeedback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Veuillez saisir un numéro de compte'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
       return;
     }
 
@@ -137,28 +391,32 @@ class _InterrogationsLettragesPageState
                 : '${resultats.length} écriture(s) chargée(s).';
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            resultats.isEmpty
-                ? 'Aucune écriture trouvée'
-                : 'Interrogation terminée',
+      if (showFeedback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              resultats.isEmpty
+                  ? 'Aucune écriture trouvée'
+                  : 'Interrogation terminée',
+            ),
+            backgroundColor: Colors.green,
           ),
-          backgroundColor: Colors.green,
-        ),
-      );
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _interrogationResultats = [];
         _interrogationMessage = e.toString();
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur d\'interrogation: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (showFeedback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur d\'interrogation: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => isLoadingInterrog = false);
@@ -166,15 +424,17 @@ class _InterrogationsLettragesPageState
     }
   }
 
-  Future<void> _chargerLettrage() async {
+  Future<void> _chargerLettrage({bool showFeedback = true}) async {
     final numeroCompte = _numeroCompteLettrageController.text.trim();
     if (numeroCompte.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez saisir un numéro de compte'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      if (showFeedback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Veuillez saisir un numéro de compte'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
       return;
     }
 
@@ -205,12 +465,14 @@ class _InterrogationsLettragesPageState
         _selectedLettrageIds.clear();
         _lettrageMessage = e.toString();
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur de chargement: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (showFeedback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de chargement: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => isLoadingLettrage = false);
@@ -534,41 +796,40 @@ class _InterrogationsLettragesPageState
       child: Column(
         children: [
           Padding(
-            padding: EdgeInsets.all(screenHeight * 0.02),
+            padding: EdgeInsets.fromLTRB(
+              screenHeight * 0.015,
+              screenHeight * 0.014,
+              screenHeight * 0.015,
+              screenHeight * 0.006,
+            ),
             child: Card(
               elevation: 2,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Critères de recherche',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Colors.blue,
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
-                          child: TextField(
+                          child: _buildCompteAutocomplete(
                             controller: _numeroCompteInterrogController,
-                            decoration: InputDecoration(
-                              labelText: 'Numéro de compte',
-                              hintText: 'Ex: 401000',
-                              prefixIcon: const Icon(Icons.account_balance),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey.shade50,
-                            ),
+                            labelText: 'Numero de compte',
+                            hintText: 'Ex: 401000',
+                            helperText:
+                                'Suggestions automatiques par debut de numero',
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -633,6 +894,7 @@ class _InterrogationsLettragesPageState
                               _dateFinInterrog = null;
                               _interrogationResultats = [];
                               _interrogationMessage = null;
+                              _lastInterrogationAutoQuery = null;
                             });
                           },
                           icon: const Icon(Icons.clear),
@@ -731,29 +993,21 @@ class _InterrogationsLettragesPageState
                                     ),
                                   ),
                                 ),
-                                Text(
-                                  'Solde: ${_formatMontant(_interrogationResultats.fold<double>(0, (sum, item) => sum + item.montantDebit - item.montantCredit))}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                OutlinedButton.icon(
+                                  onPressed: _exportInterrogationPdf,
+                                  icon: const Icon(Icons.picture_as_pdf),
+                                  label: const Text('PDF'),
+                                ),
+                                const SizedBox(width: 8),
+                                OutlinedButton.icon(
+                                  onPressed: _exportInterrogationExcel,
+                                  icon: const Icon(Icons.table_chart),
+                                  label: const Text('Excel'),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 12),
-                            ListView.separated(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: _interrogationResultats.length,
-                              separatorBuilder:
-                                  (_, __) => const Divider(height: 1),
-                              itemBuilder: (context, index) {
-                                return _buildEcritureTile(
-                                  _interrogationResultats[index],
-                                  showCheckbox: false,
-                                  showLettrageActions: false,
-                                );
-                              },
-                            ),
+                            _buildInterrogationTable(),
                           ],
                         ),
                       ),
@@ -769,33 +1023,45 @@ class _InterrogationsLettragesPageState
       child: Column(
         children: [
           Padding(
-            padding: EdgeInsets.all(screenHeight * 0.02),
+            padding: EdgeInsets.fromLTRB(
+              screenHeight * 0.015,
+              screenHeight * 0.014,
+              screenHeight * 0.015,
+              screenHeight * 0.006,
+            ),
             child: Card(
               elevation: 2,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Mode de lettrage',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Colors.blue,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
                           child: RadioListTile<String>(
-                            title: const Text('Lettrage manuel'),
+                            dense: true,
+                            visualDensity: VisualDensity.compact,
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Lettrage manuel',
+                              style: TextStyle(fontSize: 14),
+                            ),
                             subtitle: const Text(
                               'Sélection manuelle des écritures',
+                              style: TextStyle(fontSize: 12),
                             ),
                             value: 'manuel',
                             groupValue: selectedMode,
@@ -808,9 +1074,16 @@ class _InterrogationsLettragesPageState
                         const SizedBox(width: 16),
                         Expanded(
                           child: RadioListTile<String>(
-                            title: const Text('Lettrage automatique'),
+                            dense: true,
+                            visualDensity: VisualDensity.compact,
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Lettrage automatique',
+                              style: TextStyle(fontSize: 14),
+                            ),
                             subtitle: const Text(
                               'Lettrage par montant et référence',
+                              style: TextStyle(fontSize: 12),
                             ),
                             value: 'automatique',
                             groupValue: selectedMode,
@@ -822,24 +1095,17 @@ class _InterrogationsLettragesPageState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
                           flex: 2,
-                          child: TextField(
+                          child: _buildCompteAutocomplete(
                             controller: _numeroCompteLettrageController,
-                            decoration: InputDecoration(
-                              labelText: 'Numéro de compte',
-                              hintText: 'Ex: 401000, 411000',
-                              helperText: 'Comptes clients ou fournisseurs',
-                              prefixIcon: const Icon(Icons.account_balance),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey.shade50,
-                            ),
+                            labelText: 'Numero de compte',
+                            hintText: 'Ex: 401000, 411000',
+                            helperText: 'Comptes clients ou fournisseurs',
+                            dense: true,
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -859,9 +1125,10 @@ class _InterrogationsLettragesPageState
                                     : const Icon(Icons.refresh),
                             label: const Text('Charger'),
                             style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 44),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 20,
+                                horizontal: 18,
+                                vertical: 12,
                               ),
                             ),
                           ),
@@ -890,9 +1157,10 @@ class _InterrogationsLettragesPageState
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue,
                               foregroundColor: Colors.white,
+                              minimumSize: const Size(0, 44),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 20,
+                                horizontal: 18,
+                                vertical: 12,
                               ),
                               elevation: 2,
                             ),
@@ -917,9 +1185,10 @@ class _InterrogationsLettragesPageState
                                     : const Icon(Icons.link_off),
                             label: const Text('Délétrer'),
                             style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 44),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 20,
+                                horizontal: 18,
+                                vertical: 12,
                               ),
                             ),
                           ),
@@ -933,8 +1202,8 @@ class _InterrogationsLettragesPageState
           ),
           Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: screenHeight * 0.02,
-              vertical: screenHeight * 0.01,
+              horizontal: screenHeight * 0.015,
+              vertical: screenHeight * 0.004,
             ),
             child:
                 _lettrageResultats.isEmpty
@@ -1032,20 +1301,7 @@ class _InterrogationsLettragesPageState
                               ],
                             ),
                             const SizedBox(height: 12),
-                            ListView.separated(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: _lettrageResultats.length,
-                              separatorBuilder:
-                                  (_, __) => const Divider(height: 1),
-                              itemBuilder: (context, index) {
-                                return _buildEcritureTile(
-                                  _lettrageResultats[index],
-                                  showCheckbox: true,
-                                  showLettrageActions: true,
-                                );
-                              },
-                            ),
+                            _buildLettrageTable(),
                           ],
                         ),
                       ),
@@ -1225,4 +1481,173 @@ class _InterrogationsLettragesPageState
       ),
     );
   }
+
+  Widget _buildInterrogationTable() {
+    final totalDebit = _interrogationResultats.fold<double>(
+      0.0,
+      (sum, e) => sum + e.montantDebit,
+    );
+    final totalCredit = _interrogationResultats.fold<double>(
+      0.0,
+      (sum, e) => sum + e.montantCredit,
+    );
+    final solde = totalDebit - totalCredit;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            headingRowColor: WidgetStateProperty.resolveWith(
+              (states) => Colors.blue.shade50,
+            ),
+            columns: const [
+              DataColumn(label: Text('Date')),
+              DataColumn(label: Text('Numero de piece')),
+              DataColumn(label: Text('Numero de compte')),
+              DataColumn(label: Text('Montant debit')),
+              DataColumn(label: Text('Montant credit')),
+            ],
+            rows:
+                _interrogationResultats
+                    .map(
+                      (e) => DataRow(
+                        cells: [
+                          DataCell(Text(_formatDate(e.dateComptable))),
+                          DataCell(Text(e.numeroDocument)),
+                          DataCell(Text(e.numeroCompte)),
+                          DataCell(Text(_formatMontant(e.montantDebit))),
+                          DataCell(Text(_formatMontant(e.montantCredit))),
+                        ],
+                      ),
+                    )
+                    .toList(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('Total debit: ${_formatMontant(totalDebit)}'),
+              Text('Total credit: ${_formatMontant(totalCredit)}'),
+              Text(
+                'Solde: ${_formatMontant(solde)}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLettrageTable() {
+    final totalDebit = _lettrageResultats.fold<double>(
+      0.0,
+      (sum, e) => sum + e.montantDebit,
+    );
+    final totalCredit = _lettrageResultats.fold<double>(
+      0.0,
+      (sum, e) => sum + e.montantCredit,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            headingRowColor: WidgetStateProperty.resolveWith(
+              (states) => Colors.blue.shade50,
+            ),
+            columns: const [
+              DataColumn(label: Text('Sel.')),
+              DataColumn(label: Text('Date')),
+              DataColumn(label: Text('Numero de piece')),
+              DataColumn(label: Text('Numero de compte')),
+              DataColumn(label: Text('Montant debit')),
+              DataColumn(label: Text('Montant credit')),
+              DataColumn(label: Text('Lettrage')),
+              DataColumn(label: Text('Action')),
+            ],
+            rows:
+                _lettrageResultats.map((e) {
+                  final isSelected = _selectedLettrageIds.contains(e.id);
+                  return DataRow(
+                    selected: isSelected,
+                    onSelectChanged:
+                        e.id == null
+                            ? null
+                            : (value) {
+                              setState(() {
+                                if (value == true) {
+                                  _selectedLettrageIds.add(e.id!);
+                                } else {
+                                  _selectedLettrageIds.remove(e.id);
+                                }
+                              });
+                            },
+                    cells: [
+                      DataCell(
+                        Checkbox(
+                          value: isSelected,
+                          onChanged:
+                              e.id == null
+                                  ? null
+                                  : (value) {
+                                    setState(() {
+                                      if (value == true) {
+                                        _selectedLettrageIds.add(e.id!);
+                                      } else {
+                                        _selectedLettrageIds.remove(e.id);
+                                      }
+                                    });
+                                  },
+                        ),
+                      ),
+                      DataCell(Text(_formatDate(e.dateComptable))),
+                      DataCell(Text(e.numeroDocument)),
+                      DataCell(Text(e.numeroCompte)),
+                      DataCell(Text(_formatMontant(e.montantDebit))),
+                      DataCell(Text(_formatMontant(e.montantCredit))),
+                      DataCell(Text(e.lettrageCode ?? '-')),
+                      DataCell(
+                        IconButton(
+                          icon: const Icon(Icons.link_off),
+                          tooltip: 'Delettrer',
+                          color: Colors.orange,
+                          onPressed:
+                              (e.id != null && e.isLettrie)
+                                  ? () => _delettrerSingle(e.id!)
+                                  : null,
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Text(
+            'Total debit: ${_formatMontant(totalDebit)}    Total credit: ${_formatMontant(totalCredit)}',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompteSuggestion {
+  final String numero;
+  final String intitule;
+
+  const _CompteSuggestion({required this.numero, required this.intitule});
+
+  String get display => '$numero - $intitule';
 }

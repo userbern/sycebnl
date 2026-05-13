@@ -64,9 +64,20 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
 
       final db = DatabaseService.database;
 
-      // Contraintes de dates
-      final dateDebutStr = widget.dateDebut.toIso8601String().split('T')[0];
-      final dateFinStr = widget.dateFin.toIso8601String().split('T')[0];
+      // Contraintes de dates — normalisées à minuit côté Dart,
+      // la date de fin couvre toute la journée jusqu'à 23:59:59 en SQL.
+      final dateDebutStr =
+          '${widget.dateDebut.year.toString().padLeft(4, '0')}-'
+          '${widget.dateDebut.month.toString().padLeft(2, '0')}-'
+          '${widget.dateDebut.day.toString().padLeft(2, '0')}';
+      final dateFinStr =
+          '${widget.dateFin.year.toString().padLeft(4, '0')}-'
+          '${widget.dateFin.month.toString().padLeft(2, '0')}-'
+          '${widget.dateFin.day.toString().padLeft(2, '0')}';
+
+      // La condition SQL couvre toute la journée de dateFin (jusqu'à 23:59:59)
+      // en comparant la date seule avec substr() si date_comptable est un datetime,
+      // ou directement si c'est un format DATE.
 
       final isTiers =
           widget.typeEtat == 'tiers' || widget.typeEtat == 'tiers_analytique';
@@ -132,7 +143,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
       }
 
       query +=
-          ' AND (e.date_comptable IS NULL OR e.date_comptable BETWEEN ? AND ?)';
+          ' AND (e.date_comptable IS NULL OR substr(e.date_comptable, 1, 10) BETWEEN ? AND ?)';
       queryArgs.add(dateDebutStr);
       queryArgs.add(dateFinStr);
 
@@ -892,7 +903,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 16,
-                                        vertical: 8,
+                                        vertical: 2,
                                       ),
                                       decoration: BoxDecoration(
                                         border: Border(
@@ -916,7 +927,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 16,
-                                        vertical: 8,
+                                        vertical: 2,
                                       ),
                                       decoration: BoxDecoration(
                                         border: Border(
@@ -934,7 +945,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                     flex: 1,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
-                                        vertical: 8,
+                                        vertical: 2,
                                       ),
                                       decoration: BoxDecoration(
                                         border: Border(
@@ -961,7 +972,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                     flex: 1,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
-                                        vertical: 8,
+                                        vertical: 2,
                                       ),
                                       decoration: BoxDecoration(
                                         border: Border(
@@ -988,7 +999,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                     flex: 1,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
-                                        vertical: 8,
+                                        vertical: 2,
                                       ),
                                       decoration: BoxDecoration(
                                         border: Border(
@@ -1022,7 +1033,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                     flex: 1,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
-                                        vertical: 8,
+                                        vertical: 2,
                                       ),
                                       decoration: BoxDecoration(
                                         border: Border(
@@ -1056,7 +1067,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                     flex: 1,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
-                                        vertical: 8,
+                                        vertical: 2,
                                       ),
                                       decoration: BoxDecoration(
                                         border: Border(
@@ -1090,7 +1101,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                     flex: 1,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
-                                        vertical: 8,
+                                        vertical: 2,
                                       ),
                                       child: Center(
                                         child: Text(

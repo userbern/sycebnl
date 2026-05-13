@@ -2466,12 +2466,13 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
           children: [
             Text(
               '${widget.budget['projet_code']}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
             ),
             Text(
               widget.budget['bailleur_sigle'] ?? '',
               style: const TextStyle(
                 fontSize: 12,
+                color: Colors.white,
                 fontWeight: FontWeight.normal,
               ),
             ),
@@ -2480,7 +2481,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
         backgroundColor: Colors.blue.shade400,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white,),
             onPressed: _loadPostes,
             tooltip: 'Rafraîchir',
           ),

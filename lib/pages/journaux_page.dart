@@ -399,7 +399,7 @@ class _JournauxPageState extends State<JournauxPage> {
                                       availableWidth - (horizontalPadding * 2);
                                   final double columnSpacing =
                                       (tableWidth * 0.02)
-                                          .clamp(12, 40)
+                                          .clamp(6, 20)
                                           .toDouble();
 
                                   double clampWidth(
@@ -462,16 +462,18 @@ class _JournauxPageState extends State<JournauxPage> {
                                             width: tableWidth,
                                             child: DataTable(
                                               columnSpacing: columnSpacing,
-                                              horizontalMargin: 16,
-                                              dataRowMinHeight: 28,
-                                              dataRowMaxHeight: 40,
+                                              horizontalMargin: 6,
+                                              dataRowMinHeight: 14,
+                                              dataRowMaxHeight: 18,
                                               headingRowColor:
                                                   WidgetStateProperty.all(
                                                     Colors.blue.shade400,
                                                   ),
+                                              headingRowHeight: 22,
                                               headingTextStyle: const TextStyle(
                                                 color: Colors.white,
                                                 fontWeight: FontWeight.bold,
+                                                fontSize: 10,
                                               ),
                                               columns: const [
                                                 DataColumn(label: Text('Code')),
@@ -506,6 +508,8 @@ class _JournauxPageState extends State<JournauxPage> {
                                                                     fontWeight:
                                                                         FontWeight
                                                                             .w600,
+                                                                    fontSize:
+                                                                        10,
                                                                   ),
                                                                 ),
                                                               ),
@@ -519,6 +523,11 @@ class _JournauxPageState extends State<JournauxPage> {
                                                                   overflow:
                                                                       TextOverflow
                                                                           .ellipsis,
+                                                                  style:
+                                                                      const TextStyle(
+                                                                        fontSize:
+                                                                            10,
+                                                                      ),
                                                                 ),
                                                               ),
                                                             ),
@@ -540,6 +549,8 @@ class _JournauxPageState extends State<JournauxPage> {
                                                                     fontWeight:
                                                                         FontWeight
                                                                             .w600,
+                                                                    fontSize:
+                                                                        10,
                                                                   ),
                                                                 ),
                                                               ),
@@ -555,11 +566,15 @@ class _JournauxPageState extends State<JournauxPage> {
                                                                             Icons.check_circle,
                                                                             color:
                                                                                 Colors.green,
+                                                                            size:
+                                                                                14,
                                                                           )
                                                                           : const Icon(
                                                                             Icons.cancel,
                                                                             color:
                                                                                 Colors.red,
+                                                                            size:
+                                                                                14,
                                                                           ),
                                                                 ),
                                                               ),
@@ -573,6 +588,15 @@ class _JournauxPageState extends State<JournauxPage> {
                                                                       Alignment
                                                                           .centerLeft,
                                                                   child: PopupMenuButton(
+                                                                    padding:
+                                                                        EdgeInsets
+                                                                            .zero,
+                                                                    constraints: const BoxConstraints(
+                                                                      minWidth:
+                                                                          18,
+                                                                      minHeight:
+                                                                          18,
+                                                                    ),
                                                                     itemBuilder:
                                                                         (
                                                                           context,
@@ -1134,31 +1158,31 @@ class _JournalDialogState extends State<JournalDialog> {
     _saisieAnalytique = journal?.saisieAnalytique ?? false;
 
     // DEBUG
-    print('📝 DEBUG initState - Journal: ${journal?.code}');
-    print('📝 DEBUG - compteTresorerie value: "${journal?.compteTresorerie}"');
+    print('DEBUG initState - Journal: ${journal?.code}');
+    print('DEBUG - compteTresorerie value: "${journal?.compteTresorerie}"');
     print(
-      '📝 DEBUG - compteTresorerie null: ${journal?.compteTresorerie == null}',
+      'DEBUG - compteTresorerie null: ${journal?.compteTresorerie == null}',
     );
     print(
-      '📝 DEBUG - compteTresorerie empty: ${journal?.compteTresorerie?.isEmpty}',
+      'DEBUG - compteTresorerie empty: ${journal?.compteTresorerie?.isEmpty}',
     );
 
     // Chercher le compte de trésorerie si édition
     if (journal?.compteTresorerie != null &&
         journal!.compteTresorerie!.isNotEmpty) {
       try {
-        print('📝 DEBUG - Cherchant compte: "${journal.compteTresorerie}"');
+        print('DEBUG - Cherchant compte: "${journal.compteTresorerie}"');
         _selectedCompteFresorerie = widget.comptes.firstWhere(
           (c) => c.numeroCompte == journal.compteTresorerie,
         );
         print(
-          '📝 DEBUG - Compte trouvé: ${_selectedCompteFresorerie!.numeroCompte}',
+          'DEBUG - Compte trouvé: ${_selectedCompteFresorerie!.numeroCompte}',
         );
         _compteFresorerieController.text =
             '${_selectedCompteFresorerie!.numeroCompte} - ${_selectedCompteFresorerie!.intitule}';
       } catch (e) {
         // Compte non trouvé
-        print('📝 DEBUG - Compte non trouvé: $e');
+        print('DEBUG - Compte non trouvé: $e');
       }
     }
   }

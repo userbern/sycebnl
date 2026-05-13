@@ -36,7 +36,9 @@ class ExportService {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('PDF généré: $fileName'),
+            content: Text(
+              'PDF généré sur votre bureau ou Desktop : $fileName',
+            ),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),
@@ -1264,7 +1266,9 @@ class ExportService {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('PDF généré: $fileName'),
+            content: Text(
+              'PDF généré sur votre bureau ou Desktop : $fileName',
+            ),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),
@@ -1295,7 +1299,7 @@ class ExportService {
       if (defaultSheet != null && defaultSheet != sheetName) {
         excel.rename(defaultSheet, sheetName);
       }
-      final sheet = excel[sheetName]!;
+      final sheet = excel[sheetName];
 
       final headerStyle = CellStyle(
         bold: true,
@@ -1347,7 +1351,7 @@ class ExportService {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Excel généré: $fileName'),
+              content: Text('Excel généré sur votre bureau ou Desktop : $fileName'),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 3),
             ),
@@ -1505,7 +1509,9 @@ class ExportService {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('PDF généré: $fileName'),
+            content: Text(
+              'PDF généré sur votre bureau ou Desktop : $fileName',
+            ),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),
@@ -1536,7 +1542,7 @@ class ExportService {
       if (defaultSheet != null && defaultSheet != sheetName) {
         excel.rename(defaultSheet, sheetName);
       }
-      final sheet = excel[sheetName]!;
+      final sheet = excel[sheetName];
 
       final headerStyle = CellStyle(
         bold: true,
@@ -1588,7 +1594,7 @@ class ExportService {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Excel généré: $fileName'),
+              content: Text('Excel généré sur votre bureau ou Desktop : $fileName'),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 3),
             ),
@@ -1712,7 +1718,9 @@ class ExportService {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('PDF généré: $fileName'),
+            content: Text(
+              'PDF généré sur votre bureau ou Desktop : $fileName',
+            ),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),
@@ -1743,7 +1751,7 @@ class ExportService {
       if (defaultSheet != null && defaultSheet != sheetName) {
         excel.rename(defaultSheet, sheetName);
       }
-      final sheet = excel[sheetName]!;
+      final sheet = excel[sheetName];
 
       final headerStyle = CellStyle(
         bold: true,
@@ -1793,7 +1801,7 @@ class ExportService {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Excel généré: $fileName'),
+              content: Text('Excel généré sur votre bureau ou Desktop : $fileName'),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 3),
             ),
@@ -1934,7 +1942,9 @@ class ExportService {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('PDF généré: $fileName'),
+            content: Text(
+              'PDF généré sur votre bureau ou Desktop : $fileName',
+            ),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),
@@ -1965,7 +1975,7 @@ class ExportService {
       if (defaultSheet != null && defaultSheet != sheetName) {
         excel.rename(defaultSheet, sheetName);
       }
-      final sheet = excel[sheetName]!;
+      final sheet = excel[sheetName];
 
       final headerStyle = CellStyle(
         bold: true,
@@ -2016,7 +2026,7 @@ class ExportService {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Excel généré: $fileName'),
+              content: Text('Excel généré sur votre bureau ou Desktop : $fileName'),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 3),
             ),
@@ -2036,23 +2046,311 @@ class ExportService {
     }
   }
 
+  /// Exporte les résultats d'interrogation en PDF.
+  static Future<void> exportInterrogationPDF({
+    required List<Map<String, dynamic>> rows,
+    required String numeroCompte,
+    DateTime? dateDebut,
+    DateTime? dateFin,
+    required BuildContext context,
+  }) async {
+    try {
+      final pdf = pw.Document();
+
+      final totalDebit = rows.fold<double>(
+        0.0,
+        (sum, row) => sum + ((row['debit'] as num?)?.toDouble() ?? 0.0),
+      );
+      final totalCredit = rows.fold<double>(
+        0.0,
+        (sum, row) => sum + ((row['credit'] as num?)?.toDouble() ?? 0.0),
+      );
+      final solde = totalDebit - totalCredit;
+
+      final periodeText =
+          (dateDebut != null && dateFin != null)
+              ? '${dateDebut.toString().split(' ').first} au ${dateFin.toString().split(' ').first}'
+              : 'Toutes periodes';
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4.landscape,
+          margin: const pw.EdgeInsets.all(16),
+          build: (context) {
+            return [
+              pw.Text(
+                'Interrogation de compte',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 6),
+              pw.Text('Compte: $numeroCompte'),
+              pw.Text('Periode: $periodeText'),
+              pw.SizedBox(height: 12),
+              pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.grey700, width: .5),
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(1.2),
+                  1: const pw.FlexColumnWidth(1.5),
+                  2: const pw.FlexColumnWidth(1.2),
+                  3: const pw.FlexColumnWidth(1.2),
+                  4: const pw.FlexColumnWidth(1.2),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColors.blue100,
+                    ),
+                    children: [
+                      _pdfCell('Date', bold: true),
+                      _pdfCell('Numero de piece', bold: true),
+                      _pdfCell('Numero de compte', bold: true),
+                      _pdfCell('Montant debit', bold: true),
+                      _pdfCell('Montant credit', bold: true),
+                    ],
+                  ),
+                  ...rows.map(
+                    (row) => pw.TableRow(
+                      children: [
+                        _pdfCell(row['date']?.toString() ?? '-'),
+                        _pdfCell(row['numero_piece']?.toString() ?? '-'),
+                        _pdfCell(row['numero_compte']?.toString() ?? '-'),
+                        _pdfCell(_formatNumber(row['debit'])),
+                        _pdfCell(_formatNumber(row['credit'])),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 10),
+              pw.Align(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text('Total debit: ${_formatNumber(totalDebit)}'),
+                    pw.Text('Total credit: ${_formatNumber(totalCredit)}'),
+                    pw.Text(
+                      'Solde: ${_formatNumber(solde)}',
+                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ];
+          },
+        ),
+      );
+
+      final directory = await _getExportDirectory();
+      final fileName =
+          'interrogation_compte_${numeroCompte}_${DateTime.now().toString().split(' ').first}.pdf';
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsBytes(await pdf.save());
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF généré sur votre bureau ou Desktop : $fileName'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur export PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Exporte les résultats d'interrogation en Excel.
+  static Future<void> exportInterrogationExcel({
+    required List<Map<String, dynamic>> rows,
+    required String numeroCompte,
+    DateTime? dateDebut,
+    DateTime? dateFin,
+    required BuildContext context,
+  }) async {
+    try {
+      final excel = Excel.createExcel();
+      const sheetName = 'Interrogation';
+      final defaultSheet = excel.getDefaultSheet();
+      if (defaultSheet != null && defaultSheet != sheetName) {
+        excel.rename(defaultSheet, sheetName);
+      }
+      final sheet = excel[sheetName];
+
+      final headerStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Center,
+        backgroundColorHex: ExcelColor.fromHexString('#DCE6F1'),
+      );
+      final numberStyle = CellStyle(horizontalAlign: HorizontalAlign.Right);
+
+      final periodeText =
+          (dateDebut != null && dateFin != null)
+              ? '${dateDebut.toString().split(' ').first} au ${dateFin.toString().split(' ').first}'
+              : 'Toutes periodes';
+
+      int row = 0;
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+          .value = TextCellValue('Interrogation de compte');
+      row++;
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+          .value = TextCellValue('Compte: $numeroCompte');
+      row++;
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+          .value = TextCellValue('Periode: $periodeText');
+      row += 2;
+
+      final headers = [
+        'Date',
+        'Numero de piece',
+        'Numero de compte',
+        'Montant debit',
+        'Montant credit',
+      ];
+
+      for (int col = 0; col < headers.length; col++) {
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+        );
+        cell.value = TextCellValue(headers[col]);
+        cell.cellStyle = headerStyle;
+      }
+      row++;
+
+      double totalDebit = 0;
+      double totalCredit = 0;
+
+      for (final item in rows) {
+        final debit = (item['debit'] as num?)?.toDouble() ?? 0;
+        final credit = (item['credit'] as num?)?.toDouble() ?? 0;
+        totalDebit += debit;
+        totalCredit += credit;
+
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+            .value = TextCellValue(item['date']?.toString() ?? '-');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+            .value = TextCellValue(item['numero_piece']?.toString() ?? '-');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
+            .value = TextCellValue(item['numero_compte']?.toString() ?? '-');
+
+        final debitCell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row),
+        );
+        debitCell.value = DoubleCellValue(debit);
+        debitCell.cellStyle = numberStyle;
+
+        final creditCell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row),
+        );
+        creditCell.value = DoubleCellValue(credit);
+        creditCell.cellStyle = numberStyle;
+
+        row++;
+      }
+
+      row += 1;
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
+          .value = TextCellValue('Totaux');
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
+          .value = DoubleCellValue(totalDebit);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
+          .value = DoubleCellValue(totalCredit);
+
+      row++;
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
+          .value = TextCellValue('Solde (Debit - Credit)');
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
+          .value = DoubleCellValue(totalDebit - totalCredit);
+
+      sheet.setColumnWidth(0, 15);
+      sheet.setColumnWidth(1, 22);
+      sheet.setColumnWidth(2, 20);
+      sheet.setColumnWidth(3, 18);
+      sheet.setColumnWidth(4, 18);
+
+      final directory = await _getExportDirectory();
+      final fileName =
+          'interrogation_compte_${numeroCompte}_${DateTime.now().toString().split(' ').first}.xlsx';
+      final file = File('${directory.path}/$fileName');
+      final bytes = excel.encode();
+      if (bytes == null) {
+        throw Exception('Impossible de generer le fichier Excel');
+      }
+      await file.writeAsBytes(bytes, flush: true);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Excel généré sur votre bureau ou Desktop : $fileName'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur export Excel: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  static pw.Widget _pdfCell(String text, {bool bold = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(4),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          fontSize: 9,
+          fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+        ),
+      ),
+    );
+  }
+
   static Future<Directory> _getExportDirectory() async {
     if (Platform.isWindows) {
       final userProfile = Platform.environment['USERPROFILE'];
       if (userProfile != null && userProfile.isNotEmpty) {
         final desktop = Directory('$userProfile\\Desktop');
-        if (await desktop.exists()) {
-          return desktop;
+        // Créer le dossier s'il n'existe pas
+        if (!await desktop.exists()) {
+          await desktop.create(recursive: true);
         }
+        return desktop;
       }
     }
 
-    final downloads = await getDownloadsDirectory();
-    if (downloads != null) {
-      return downloads;
-    }
-
-    return getApplicationDocumentsDirectory();
+    // Sur les autres plateformes, essayer de créer/retourner le Bureau
+    // Cela assure que tous les fichiers sont enregistrés sur le Bureau uniquement
+    throw Exception(
+      'Les fichiers doivent être enregistrés sur le Bureau. '
+      'Plateforme non supportée ou USERPROFILE non disponible.',
+    );
   }
 
   static String _formatNumber(dynamic value) {
