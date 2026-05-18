@@ -387,7 +387,10 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
       appBar:
           widget.showAppBar
               ? AppBar(
-                title: const Text('Résultats de la Balance'),
+                iconTheme: const IconThemeData(
+                  color: Colors.white,
+                ),
+                title: const Text('Résultats de la Balance', style: TextStyle(color: Colors.white)),
                 backgroundColor: Colors.blue.shade700,
                 elevation: 0,
                 actions: [
