@@ -13,6 +13,7 @@ import 'journaux_page.dart';
 import 'liste_bailleurs_page.dart';
 import 'liste_projets_page.dart';
 import 'gestion_budgets_page.dart';
+import 'journal_page.dart';
 import 'journal_periode_selection_page.dart';
 import 'journaux_de_saisie_page.dart';
 import 'saisie_ecriture_page.dart';
@@ -1129,7 +1130,7 @@ class _HomePageState extends State<HomePage> {
       case 14:
         return _buildPlaceholderPage('Grand livre');
       case 15:
-        return _buildPlaceholderPage('Journal');
+        return const JournalPage(showAppBar: false);
       case 16:
         return JournauxDeSaisiePage(
           key: ValueKey(_journauxRefreshSeed),

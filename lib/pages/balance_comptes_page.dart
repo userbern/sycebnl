@@ -91,9 +91,8 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
     TextEditingController controller,
     bool isDebut,
   ) async {
-    final DateTime now = DateTime.now();
-    final DateTime firstDate = _exercice?.dateDebut ?? DateTime(now.year - 20);
-    final DateTime lastDate = _exercice?.dateFin ?? DateTime(now.year + 20);
+    final DateTime firstDate = DateTime(1900);
+    final DateTime lastDate = DateTime(2100, 12, 31);
     final DateTime initialDate = _clampDate(
       isDebut ? _dateDebut : _dateFin,
       firstDate,
@@ -150,36 +149,6 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
             const SnackBar(
               content: Text(
                 'La date de début doit être antérieure ou égale à la date de fin',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
-      }
-
-      // Dates dans l'exercice
-      if (_dateDebut != null) {
-        if (_dateDebut!.isBefore(_exercice!.dateDebut) ||
-            _dateDebut!.isAfter(_exercice!.dateFin)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'La date de début doit être comprise entre ${_formatDate(_exercice!.dateDebut)} et ${_formatDate(_exercice!.dateFin)}',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
-      }
-      if (_dateFin != null) {
-        if (_dateFin!.isBefore(_exercice!.dateDebut) ||
-            _dateFin!.isAfter(_exercice!.dateFin)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'La date de fin doit être comprise entre ${_formatDate(_exercice!.dateDebut)} et ${_formatDate(_exercice!.dateFin)}',
               ),
               backgroundColor: Colors.red,
             ),

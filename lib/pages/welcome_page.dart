@@ -151,9 +151,9 @@ class _WelcomePageState extends State<WelcomePage> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Colors.blue.shade900,
               Colors.blue.shade400,
-              Colors.blue.shade500,
+              Colors.blue.shade400,
+              Colors.blue.shade400,
             ],
           ),
         ),
@@ -212,6 +212,7 @@ class _WelcomePageState extends State<WelcomePage> {
                               icon: const Icon(
                                 Icons.create_new_folder,
                                 size: 28,
+                                color: Colors.white,
                               ),
                               label: const Text(
                                 'Créer un nouveau fichier',
@@ -231,10 +232,10 @@ class _WelcomePageState extends State<WelcomePage> {
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: _openExistingFile,
-                              icon: const Icon(Icons.folder_open, size: 28),
-                              label: const Text(
+                              icon: Icon(Icons.folder_open, size: 28, color: Colors.blue.shade400),
+                              label: Text(
                                 'Ouvrir un fichier existant',
-                                style: TextStyle(fontSize: 16),
+                                style: TextStyle(fontSize: 16, color: Colors.blue.shade400),
                               ),
                               style: OutlinedButton.styleFrom(
                                 padding: const EdgeInsets.all(20),

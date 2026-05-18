@@ -195,6 +195,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
 
   Widget _buildBudgetRow(Map<String, dynamic> budget) {
     return Container(
+      height: 26,
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: Colors.grey.shade200, width: 1),
@@ -202,23 +203,6 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
       ),
       child: Row(
         children: [
-          // Icône
-          SizedBox(
-            width: 56,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.account_balance_wallet,
-                color: Colors.blue.shade200,
-                size: 20,
-              ),
-            ),
-          ),
           // Colonne PROJET
           Expanded(
             flex: 2,
@@ -227,9 +211,10 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
               child: GestureDetector(
                 onTap: () => _showBudgetDetails(budget),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
+                    /* Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 4,
@@ -247,14 +232,13 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                           color: Colors.blue.shade800,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
+                    ), */
                     Text(
                       budget['projet_designation'] ?? 'N/A',
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: Colors.black87,
+                        color: Colors.black,
                       ),
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
@@ -266,22 +250,17 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
           ),
           // Colonne BAILLEUR
           Expanded(
-            flex: 4,
+            flex: 3,
             child: Padding(
               padding: const EdgeInsets.only(left: 16),
               child: GestureDetector(
                 onTap: () => _showBudgetDetails(budget),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      children: [
-                        Icon(
-                          Icons.account_balance,
-                          size: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                        const SizedBox(width: 4),
+                      /* children: [
                         Text(
                           budget['bailleur_sigle'] ?? 'N/A',
                           style: TextStyle(
@@ -290,14 +269,14 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ],
+                      ], */
                     ),
-                    const SizedBox(height: 4),
+
                     Text(
                       budget['bailleur_designation'] ?? 'N/A',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade700,
+                        color: Colors.black,
                         fontWeight: FontWeight.w500,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -312,7 +291,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
           SizedBox(
             width: 120,
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -320,30 +299,30 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                     IconButton(
                       icon: Icon(
                         Icons.edit,
-                        size: 18,
+                        size: 14,
                         color: Colors.blue.shade400,
                       ),
                       onPressed: () => _showBudgetDetails(budget),
                       tooltip: 'Modifier',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
-                        minWidth: 36,
-                        minHeight: 36,
+                        minWidth: 18,
+                        minHeight: 18,
                       ),
                     ),
                   if (_canDelete)
                     IconButton(
                       icon: const Icon(
                         Icons.delete,
-                        size: 18,
+                        size: 14,
                         color: Colors.red,
                       ),
                       onPressed: () => _deleteBudget(budget['id'] as int),
                       tooltip: 'Supprimer',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
-                        minWidth: 36,
-                        minHeight: 36,
+                        minWidth: 18,
+                        minHeight: 18,
                       ),
                     ),
                 ],
@@ -601,7 +580,6 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                         decoration: BoxDecoration(
                           color: Colors.blue.shade400,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.blue.shade100),
                         ),
                         child: const Row(
                           children: [
@@ -660,7 +638,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                                 : Container(
                                   decoration: BoxDecoration(
                                     color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(0),
                                     border: Border.all(
                                       color: Colors.grey.shade200,
                                     ),
@@ -670,7 +648,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                                     separatorBuilder:
                                         (context, index) => Divider(
                                           height: 1,
-                                          color: Colors.grey.shade100,
+                                          color: Colors.grey.shade800,
                                         ),
                                     itemBuilder: (context, index) {
                                       return _buildBudgetRow(
@@ -879,25 +857,25 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
   Widget _buildMontantCard(String title, double montant) {
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               title,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 12,
                 color: Colors.grey.shade600,
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Text(
               _formatAmount(montant),
               style: const TextStyle(
-                fontSize: 24,
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: Colors.blue,
               ),
@@ -913,128 +891,99 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
     return const SizedBox.shrink();
   }
 
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+    String? tooltip,
+    double size = 18,
+  }) {
+    return IconButton(
+      icon: Icon(icon, size: size, color: color),
+      onPressed: onPressed,
+      tooltip: tooltip,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      splashRadius: 20,
+    );
+  }
+
   Widget _buildPostesTable() {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade200),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Table(
-          columnWidths: const {
-            0: FixedColumnWidth(44), // icône
-            1: FlexColumnWidth(4), // intitulé
-            2: FlexColumnWidth(2), // montant
-            3: FixedColumnWidth(110), // actions
-          },
-          border: TableBorder(
-            horizontalInside: BorderSide(color: Colors.grey.shade200, width: 1),
-            bottom: BorderSide(color: Colors.grey.shade200, width: 1),
-          ),
-          children: [
-            // En-tête
-            TableRow(
-              decoration: BoxDecoration(color: Colors.blue.shade50),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // En-tête moderne
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade600, Colors.blue.shade400],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
+            child: Row(
               children: [
-                const SizedBox(height: 44),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
-                  ),
+                const SizedBox(width: 44),
+                Expanded(
+                  flex: 4,
                   child: Text(
                     'INTITULÉ',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: Colors.blue.shade700,
-                      letterSpacing: 0.5,
+                      color: Colors.white,
+                      letterSpacing: 0.8,
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
-                  ),
+                Expanded(
+                  flex: 2,
                   child: Text(
                     'MONTANT',
                     textAlign: TextAlign.right,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: Colors.blue.shade700,
-                      letterSpacing: 0.5,
+                      color: Colors.white,
+                      letterSpacing: 0.8,
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 12,
-                  ),
-                  child: Text(
-                    'ACTIONS',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.blue.shade700,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
+                const SizedBox(width: 100),
               ],
             ),
-            // Lignes de données
-            ..._postes.map((poste) {
-              final posteId = poste['id'] as int;
-              final isSelected = _selectedPosteId == posteId;
-              final montant = _postesMontants[posteId] ?? 0.0;
-              final rowColor = isSelected ? Colors.blue.shade50 : Colors.white;
+          ),
+          // Corps du tableau
+          ..._postes.asMap().entries.map((entry) {
+            final index = entry.key;
+            final poste = entry.value;
+            final posteId = poste['id'] as int;
+            final isSelected = _selectedPosteId == posteId;
+            final montant = _postesMontants[posteId] ?? 0.0;
 
-              return TableRow(
-                decoration: BoxDecoration(color: rowColor),
-                children: [
-                  // Icône
-                  GestureDetector(
-                    onTap: () {
-                      if (!isSelected) {
-                        setState(() => _selectedPosteId = posteId);
-                        _loadLignesForPoste(posteId);
-                      } else {
-                        setState(() {
-                          _selectedPosteId = null;
-                          _selectedPosteLignes = [];
-                          _expandedLignesIds.clear();
-                          _lignesSousRubriques.clear();
-                        });
-                      }
-                    },
-                    child: Container(
-                      height: 52,
-                      alignment: Alignment.center,
-                      child: Icon(
-                        isSelected ? Icons.folder_open : Icons.folder,
-                        color:
-                            isSelected
-                                ? Colors.blue.shade500
-                                : Colors.grey.shade400,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                  // Intitulé
-                  GestureDetector(
+            return Column(
+              children: [
+                if (index > 0) const Divider(height: 1, thickness: 1),
+                Material(
+                  color: isSelected ? Colors.blue.shade50 : Colors.white,
+                  child: InkWell(
                     onTap: () {
                       if (!isSelected) {
                         setState(() => _selectedPosteId = posteId);
@@ -1050,16 +999,39 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
                     },
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
+                        horizontal: 20,
                         vertical: 14,
                       ),
                       child: Row(
                         children: [
+                          // Icône
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color:
+                                  isSelected
+                                      ? Colors.blue.shade100
+                                      : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              isSelected ? Icons.folder_open : Icons.folder,
+                              size: 18,
+                              color:
+                                  isSelected
+                                      ? Colors.blue.shade700
+                                      : Colors.grey.shade500,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Intitulé
                           Expanded(
+                            flex: 4,
                             child: Text(
                               poste['intitule'] as String,
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 15,
                                 fontWeight:
                                     isSelected
                                         ? FontWeight.w600
@@ -1067,610 +1039,443 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
                                 color:
                                     isSelected
                                         ? Colors.blue.shade800
-                                        : Colors.black87,
+                                        : Colors.grey.shade800,
                               ),
                             ),
                           ),
-                          Icon(
-                            isSelected ? Icons.expand_less : Icons.expand_more,
-                            size: 18,
-                            color: Colors.grey.shade500,
+                          // Montant
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              _formatAmount(montant),
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.green.shade600,
+                              ),
+                            ),
+                          ),
+                          // Actions
+                          SizedBox(
+                            width: 100,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                if (_canCreate)
+                                  _buildActionButton(
+                                    icon: Icons.edit,
+                                    color: Colors.blue.shade400,
+                                    onPressed:
+                                        () => _editPoste(
+                                          posteId,
+                                          poste['intitule'] as String,
+                                        ),
+                                    tooltip: 'Modifier',
+                                  ),
+                                if (_canDelete)
+                                  _buildActionButton(
+                                    icon: Icons.delete,
+                                    color: Colors.red.shade400,
+                                    onPressed: () => _deletePoste(posteId),
+                                    tooltip: 'Supprimer',
+                                  ),
+                                _buildActionButton(
+                                  icon:
+                                      isSelected
+                                          ? Icons.keyboard_arrow_up
+                                          : Icons.keyboard_arrow_down,
+                                  color: Colors.grey.shade500,
+                                  onPressed: () {
+                                    if (!isSelected) {
+                                      setState(
+                                        () => _selectedPosteId = posteId,
+                                      );
+                                      _loadLignesForPoste(posteId);
+                                    } else {
+                                      setState(() {
+                                        _selectedPosteId = null;
+                                        _selectedPosteLignes = [];
+                                        _expandedLignesIds.clear();
+                                        _lignesSousRubriques.clear();
+                                      });
+                                    }
+                                  },
+                                  tooltip:
+                                      isSelected ? 'Réduire' : 'Développer',
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                  // Montant
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 14,
-                    ),
-                    child: Text(
-                      _formatAmount(montant),
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.green.shade700,
-                      ),
-                    ),
-                  ),
-                  // Actions
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 6,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (_canCreate)
-                          IconButton(
-                            icon: Icon(
-                              Icons.edit,
-                              size: 17,
-                              color: Colors.blue.shade400,
-                            ),
-                            onPressed:
-                                () => _editPoste(
-                                  posteId,
-                                  poste['intitule'] as String,
-                                ),
-                            tooltip: 'Modifier',
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
-                            ),
-                          ),
-                        if (_canDelete)
-                          IconButton(
-                            icon: const Icon(
-                              Icons.delete,
-                              size: 17,
-                              color: Colors.red,
-                            ),
-                            onPressed: () => _deletePoste(posteId),
-                            tooltip: 'Supprimer',
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            }),
-          ],
-        ),
+                ),
+              ],
+            );
+          }),
+        ],
       ),
     );
   }
 
-  Widget _buildPosteRow(Map<String, dynamic> poste) {
-    // Remplacé par _buildPostesTable - stub conservé pour compatibilité
-    return const SizedBox.shrink();
-  }
-
-  Widget _buildLignesHeader() {
-    // Remplacé par le tableau unifié dans _buildLignesTable
-    return const SizedBox.shrink();
-  }
+  // Remplacer la méthode _buildLignesTable() par :
 
   Widget _buildLignesTable() {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.green.shade200),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Column(
-          children: [
-            // En-tête
-            Container(
-              color: Colors.green.shade50,
-              child: Table(
-                columnWidths: const {
-                  0: FixedColumnWidth(80), // code
-                  1: FlexColumnWidth(4), // intitulé
-                  2: FlexColumnWidth(2), // montant
-                  3: FixedColumnWidth(130), // actions
-                },
-                children: [
-                  TableRow(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        child: Text(
-                          'CODE',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.green.shade700,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        child: Text(
-                          'INTITULÉ',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.green.shade700,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        child: Text(
-                          'MONTANT',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.green.shade700,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
-                        ),
-                        child: Text(
-                          'ACTIONS',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.green.shade700,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // En-tête moderne
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.green.shade700, Colors.green.shade500],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
               ),
             ),
-            Divider(height: 1, color: Colors.green.shade200),
-            // Corps : lignes + sous-rubriques inline
-            ..._selectedPosteLignes.asMap().entries.map((entry) {
-              final index = entry.key;
-              final ligne = entry.value;
-              final ligneId = ligne['id'] as int;
-              final isExpanded = _expandedLignesIds.contains(ligneId);
-              final sousRubriques = _lignesSousRubriques[ligneId] ?? [];
-              final montant = _lignesMontants[ligneId] ?? 0.0;
-
-              return Column(
-                children: [
-                  if (index > 0)
-                    Divider(height: 1, color: Colors.grey.shade200),
-                  // Ligne principale
-                  Table(
-                    columnWidths: const {
-                      0: FixedColumnWidth(80),
-                      1: FlexColumnWidth(4),
-                      2: FlexColumnWidth(2),
-                      3: FixedColumnWidth(130),
-                    },
-                    children: [
-                      TableRow(
-                        decoration: const BoxDecoration(color: Colors.white),
-                        children: [
-                          // Code
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 14,
-                            ),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: Text(
-                                ligne['code'] as String,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey.shade800,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                          // Intitulé
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 14,
-                            ),
-                            child: Text(
-                              ligne['intitule'] as String,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          // Montant
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 14,
-                            ),
-                            child: Text(
-                              _formatAmount(montant),
-                              textAlign: TextAlign.right,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.green.shade700,
-                              ),
-                            ),
-                          ),
-                          // Actions
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 6,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                if (_canCreate)
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.edit,
-                                      size: 16,
-                                      color: Colors.blue.shade400,
-                                    ),
-                                    onPressed:
-                                        () => _editLigne(
-                                          ligneId,
-                                          ligne['code'] as String,
-                                          ligne['intitule'] as String,
-                                        ),
-                                    tooltip: 'Modifier',
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(
-                                      minWidth: 28,
-                                      minHeight: 28,
-                                    ),
-                                  ),
-                                if (_canCreate)
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.add,
-                                      size: 16,
-                                      color: Colors.green.shade600,
-                                    ),
-                                    onPressed:
-                                        () => _createSousRubrique(ligneId),
-                                    tooltip: 'Ajouter sous-rubrique',
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(
-                                      minWidth: 28,
-                                      minHeight: 28,
-                                    ),
-                                  ),
-                                if (_canDelete)
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.delete,
-                                      size: 16,
-                                      color: Colors.red.shade400,
-                                    ),
-                                    onPressed: () => _deleteLigne(ligneId),
-                                    tooltip: 'Supprimer',
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(
-                                      minWidth: 28,
-                                      minHeight: 28,
-                                    ),
-                                  ),
-                                IconButton(
-                                  icon: Icon(
-                                    isExpanded
-                                        ? Icons.expand_less
-                                        : Icons.expand_more,
-                                    size: 16,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  onPressed: () {
-                                    if (!isExpanded) {
-                                      _loadSousRubriquesForLigne(ligneId);
-                                    }
-                                    setState(() {
-                                      if (_expandedLignesIds.contains(
-                                        ligneId,
-                                      )) {
-                                        _expandedLignesIds.remove(ligneId);
-                                      } else {
-                                        _expandedLignesIds.add(ligneId);
-                                      }
-                                    });
-                                  },
-                                  tooltip:
-                                      isExpanded ? 'Réduire' : 'Développer',
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(
-                                    minWidth: 28,
-                                    minHeight: 28,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+            child: Row(
+              children: [
+                const SizedBox(width: 80),
+                Expanded(
+                  flex: 4,
+                  child: Text(
+                    'INTITULÉ',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: 0.8,
+                    ),
                   ),
-                  // Sous-rubriques en tableau imbriqué
-                  if (isExpanded && sousRubriques.isNotEmpty)
-                    Container(
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'MONTANT',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 130),
+              ],
+            ),
+          ),
+          // Corps : lignes + sous-rubriques
+          ..._selectedPosteLignes.asMap().entries.map((entry) {
+            final index = entry.key;
+            final ligne = entry.value;
+            final ligneId = ligne['id'] as int;
+            final isExpanded = _expandedLignesIds.contains(ligneId);
+            final sousRubriques = _lignesSousRubriques[ligneId] ?? [];
+            final montant = _lignesMontants[ligneId] ?? 0.0;
+
+            return Column(
+              children: [
+                if (index > 0) const Divider(height: 1, thickness: 1),
+                // Ligne principale
+                Material(
+                  color: Colors.white,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                    child: Row(
+                      children: [
+                        // Badge code
+                        Container(
+                          width: 80,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: Colors.green.shade200,
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            ligne['code'] as String,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green.shade700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        // Intitulé
+                        Expanded(
+                          flex: 4,
+                          child: Text(
+                            ligne['intitule'] as String,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                        // Montant
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            _formatAmount(montant),
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green.shade600,
+                            ),
+                          ),
+                        ),
+                        // Actions
+                        SizedBox(
+                          width: 130,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              if (_canCreate)
+                                _buildActionButton(
+                                  icon: Icons.edit,
+                                  color: Colors.blue.shade400,
+                                  onPressed:
+                                      () => _editLigne(
+                                        ligneId,
+                                        ligne['code'] as String,
+                                        ligne['intitule'] as String,
+                                      ),
+                                  tooltip: 'Modifier',
+                                ),
+                              if (_canCreate)
+                                _buildActionButton(
+                                  icon: Icons.add,
+                                  color: Colors.green.shade600,
+                                  onPressed: () => _createSousRubrique(ligneId),
+                                  tooltip: 'Ajouter sous-rubrique',
+                                ),
+                              if (_canDelete)
+                                _buildActionButton(
+                                  icon: Icons.delete,
+                                  color: Colors.red.shade400,
+                                  onPressed: () => _deleteLigne(ligneId),
+                                  tooltip: 'Supprimer',
+                                ),
+                              _buildActionButton(
+                                icon:
+                                    isExpanded
+                                        ? Icons.keyboard_arrow_up
+                                        : Icons.keyboard_arrow_down,
+                                color: Colors.grey.shade500,
+                                onPressed: () {
+                                  if (!isExpanded) {
+                                    _loadSousRubriquesForLigne(ligneId);
+                                  }
+                                  setState(() {
+                                    if (_expandedLignesIds.contains(ligneId)) {
+                                      _expandedLignesIds.remove(ligneId);
+                                    } else {
+                                      _expandedLignesIds.add(ligneId);
+                                    }
+                                  });
+                                },
+                                tooltip: isExpanded ? 'Réduire' : 'Développer',
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Sous-rubriques
+                if (isExpanded && sousRubriques.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(
+                      left: 80,
+                      right: 20,
+                      bottom: 8,
+                    ),
+                    decoration: BoxDecoration(
                       color: Colors.grey.shade50,
-                      child: Column(
-                        children: [
-                          // En-tête sous-rubriques
-                          Container(
-                            color: Colors.grey.shade100,
-                            child: Table(
-                              columnWidths: const {
-                                0: FixedColumnWidth(16), // indent
-                                1: FixedColumnWidth(110), // n° compte
-                                2: FlexColumnWidth(4), // intitulé
-                                3: FlexColumnWidth(2), // montant
-                                4: FixedColumnWidth(72), // actions
-                              },
-                              children: [
-                                TableRow(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200, width: 1),
+                    ),
+                    child: Column(
+                      children: [
+                        // En-tête sous-rubriques
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  'SOUS-RUBRIQUES',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.grey.shade500,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  'MONTANT',
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.grey.shade500,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 72),
+                            ],
+                          ),
+                        ),
+                        const Divider(height: 1, thickness: 1),
+                        ...sousRubriques.asMap().entries.map((srEntry) {
+                          final srIndex = srEntry.key;
+                          final sr = srEntry.value;
+
+                          return Column(
+                            children: [
+                              if (srIndex > 0) const Divider(height: 1),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                child: Row(
                                   children: [
-                                    const SizedBox(height: 36),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 10,
+                                    // Indentation
+                                    Container(
+                                      width: 4,
+                                      height: 20,
+                                      margin: const EdgeInsets.only(right: 12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.shade300,
+                                        borderRadius: BorderRadius.circular(2),
                                       ),
+                                    ),
+                                    // Intitulé
+                                    Expanded(
+                                      flex: 3,
                                       child: Text(
-                                        'N° COMPTE',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.grey.shade600,
-                                          letterSpacing: 0.3,
+                                        sr['intitule'] as String,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.black87,
                                         ),
                                       ),
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 10,
-                                      ),
+                                    // Montant
+                                    Expanded(
+                                      flex: 2,
                                       child: Text(
-                                        'INTITULÉ SOUS-RUBRIQUE',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.grey.shade600,
-                                          letterSpacing: 0.3,
+                                        _formatAmount(
+                                          (sr['montant'] as num?)?.toDouble(),
                                         ),
-                                      ),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 10,
-                                      ),
-                                      child: Text(
-                                        'MONTANT',
                                         textAlign: TextAlign.right,
                                         style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.grey.shade600,
-                                          letterSpacing: 0.3,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.grey.shade700,
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(height: 36),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          Divider(height: 1, color: Colors.grey.shade300),
-                          // Lignes sous-rubriques
-                          ...sousRubriques.asMap().entries.map((srEntry) {
-                            final srIndex = srEntry.key;
-                            final sr = srEntry.value;
-                            return Column(
-                              children: [
-                                if (srIndex > 0)
-                                  Divider(
-                                    height: 1,
-                                    color: Colors.grey.shade200,
-                                  ),
-                                Table(
-                                  columnWidths: const {
-                                    0: FixedColumnWidth(16),
-                                    1: FixedColumnWidth(110),
-                                    2: FlexColumnWidth(4),
-                                    3: FlexColumnWidth(2),
-                                    4: FixedColumnWidth(72),
-                                  },
-                                  children: [
-                                    TableRow(
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.shade50,
+                                    // Actions
+                                    SizedBox(
+                                      width: 72,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
+                                        children: [
+                                          if (_canCreate)
+                                            _buildActionButton(
+                                              icon: Icons.edit,
+                                              size: 16,
+                                              color: Colors.blue.shade400,
+                                              onPressed:
+                                                  () => _editSousRubrique(
+                                                    sr['id'] as int,
+                                                    sr['intitule'] as String,
+                                                    (sr['montant'] as num?)
+                                                            ?.toDouble() ??
+                                                        0.0,
+                                                    ligneId,
+                                                  ),
+                                              tooltip: 'Modifier',
+                                            ),
+                                          if (_canDelete)
+                                            _buildActionButton(
+                                              icon: Icons.delete,
+                                              size: 16,
+                                              color: Colors.red.shade400,
+                                              onPressed:
+                                                  () => _deleteSousRubrique(
+                                                    sr['id'] as int,
+                                                  ),
+                                              tooltip: 'Supprimer',
+                                            ),
+                                        ],
                                       ),
-                                      children: [
-                                        // Trait d'indentation
-                                        Container(
-                                          height: 44,
-                                          alignment: Alignment.center,
-                                          child: Container(
-                                            width: 2,
-                                            color: Colors.green.shade200,
-                                          ),
-                                        ),
-                                        // N° compte
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 12,
-                                          ),
-                                          child: Text(
-                                            sr['numero_compte']?.toString() ??
-                                                '-',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade600,
-                                              fontFamily: 'monospace',
-                                            ),
-                                          ),
-                                        ),
-                                        // Intitulé
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 12,
-                                          ),
-                                          child: Text(
-                                            sr['intitule'] as String,
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              color: Colors.grey.shade800,
-                                            ),
-                                          ),
-                                        ),
-                                        // Montant
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 12,
-                                          ),
-                                          child: Text(
-                                            _formatAmount(
-                                              (sr['montant'] as num?)
-                                                  ?.toDouble(),
-                                            ),
-                                            textAlign: TextAlign.right,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade700,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
-                                        // Actions
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 4,
-                                            vertical: 6,
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              if (_canCreate)
-                                                IconButton(
-                                                  icon: Icon(
-                                                    Icons.edit,
-                                                    size: 15,
-                                                    color: Colors.blue.shade400,
-                                                  ),
-                                                  onPressed:
-                                                      () => _editSousRubrique(
-                                                        sr['id'] as int,
-                                                        sr['intitule']
-                                                            as String,
-                                                        (sr['montant'] as num?)
-                                                                ?.toDouble() ??
-                                                            0.0,
-                                                        ligneId,
-                                                      ),
-                                                  tooltip: 'Modifier',
-                                                  padding: EdgeInsets.zero,
-                                                  constraints:
-                                                      const BoxConstraints(
-                                                        minWidth: 28,
-                                                        minHeight: 28,
-                                                      ),
-                                                ),
-                                              if (_canDelete)
-                                                IconButton(
-                                                  icon: Icon(
-                                                    Icons.delete,
-                                                    size: 15,
-                                                    color: Colors.red.shade400,
-                                                  ),
-                                                  onPressed:
-                                                      () => _deleteSousRubrique(
-                                                        sr['id'] as int,
-                                                      ),
-                                                  tooltip: 'Supprimer',
-                                                  padding: EdgeInsets.zero,
-                                                  constraints:
-                                                      const BoxConstraints(
-                                                        minWidth: 28,
-                                                        minHeight: 28,
-                                                      ),
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
                                     ),
                                   ],
                                 ),
-                              ],
-                            );
-                          }),
-                        ],
-                      ),
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
                     ),
-                ],
-              );
-            }),
-          ],
-        ),
+                  ),
+              ],
+            );
+          }),
+        ],
       ),
     );
+  }
+
+  Widget _buildLignesHeader() {
+    // Remplacé par le tableau unifié dans _buildLignesTable
+    return const SizedBox.shrink();
   }
 
   Widget _buildLigneRow(Map<String, dynamic> ligne, {bool isFirst = false}) {
@@ -2465,11 +2270,15 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${widget.budget['projet_code']}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+              '${widget.budget['projet_designation']}',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
             ),
             Text(
-              widget.budget['bailleur_sigle'] ?? '',
+              widget.budget['bailleur_designation'] ?? '',
               style: const TextStyle(
                 fontSize: 12,
                 color: Colors.white,
@@ -2481,7 +2290,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
         backgroundColor: Colors.blue.shade400,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white,),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: _loadPostes,
             tooltip: 'Rafraîchir',
           ),
@@ -2509,26 +2318,26 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
                           child: Card(
                             elevation: 2,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Padding(
-                              padding: const EdgeInsets.all(20),
+                              padding: const EdgeInsets.all(12),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     'Postes budgétaires',
                                     style: TextStyle(
-                                      fontSize: 14,
+                                      fontSize: 12,
                                       color: Colors.grey.shade600,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: 4),
                                   Text(
                                     '${_postes.length}',
                                     style: const TextStyle(
-                                      fontSize: 24,
+                                      fontSize: 18,
                                       fontWeight: FontWeight.w700,
                                       color: Colors.blue,
                                     ),
