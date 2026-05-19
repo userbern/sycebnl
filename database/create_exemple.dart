@@ -403,7 +403,7 @@ void main() async {
 
   await db.close();
 
-  print('\n✅ Fichier exemple.db créé avec succès !');
+  print('\n Fichier exemple.db créé avec succès !');
   print('📁 Emplacement: $dbPath');
   print('\nContenu:');
   print('  - 1 entité: ONG Développement Communautaire');

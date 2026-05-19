@@ -337,11 +337,13 @@ class AuthService {
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      if (denominationSociale != null)
+      if (denominationSociale != null) {
         data['denomination_sociale'] = denominationSociale;
+      }
       if (sigleUsuel != null) data['sigle_usuel'] = sigleUsuel;
-      if (domaineIntervention != null)
+      if (domaineIntervention != null) {
         data['domaine_intervention'] = domaineIntervention;
+      }
       if (formeJuridique != null) data['forme_juridique'] = formeJuridique;
       if (ongType != null) data['ong_type'] = ongType;
       if (pays != null) data['pays'] = pays;
@@ -354,8 +356,9 @@ class AuthService {
       if (numeroFiscal != null) data['numero_fiscal'] = numeroFiscal;
       if (numeroCnss != null) data['numero_cnss'] = numeroCnss;
       if (numeroRecepisse != null) data['numero_recepisse'] = numeroRecepisse;
-      if (informationsComplementaires != null)
+      if (informationsComplementaires != null) {
         data['informations_complementaires'] = informationsComplementaires;
+      }
       if (currency != null) data['currency'] = currency;
 
       await _db.update('entite', data, where: 'id = ?', whereArgs: [id]);
@@ -672,10 +675,12 @@ class AuthService {
       if (code != null) data['code'] = code;
       if (libelle != null) data['libelle'] = libelle;
       if (type != null) data['type'] = type;
-      if (numeroCompteFresorerie != null)
+      if (numeroCompteFresorerie != null) {
         data['numero_compte_tresorerie'] = numeroCompteFresorerie;
-      if (saisieAnalytique != null)
+      }
+      if (saisieAnalytique != null) {
         data['saisie_analytique'] = saisieAnalytique ? 1 : 0;
+      }
       if (libelle != null) data['libelle'] = libelle;
       if (type != null) data['type'] = type;
 

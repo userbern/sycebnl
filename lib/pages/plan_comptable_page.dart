@@ -150,7 +150,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
     bool liaisonTiers = compte?.liaisonTiers ?? false;
     final formKey = GlobalKey<FormState>();
 
-    Future<void> _addAccount() async {
+    Future<void> addAccount() async {
       if (formKey.currentState!.validate()) {
         if (calculatedNature == null) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -220,7 +220,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
               focusNode: FocusNode(),
               onKey: (event) {
                 if (event.isKeyPressed(LogicalKeyboardKey.enter) && !isEdit) {
-                  _addAccount();
+                  addAccount();
                 }
               },
               child: AlertDialog(
@@ -484,7 +484,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                   ),
                   if (!isEdit)
                     ElevatedButton.icon(
-                      onPressed: !isEdit ? () => _addAccount() : null,
+                      onPressed: !isEdit ? () => addAccount() : null,
                       icon: const Icon(Icons.add),
                       label: const Text('Ajouter et continuer'),
                       style: ElevatedButton.styleFrom(

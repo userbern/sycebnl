@@ -231,7 +231,7 @@ NatureCompte stringToNatureCompte(String value) {
 /// 8 pair (80, 82, 84, 86, 88) -> Produits hors activités ordinaires
 /// 9 -> Engagements hors bilan
 NatureCompte? calculateNatureFromNumeroCompte(String numeroCompte) {
-  if (numeroCompte.isEmpty || numeroCompte.length < 1) return null;
+  if (numeroCompte.isEmpty ) return null;
 
   final firstDigit = int.tryParse(numeroCompte[0]);
   if (firstDigit == null) return null;

@@ -1348,7 +1348,7 @@ class _InterrogationsLettragesPageState
       ],
     );
   }
-
+/* 
   Widget _buildEcritureTile(
     LigneEcriture ecriture, {
     required bool showCheckbox,
@@ -1481,6 +1481,7 @@ class _InterrogationsLettragesPageState
       ),
     );
   }
+ */
 
   Widget _buildInterrogationTable() {
     final totalDebit = _interrogationResultats.fold<double>(

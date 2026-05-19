@@ -870,7 +870,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                                 ],
                               ),
                             );
-                          }).toList(),
+                          }),
                         ],
                       ),
                     ),
@@ -1272,7 +1272,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
   Widget _buildPageBody() {
     return PopScope(
       canPop: _totaux.isEquilibre,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, result) {
         if (!didPop && !_totaux.isEquilibre) {
           _showBalanceWarning();
         }
@@ -2711,10 +2711,17 @@ class _VentilationDialogState extends State<VentilationDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop || _isSaving) {
+          return;
+        }
+
         final shouldClose = await _persistVentilations();
-        return shouldClose;
+        if (shouldClose && context.mounted) {
+          Navigator.pop(context);
+        }
       },
       child: Dialog(
         child: Container(

@@ -291,30 +291,34 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
           SizedBox(
             width: 120,
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  if (_canUpdate)
+                   if (_canUpdate)
                     IconButton(
                       icon: Icon(
-                        Icons.edit,
-                        size: 14,
+                        Icons.add,
+                        size: 18,
                         color: Colors.blue.shade400,
                       ),
+                      key: const Key('Ajouter poste'),
                       onPressed: () => _showBudgetDetails(budget),
-                      tooltip: 'Modifier',
+                      tooltip: 'ajouter un poste budgetaire',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
                         minWidth: 18,
                         minHeight: 18,
                       ),
                     ),
+                  
+                  SizedBox(width: 5),
+                  
                   if (_canDelete)
                     IconButton(
                       icon: const Icon(
                         Icons.delete,
-                        size: 14,
+                        size: 18,
                         color: Colors.red,
                       ),
                       onPressed: () => _deleteBudget(budget['id'] as int),
@@ -325,6 +329,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                         minHeight: 18,
                       ),
                     ),
+
                 ],
               ),
             ),
@@ -398,12 +403,12 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return RawKeyboardListener(
+    return KeyboardListener(
       focusNode: _focusNode,
       autofocus: true,
-      onKey: (event) {
-        if (event is RawKeyDownEvent) {
-          if (event.isControlPressed &&
+      onKeyEvent: (KeyEvent event) {
+        if (event is KeyDownEvent) {
+          if (HardwareKeyboard.instance.isControlPressed &&
               event.logicalKey == LogicalKeyboardKey.keyN &&
               _canCreate) {
             _showCreateBudgetDialog();
@@ -587,7 +592,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                             Expanded(
                               flex: 2,
                               child: Padding(
-                                padding: const EdgeInsets.only(left: 16),
+                                padding: EdgeInsets.only(left: 16),
                                 child: Text(
                                   'PROJET',
                                   style: TextStyle(
@@ -602,7 +607,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                             Expanded(
                               flex: 4,
                               child: Padding(
-                                padding: const EdgeInsets.only(left: 16),
+                                padding: EdgeInsets.only(left: 16),
                                 child: Text(
                                   'BAILLEUR',
                                   style: TextStyle(
@@ -685,7 +690,7 @@ class BudgetDetailsPage extends StatefulWidget {
   final UserSession? userSession;
   final VoidCallback onRefresh;
 
-  const BudgetDetailsPage({
+  const BudgetDetailsPage({super.key, 
     required this.budget,
     this.userSession,
     required this.onRefresh,
@@ -886,10 +891,10 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
     );
   }
 
-  Widget _buildPosteHeader() {
+/*   Widget _buildPosteHeader() {
     // Remplacé par le tableau unifié dans _buildPostesTable
     return const SizedBox.shrink();
-  }
+  } */
 
   Widget _buildActionButton({
     required IconData icon,
@@ -1473,7 +1478,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
     );
   }
 
-  Widget _buildLignesHeader() {
+ /*  Widget _buildLignesHeader() {
     // Remplacé par le tableau unifié dans _buildLignesTable
     return const SizedBox.shrink();
   }
@@ -1481,7 +1486,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
   Widget _buildLigneRow(Map<String, dynamic> ligne, {bool isFirst = false}) {
     // Remplacé par _buildLignesTable - stub conservé pour compatibilité
     return const SizedBox.shrink();
-  }
+  } */
 
   Future<void> _createPoste() async {
     final controller = TextEditingController();
@@ -1836,6 +1841,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
     }
 
     final confirm = await showDialog<bool>(
+      // ignore: use_build_context_synchronously
       context: context,
       builder:
           (context) => StatefulBuilder(
@@ -2005,6 +2011,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
     }
 
     final confirm = await showDialog<bool>(
+      // ignore: use_build_context_synchronously
       context: context,
       builder:
           (context) => StatefulBuilder(

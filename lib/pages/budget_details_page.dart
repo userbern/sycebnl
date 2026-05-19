@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/user_session.dart';
 
-// TODO: Migrer cette page vers SQLite local
 // Cette page nécessite une refonte complète car elle utilise des queries complexes
 
 class BudgetDetailsPage extends StatelessWidget {

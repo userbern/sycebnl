@@ -7,7 +7,7 @@ import 'package:sycebnl_accounting/services/auth_service.dart';
 class EntiteListPage extends StatefulWidget {
   final UserSession userSession;
 
-  const EntiteListPage({Key? key, required this.userSession}) : super(key: key);
+  const EntiteListPage({super.key, required this.userSession});
 
   @override
   State<EntiteListPage> createState() => _EntiteListPageState();
@@ -683,10 +683,10 @@ class _EntiteListPageState extends State<EntiteListPage> {
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
 
-    return RawKeyboardListener(
+    return KeyboardListener(
       focusNode: _focusNode,
-      onKey: (event) {
-        if (event is RawKeyDownEvent &&
+      onKeyEvent: (KeyEvent event) {
+        if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyN &&
             HardwareKeyboard.instance.isControlPressed &&
             widget.userSession.isAdmin) {

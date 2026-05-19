@@ -1247,7 +1247,7 @@ class ExportService {
                           ),
                         ],
                       );
-                    }).toList(),
+                    }),
                   ],
                 ),
               ],
@@ -1490,7 +1490,7 @@ class ExportService {
                           ),
                         ],
                       );
-                    }).toList(),
+                    }),
                   ],
                 ),
               ],
@@ -1699,7 +1699,7 @@ class ExportService {
                           ),
                         ],
                       );
-                    }).toList(),
+                    }),
                   ],
                 ),
               ],
@@ -1923,7 +1923,7 @@ class ExportService {
                           ),
                         ],
                       );
-                    }).toList(),
+                    }),
                   ],
                 ),
               ],

@@ -316,9 +316,9 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return RawKeyboardListener(
+    return KeyboardListener(
       focusNode: _focusNode,
-      onKey: (event) {
+      onKeyEvent: (KeyEvent event) {
         if (event.logicalKey == LogicalKeyboardKey.keyN &&
             HardwareKeyboard.instance.isControlPressed &&
             _canCreate) {
@@ -1443,8 +1443,10 @@ class _ProjetDialogState extends State<_ProjetDialog> {
                                 await _reloadBailleurs();
 
                                 if (!mounted) return;
+                                // ignore: use_build_context_synchronously
                                 Navigator.pop(context);
 
+                                // ignore: use_build_context_synchronously
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text('Bailleur créé avec succès'),
@@ -1453,6 +1455,7 @@ class _ProjetDialogState extends State<_ProjetDialog> {
                                 );
                               } catch (e) {
                                 if (!mounted) return;
+                                // ignore: use_build_context_synchronously
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text('Erreur: ${e.toString()}'),

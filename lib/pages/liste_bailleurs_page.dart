@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/user_session.dart';
@@ -544,7 +546,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                                   .map(
                                     (bailleur) => _buildBailleurCard(bailleur),
                                   )
-                                  .toList(),
+                                  ,
                             ],
                           ),
                         ),
@@ -668,7 +670,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
     );
     final formKey = GlobalKey<FormState>();
 
-    Future<void> _submit() async {
+    Future<void> submit() async {
       if (formKey.currentState!.validate()) {
         try {
           if (isEdit) {
@@ -816,7 +818,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                             textInputAction: TextInputAction.go,
                             onFieldSubmitted: (_) {
                               // Ici, la touche Entrée déclenche la soumission
-                              _submit();
+                              submit();
                             },
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
@@ -854,6 +856,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
 
                           if (!mounted) return;
                           _loadBailleurs();
+                          
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(

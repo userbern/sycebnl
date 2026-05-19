@@ -919,7 +919,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
   }
 
   NatureCompte? calculateNatureFromNumeroCompte(String numero) {
-    if (numero.isEmpty || numero.length < 1) return null;
+    if (numero.isEmpty ) return null;
 
     final firstDigit = int.tryParse(numero[0]);
     if (firstDigit == null) return null;

@@ -52,7 +52,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
   final _niveauController = TextEditingController();
 
   // Bloc 5 - Options
-  bool _inclureComptesSansMouvement = false;
+  final bool _inclureComptesSansMouvement = false;
 
   final _formKey = GlobalKey<FormState>();
 
@@ -686,7 +686,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                                           });
                                                         },
                                               );
-                                            }).toList(),
+                                            }),
                                           ],
                                         ],
                                       ],
@@ -927,7 +927,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
  */
 
                           // Bouton d'action
-                          Container(
+                          SizedBox(
                             width: double.infinity,
                             height: 50,
                             child: ElevatedButton.icon(

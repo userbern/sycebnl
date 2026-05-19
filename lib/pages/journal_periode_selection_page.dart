@@ -92,6 +92,7 @@ class _JournalPeriodeSelectionPageState
     } catch (e) {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(
+        // ignore: use_build_context_synchronously
         context,
       ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
     }

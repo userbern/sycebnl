@@ -400,7 +400,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                       message: 'Exporter en PDF',
                       child: ElevatedButton.icon(
                         onPressed: _isLoading ? null : _exportToPDF,
-                        icon: const Icon(Icons.picture_as_pdf),
+                        icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
                         label: const Text('PDF'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red.shade600,
@@ -415,7 +415,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                       message: 'Exporter en Excel',
                       child: ElevatedButton.icon(
                         onPressed: _isLoading ? null : _exportToExcel,
-                        icon: const Icon(Icons.table_chart),
+                        icon: const Icon(Icons.table_chart, color: Colors.white),
                         label: const Text('Excel'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green.shade600,
@@ -1128,7 +1128,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                 ],
                               ),
                             );
-                          }).toList(),
+                          }),
                           // Ligne COMPTES DU BILAN (1-5)
                           _buildTotalRow(
                             label: 'COMPTES DU BILAN',
