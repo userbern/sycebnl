@@ -688,7 +688,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
       builder: (context, constraints) {
         final table = DataTable(
           showCheckboxColumn: false,
-          headingRowColor: WidgetStateProperty.resolveWith(
+          headingRowColor: MaterialStateProperty.resolveWith(
             (states) => Colors.blue.shade300,
           ),
           dataRowMinHeight: 14,
@@ -745,7 +745,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
 
     return DataRow(
       onSelectChanged: (_) => _handleRowTap(row),
-      color: WidgetStateProperty.resolveWith((_) => status.backgroundColor),
+      color: MaterialStateProperty.resolveWith((_) => status.backgroundColor),
       cells: [
         DataCell(
           Padding(

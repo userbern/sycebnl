@@ -1348,7 +1348,7 @@ class _InterrogationsLettragesPageState
       ],
     );
   }
-/* 
+  /* 
   Widget _buildEcritureTile(
     LigneEcriture ecriture, {
     required bool showCheckbox,
@@ -1500,7 +1500,7 @@ class _InterrogationsLettragesPageState
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: DataTable(
-            headingRowColor: WidgetStateProperty.resolveWith(
+            headingRowColor: MaterialStateProperty.resolveWith(
               (states) => Colors.blue.shade50,
             ),
             columns: const [
@@ -1561,7 +1561,7 @@ class _InterrogationsLettragesPageState
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: DataTable(
-            headingRowColor: WidgetStateProperty.resolveWith(
+            headingRowColor: MaterialStateProperty.resolveWith(
               (states) => Colors.blue.shade50,
             ),
             columns: const [
