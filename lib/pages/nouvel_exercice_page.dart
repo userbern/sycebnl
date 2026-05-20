@@ -420,20 +420,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           Container(
             width: double.infinity,
             padding: EdgeInsets.all(screenHeight * 0.02),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.grey.shade500, Colors.grey.shade500],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.blue.withValues(alpha: 0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
+            decoration: BoxDecoration(color: Colors.white),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -483,7 +470,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           // Formulaire
           Expanded(
             child: SingleChildScrollView(
-              padding: EdgeInsets.all(screenHeight * 0.02),
+              padding: EdgeInsets.all(screenHeight * 0.05),
               child: Column(
                 children: [
                   Card(
@@ -505,6 +492,32 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                             ),
                           ),
                           const SizedBox(height: 24),
+
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildWarningItem(
+                                'Période de l\'exercice',
+                                'Un exercice comptable dure généralement 12 mois (du 01/01 au 31/12).',
+                                Icons.calendar_view_month,
+                              ),
+                              const SizedBox(height: 12),
+                              _buildWarningItem(
+                                'Report des soldes',
+                                'Le report des soldes transfert automatiquement les soldes de clôture de l\'exercice N vers l\'ouverture de l\'exercice N+1.',
+                                Icons.swap_horiz,
+                              ),
+                              const SizedBox(height: 12),
+                              _buildWarningItem(
+                                'Validation',
+                                'Une fois l\'exercice créé, assurez-vous de vérifier les comptes de bilan pour le report à nouveau.',
+                                Icons.verified,
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 24),
+
                           TextField(
                             controller: _anneeController,
                             decoration: InputDecoration(
@@ -569,22 +582,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 24),
-                          CheckboxListTile(
-                            title: const Text(
-                              'Reporter les soldes de l\'exercice précédent',
-                            ),
-                            subtitle: const Text(
-                              'Les soldes des comptes seront automatiquement reportés',
-                            ),
-                            value: reportSoldes,
-                            onChanged: (value) {
-                              setState(() => reportSoldes = value ?? true);
-                            },
-                            activeColor: Colors.indigo,
-                          ),
-                          const SizedBox(height: 24),
-                          const Divider(),
+
                           const SizedBox(height: 16),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
@@ -621,7 +619,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                                         : const Icon(Icons.add_circle),
                                 label: const Text('Créer l\'exercice'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.indigo,
+                                  backgroundColor: Colors.blue.shade400,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 24,
@@ -631,59 +629,6 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                                 ),
                               ),
                             ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Card(
-                    elevation: 1,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: Colors.blue.shade400,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 12),
-                              const Text(
-                                'Informations importantes',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          const Divider(),
-                          const SizedBox(height: 16),
-                          _buildWarningItem(
-                            'Période de l\'exercice',
-                            'Un exercice comptable dure généralement 12 mois (du 01/01 au 31/12).',
-                            Icons.calendar_view_month,
-                          ),
-                          const SizedBox(height: 12),
-                          _buildWarningItem(
-                            'Report des soldes',
-                            'Le report des soldes transfert automatiquement les soldes de clôture de l\'exercice N vers l\'ouverture de l\'exercice N+1.',
-                            Icons.swap_horiz,
-                          ),
-                          const SizedBox(height: 12),
-                          _buildWarningItem(
-                            'Validation',
-                            'Une fois l\'exercice créé, assurez-vous de vérifier les comptes de bilan pour le report à nouveau.',
-                            Icons.verified,
                           ),
                         ],
                       ),
