@@ -483,12 +483,12 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Informations de l\'exercice',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Colors.indigo,
+                              color: Colors.blue.shade400,
                             ),
                           ),
                           const SizedBox(height: 24),
