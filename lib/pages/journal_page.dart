@@ -299,7 +299,7 @@ class _JournalPageState extends State<JournalPage> {
 
   Widget _buildFiltersCard() {
     return Card(
-      margin: const EdgeInsets.only(top: 16, left: 64, right: 64),
+      margin: const EdgeInsets.only(top: 16, left: 96, right: 96),
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
@@ -467,6 +467,7 @@ class _JournalPageState extends State<JournalPage> {
 
   Widget _buildActionsRow() {
     return Row(
+      
       children: [
         Expanded(
           child: FilledButton.icon(

@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import '../models/exercice.dart';
 import '../models/journal.dart';
@@ -92,8 +90,8 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
       final periodes =
           exercice != null && exercice.id != null
               ? await SaisieComptableService.getJournalPeriodes(
-                exerciceId: exercice.id!,
-              )
+                  exerciceId: exercice.id!,
+                )
               : <JournalPeriode>[];
       final entriesByPeriode =
           await SaisieComptableService.getEcritureCountsByPeriode();
@@ -313,18 +311,18 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
       appBar:
           widget.showAppBar
               ? AppBar(
-                title: const Text('Journaux de saisie'),
-                backgroundColor: Colors.blue.shade200,
-                elevation: 0,
-              )
+                  title: const Text('Journaux de saisie'),
+                  backgroundColor: Colors.blue.shade200,
+                  elevation: 0,
+                )
               : null,
       body:
           _isLoading
               ? const Center(child: CircularProgressIndicator())
               : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [_buildHeader(), Expanded(child: _buildBody())],
-              ),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [_buildHeader(), Expanded(child: _buildBody())],
+                ),
     );
   }
 
@@ -336,24 +334,36 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
             : 'Exercice ${exercice.code} • ${_formatHeaderLabel(exercice.dateDebut)} - ${_formatHeaderLabel(exercice.dateFin)}';
 
     return Container(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        border: Border(bottom: BorderSide(color: Colors.blue.shade100)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Text(
-            'Journaux de saisie',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
+          Icon(Icons.menu_book_rounded, color: Colors.blue.shade700, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Journaux de saisie',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade800,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 11, color: Colors.blue.shade600),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            subtitle,
-            style: const TextStyle(fontSize: 14, color: Colors.black),
-          ),
-          const SizedBox(height: 12),
           if (exercice != null)
             Builder(
               builder: (context) {
@@ -361,12 +371,25 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
                 final filtered = _filteredRows.length;
                 final infoText =
                     _hasActiveFilters
-                        ? '$filtered résultat${filtered > 1 ? 's' : ''} sur $total'
-                        : '$total combinaisons journal/mois disponibles';
-
-                return Text(
-                  infoText,
-                  style: const TextStyle(fontSize: 12, color: Colors.black),
+                        ? '$filtered / $total'
+                        : '$total entrées';
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    infoText,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.blue.shade800,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 );
               },
             ),
@@ -394,9 +417,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildFilters(),
-        const SizedBox(height: 12),
         _buildLegend(),
-        const SizedBox(height: 12),
         Expanded(
           child:
               filteredRows.isEmpty
@@ -410,19 +431,19 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
   Widget _buildLegend() {
     final items = [
       _RowStatus(
-        label: 'Actif (aucune écriture)',
+        label: 'Aucune écriture',
         backgroundColor: Colors.grey.shade100,
         badgeColor: Colors.grey.shade200,
-        textColor: Colors.grey.shade800,
+        textColor: Colors.grey.shade700,
       ),
       _RowStatus(
-        label: 'Actif (avec écritures)',
+        label: 'Avec écritures',
         backgroundColor: Colors.green.shade50,
         badgeColor: Colors.green.shade100,
         textColor: Colors.green.shade700,
       ),
       _RowStatus(
-        label: 'Partiellement clôturé',
+        label: 'Part. clôturé',
         backgroundColor: Colors.orange.shade50,
         badgeColor: Colors.orange.shade100,
         textColor: Colors.orange.shade800,
@@ -435,33 +456,324 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
       ),
     ];
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children:
-            items.map((item) {
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: item.backgroundColor,
-                      borderRadius: BorderRadius.circular(3),
-                      border: Border.all(color: item.textColor),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(item.label, style: TextStyle(color: item.textColor)),
-                ],
-              );
-            }).toList(),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        children: [
+          Text(
+            'Légende : ',
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Expanded(
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children:
+                  items.map((item) {
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: item.backgroundColor,
+                            borderRadius: BorderRadius.circular(2),
+                            border: Border.all(
+                              color: item.textColor,
+                              width: 0.8,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          item.label,
+                          style: TextStyle(fontSize: 10, color: item.textColor),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _buildFilters() {
+    final monthOptions = _availableMonthOptions;
+    final years = _availableYears;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        border: Border(bottom: BorderSide(color: Colors.blue.shade100)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 600;
+          return Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: isNarrow ? constraints.maxWidth : 160,
+                height: 36,
+                child: TextField(
+                  controller: _codeSearchController,
+                  style: const TextStyle(fontSize: 12),
+                  decoration: InputDecoration(
+                    hintText: 'Code journal',
+                    hintStyle: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      size: 16,
+                      color: Colors.blue.shade400,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: Colors.blue.shade200),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: Colors.blue.shade200),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(
+                        color: Colors.blue.shade500,
+                        width: 1.5,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 0,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    isDense: true,
+                  ),
+                  onChanged:
+                      (value) => setState(() => _codeQuery = value.trim()),
+                ),
+              ),
+              SizedBox(
+                width: isNarrow ? constraints.maxWidth : 180,
+                height: 36,
+                child: TextField(
+                  controller: _intituleSearchController,
+                  style: const TextStyle(fontSize: 12),
+                  decoration: InputDecoration(
+                    hintText: 'Intitulé',
+                    hintStyle: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      size: 16,
+                      color: Colors.blue.shade400,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: Colors.blue.shade200),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: Colors.blue.shade200),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(
+                        color: Colors.blue.shade500,
+                        width: 1.5,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 0,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    isDense: true,
+                  ),
+                  onChanged:
+                      (value) => setState(() => _intituleQuery = value.trim()),
+                ),
+              ),
+              if (monthOptions.isNotEmpty)
+                SizedBox(
+                  width: isNarrow ? constraints.maxWidth : 170,
+                  height: 36,
+                  child: DropdownButtonFormField<String?>(
+                    value: _selectedMonthValue(monthOptions),
+                    isExpanded: true,
+                    style: const TextStyle(fontSize: 12, color: Colors.black87),
+                    decoration: InputDecoration(
+                      hintText: 'Mois',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(color: Colors.blue.shade200),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(color: Colors.blue.shade200),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(
+                          color: Colors.blue.shade500,
+                          width: 1.5,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 0,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      isDense: true,
+                    ),
+                    hint: Text(
+                      'Tous les mois',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text(
+                          'Tous les mois',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      ...monthOptions.map(
+                        (option) => DropdownMenuItem<String?>(
+                          value: option.id,
+                          child: Text(
+                            option.label,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged:
+                        (value) => _applyMonthSelection(value, monthOptions),
+                  ),
+                ),
+              if (years.isNotEmpty)
+                SizedBox(
+                  width: isNarrow ? constraints.maxWidth : 130,
+                  height: 36,
+                  child: DropdownButtonFormField<int>(
+                    value: _selectedYear ?? 0,
+                    isExpanded: true,
+                    style: const TextStyle(fontSize: 12, color: Colors.black87),
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(color: Colors.blue.shade200),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(color: Colors.blue.shade200),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(
+                          color: Colors.blue.shade500,
+                          width: 1.5,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 0,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      isDense: true,
+                    ),
+                    items: [
+                      const DropdownMenuItem<int>(
+                        value: 0,
+                        child: Text(
+                          'Toutes années',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      ...years.map(
+                        (year) => DropdownMenuItem<int>(
+                          value: year,
+                          child: Text(
+                            year.toString(),
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged:
+                        _selectedMonthId != null ? null : _applyYearSelection,
+                  ),
+                ),
+              SizedBox(
+                height: 36,
+                child: Tooltip(
+                  message: 'Réinitialiser les filtres',
+                  child: OutlinedButton.icon(
+                    onPressed: _hasActiveFilters ? _resetFilters : null,
+                    icon: const Icon(Icons.refresh, size: 15),
+                    label: const Text('Reset', style: TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      side: BorderSide(
+                        color:
+                            _hasActiveFilters
+                                ? Colors.blue.shade400
+                                : Colors.grey.shade300,
+                      ),
+                      foregroundColor:
+                          _hasActiveFilters
+                              ? Colors.blue.shade700
+                              : Colors.grey,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _codeQuery = '';
+      _intituleQuery = '';
+      _selectedMonthId = null;
+      _selectedMonth = null;
+      _selectedYear = null;
+      _clearSearchControllers();
+    });
   }
 
   Widget _buildNoExercice() {
@@ -509,165 +821,6 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
     );
   }
 
-  Widget _buildFilters() {
-    final monthOptions = _availableMonthOptions;
-    final years = _availableYears;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          const spacing = 16.0;
-          final isNarrow = constraints.maxWidth < 720;
-          final itemCount =
-              2 +
-              (monthOptions.isNotEmpty ? 1 : 0) +
-              (years.isNotEmpty ? 1 : 0) +
-              1;
-          final availableWidth =
-              constraints.maxWidth - spacing * (itemCount - 1);
-          final baseWidth =
-              isNarrow ? constraints.maxWidth : availableWidth / itemCount;
-          const minFieldWidth = 200.0;
-          final fieldWidth =
-              isNarrow
-                  ? constraints.maxWidth
-                  : math.max(minFieldWidth, baseWidth);
-
-          final children = <Widget>[
-            SizedBox(
-              width: fieldWidth,
-              child: TextField(
-                controller: _codeSearchController,
-                decoration: const InputDecoration(
-                  labelText: 'Recherche code journal',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (value) => setState(() => _codeQuery = value.trim()),
-              ),
-            ),
-            SizedBox(
-              width: fieldWidth,
-              child: TextField(
-                controller: _intituleSearchController,
-                decoration: const InputDecoration(
-                  labelText: 'Recherche intitulé',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
-                ),
-                onChanged:
-                    (value) => setState(() => _intituleQuery = value.trim()),
-              ),
-            ),
-          ];
-
-          final selectedMonthValue = _selectedMonthValue(monthOptions);
-
-          if (monthOptions.isNotEmpty) {
-            children.add(
-              SizedBox(
-                width: fieldWidth,
-                child: DropdownButtonFormField<String?>(
-                  value: selectedMonthValue,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Mois de saisie',
-                    border: OutlineInputBorder(),
-                  ),
-                  hint: const Text('Sélectionnez un mois'),
-                  items: [
-                    const DropdownMenuItem<String?>(
-                      value: null,
-                      child: Text('Tous les mois'),
-                    ),
-                    ...monthOptions.map(
-                      (option) => DropdownMenuItem<String?>(
-                        value: option.id,
-                        child: Text(option.label),
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    _applyMonthSelection(value, monthOptions);
-                  },
-                ),
-              ),
-            );
-          }
-
-          if (years.isNotEmpty) {
-            children.add(
-              SizedBox(
-                width: fieldWidth,
-                child: DropdownButtonFormField<int>(
-                  value: _selectedYear ?? 0,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Année',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem<int>(
-                      value: 0,
-                      child: Text('Toutes les années'),
-                    ),
-                    ...years.map(
-                      (year) => DropdownMenuItem<int>(
-                        value: year,
-                        child: Text(year.toString()),
-                      ),
-                    ),
-                  ],
-                  onChanged:
-                      _selectedMonthId != null ? null : _applyYearSelection,
-                ),
-              ),
-            );
-          }
-
-          children.add(
-            SizedBox(
-              width: isNarrow ? constraints.maxWidth : fieldWidth,
-              child: Align(
-                alignment: isNarrow ? Alignment.centerRight : Alignment.center,
-                child: Tooltip(
-                  message: 'Réinitialiser',
-                  child: OutlinedButton(
-                    onPressed: _hasActiveFilters ? _resetFilters : null,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      minimumSize: const Size(44, 48),
-                    ),
-                    child: const Icon(Icons.refresh, size: 18),
-                  ),
-                ),
-              ),
-            ),
-          );
-
-          return Wrap(
-            spacing: spacing,
-            runSpacing: 12,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: children,
-          );
-        },
-      ),
-    );
-  }
-
-  void _resetFilters() {
-    setState(() {
-      _codeQuery = '';
-      _intituleQuery = '';
-      _selectedMonthId = null;
-      _selectedMonth = null;
-      _selectedYear = null;
-      _clearSearchControllers();
-    });
-  }
-
   Widget _buildNoFilteredResults() {
     return Center(
       child: Column(
@@ -683,16 +836,17 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
     );
   }
 
+  // ========== TABLEAU VERSION DataTable (moderne) ==========
   Widget _buildTable(List<_JournalSaisieRow> rows) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final table = DataTable(
           showCheckboxColumn: false,
-          headingRowColor: MaterialStateProperty.resolveWith(
+          headingRowColor: WidgetStateProperty.resolveWith(
             (states) => Colors.blue.shade300,
           ),
-          dataRowMinHeight: 14,
-          dataRowMaxHeight: 18,
+          dataRowMinHeight: 8,
+          dataRowMaxHeight: 14,
           horizontalMargin: 0,
           columnSpacing: 10,
           columns: const [
@@ -713,7 +867,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
             ),
             DataColumn(
               label: Text(
-                'Statut du journal',
+                'Statut',
                 style: TextStyle(color: Colors.white),
               ),
             ),
@@ -726,7 +880,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
           thumbVisibility: true,
           child: SingleChildScrollView(
             controller: _verticalScrollController,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: ConstrainedBox(
