@@ -295,7 +295,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                   if (_canUpdate)
+                  if (_canUpdate)
                     IconButton(
                       icon: Icon(
                         Icons.add,
@@ -311,9 +311,9 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                         minHeight: 18,
                       ),
                     ),
-                  
+
                   SizedBox(width: 5),
-                  
+
                   if (_canDelete)
                     IconButton(
                       icon: const Icon(
@@ -329,7 +329,6 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                         minHeight: 18,
                       ),
                     ),
-
                 ],
               ),
             ),
@@ -690,7 +689,8 @@ class BudgetDetailsPage extends StatefulWidget {
   final UserSession? userSession;
   final VoidCallback onRefresh;
 
-  const BudgetDetailsPage({super.key, 
+  const BudgetDetailsPage({
+    super.key,
     required this.budget,
     this.userSession,
     required this.onRefresh,
@@ -891,7 +891,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
     );
   }
 
-/*   Widget _buildPosteHeader() {
+  /*   Widget _buildPosteHeader() {
     // Remplacé par le tableau unifié dans _buildPostesTable
     return const SizedBox.shrink();
   } */
@@ -1478,7 +1478,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
     );
   }
 
- /*  Widget _buildLignesHeader() {
+  /*  Widget _buildLignesHeader() {
     // Remplacé par le tableau unifié dans _buildLignesTable
     return const SizedBox.shrink();
   }
@@ -1841,7 +1841,6 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
     }
 
     final confirm = await showDialog<bool>(
-      // ignore: use_build_context_synchronously
       context: context,
       builder:
           (context) => StatefulBuilder(
@@ -2011,7 +2010,6 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
     }
 
     final confirm = await showDialog<bool>(
-      // ignore: use_build_context_synchronously
       context: context,
       builder:
           (context) => StatefulBuilder(

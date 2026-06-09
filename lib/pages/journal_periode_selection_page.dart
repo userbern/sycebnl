@@ -91,8 +91,8 @@ class _JournalPeriodeSelectionPageState
       });
     } catch (e) {
       setState(() => _isLoading = false);
+      if (!mounted) return;
       ScaffoldMessenger.of(
-        // ignore: use_build_context_synchronously
         context,
       ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
     }
@@ -132,13 +132,8 @@ class _JournalPeriodeSelectionPageState
   InputDecoration _buildDropdownDecoration(String labelText) {
     return InputDecoration(
       labelText: labelText,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 10,
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
     );
   }
 

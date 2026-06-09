@@ -79,10 +79,11 @@ class _PermissionsPageState extends State<PermissionsPage> {
         _error = e.toString();
       });
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -236,7 +237,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
                     );
 
                     if (!mounted) return;
-                    Navigator.pop(dialogContext);
+                    Navigator.of(context).pop();
                     messenger.showSnackBar(
                       const SnackBar(
                         content: Text('Mot de passe mis à jour'),

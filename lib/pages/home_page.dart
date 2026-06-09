@@ -16,6 +16,7 @@ import 'gestion_budgets_page.dart';
 import 'journal_page.dart';
 import 'journal_periode_selection_page.dart';
 import 'journaux_de_saisie_page.dart';
+import 'grand_livre_page.dart';
 import 'saisie_ecriture_page.dart';
 import 'balance_comptes_page.dart';
 import 'permissions_page.dart';
@@ -717,7 +718,7 @@ class _HomePageState extends State<HomePage> {
                     color:
                         isActive
                             ? Colors.blue.shade200
-                            : Colors.blue.shade100.withOpacity(0.6),
+                            : Colors.blue.shade100.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -1128,7 +1129,7 @@ class _HomePageState extends State<HomePage> {
           showAppBar: false,
         );
       case 14:
-        return _buildPlaceholderPage('Grand livre');
+        return const GrandLivreScreen();
       case 15:
         return const JournalPage(showAppBar: false);
       case 16:
@@ -1340,7 +1341,7 @@ class _HomePageState extends State<HomePage> {
           border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -1352,7 +1353,7 @@ class _HomePageState extends State<HomePage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, size: 32, color: color),
@@ -1392,7 +1393,7 @@ class _HomePageState extends State<HomePage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 24),

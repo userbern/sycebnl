@@ -93,8 +93,10 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
           SELECT 
             e.numero_tiers AS numero_compte,
             COALESCE(t.intitule, 'Tiers') AS intitule,
-            COALESCE(SUM(CASE WHEN e.montant_debit > 0 THEN e.montant_debit ELSE 0 END), 0) as total_debit,
-            COALESCE(SUM(CASE WHEN e.montant_credit > 0 THEN e.montant_credit ELSE 0 END), 0) as total_credit
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_debit ELSE 0 END), 0) as ouverture_debit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_credit ELSE 0 END), 0) as ouverture_credit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_debit ELSE 0 END), 0) as mouvement_debit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_credit ELSE 0 END), 0) as mouvement_credit
           FROM ecritures e
           LEFT JOIN tiers t ON e.numero_tiers = t.numero_compte
           LEFT JOIN journaux_periodes jp ON e.journal_periode_id = jp.id
@@ -119,8 +121,10 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
           SELECT 
             c.numero_compte,
             c.intitule,
-            COALESCE(SUM(CASE WHEN e.montant_debit > 0 THEN e.montant_debit ELSE 0 END), 0) as total_debit,
-            COALESCE(SUM(CASE WHEN e.montant_credit > 0 THEN e.montant_credit ELSE 0 END), 0) as total_credit
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_debit ELSE 0 END), 0) as ouverture_debit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_credit ELSE 0 END), 0) as ouverture_credit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_debit ELSE 0 END), 0) as mouvement_debit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_credit ELSE 0 END), 0) as mouvement_credit
           FROM compte c
           LEFT JOIN ecritures e ON c.numero_compte = e.numero_compte
           LEFT JOIN journaux_periodes jp ON e.journal_periode_id = jp.id
@@ -142,9 +146,21 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         ''';
       }
 
+      queryArgs.addAll([
+        dateDebutStr,
+        dateDebutStr,
+        dateDebutStr,
+        dateDebutStr,
+        dateDebutStr,
+        dateFinStr,
+        dateDebutStr,
+        dateDebutStr,
+        dateFinStr,
+        dateDebutStr,
+      ]);
+
       query +=
-          ' AND (e.date_comptable IS NULL OR substr(e.date_comptable, 1, 10) BETWEEN ? AND ?)';
-      queryArgs.add(dateDebutStr);
+          ' AND (e.id IS NULL OR date(COALESCE(e.date_comptable, jp.annee || \'-\' || printf(\'%02d\', jp.mois) || \'-\' || printf(\'%02d\', e.jour))) <= date(?))';
       queryArgs.add(dateFinStr);
 
       if (widget.exerciceId != null) {
@@ -245,22 +261,40 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
           continue;
         }
 
-        final totalDebit = (row['total_debit'] as num?)?.toDouble() ?? 0.0;
-        final totalCredit = (row['total_credit'] as num?)?.toDouble() ?? 0.0;
+        final ouvertureDebit =
+            (row['ouverture_debit'] as num?)?.toDouble() ?? 0.0;
+        final ouvertureCredit =
+            (row['ouverture_credit'] as num?)?.toDouble() ?? 0.0;
+        final mouvementDebit =
+            (row['mouvement_debit'] as num?)?.toDouble() ?? 0.0;
+        final mouvementCredit =
+            (row['mouvement_credit'] as num?)?.toDouble() ?? 0.0;
+        final ouvertureSolde = ouvertureDebit - ouvertureCredit;
+        final clotureSolde = ouvertureSolde + mouvementDebit - mouvementCredit;
+        final soldeOuvertureDebit = ouvertureSolde > 0 ? ouvertureSolde : 0.0;
+        final soldeOuvertureCredit = ouvertureSolde < 0 ? -ouvertureSolde : 0.0;
+        final soldeClotureDebit = clotureSolde > 0 ? clotureSolde : 0.0;
+        final soldeClotureCredit = clotureSolde < 0 ? -clotureSolde : 0.0;
 
         if (!widget.inclureComptesSansMouvement &&
-            totalDebit == 0 &&
-            totalCredit == 0) {
+            soldeOuvertureDebit == 0 &&
+            soldeOuvertureCredit == 0 &&
+            mouvementDebit == 0 &&
+            mouvementCredit == 0 &&
+            soldeClotureDebit == 0 &&
+            soldeClotureCredit == 0) {
           continue;
         }
 
         comptes.add({
           'numero': numeroCompte,
           'intitule': row['intitule'] as String,
-          'mouvementDebit': totalDebit,
-          'mouvementCredit': totalCredit,
-          'soldeDebit': totalDebit,
-          'soldeCredit': totalCredit,
+          'ouvertureDebit': soldeOuvertureDebit,
+          'ouvertureCredit': soldeOuvertureCredit,
+          'mouvementDebit': mouvementDebit,
+          'mouvementCredit': mouvementCredit,
+          'soldeDebit': soldeClotureDebit,
+          'soldeCredit': soldeClotureCredit,
         });
       }
 
@@ -387,10 +421,11 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
       appBar:
           widget.showAppBar
               ? AppBar(
-                iconTheme: const IconThemeData(
-                  color: Colors.white,
+                iconTheme: const IconThemeData(color: Colors.white),
+                title: const Text(
+                  'Résultats de la Balance',
+                  style: TextStyle(color: Colors.white),
                 ),
-                title: const Text('Résultats de la Balance', style: TextStyle(color: Colors.white)),
                 backgroundColor: Colors.blue.shade700,
                 elevation: 0,
                 actions: [
@@ -400,7 +435,10 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                       message: 'Exporter en PDF',
                       child: ElevatedButton.icon(
                         onPressed: _isLoading ? null : _exportToPDF,
-                        icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+                        icon: const Icon(
+                          Icons.picture_as_pdf,
+                          color: Colors.white,
+                        ),
                         label: const Text('PDF'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red.shade600,
@@ -415,7 +453,10 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                       message: 'Exporter en Excel',
                       child: ElevatedButton.icon(
                         onPressed: _isLoading ? null : _exportToExcel,
-                        icon: const Icon(Icons.table_chart, color: Colors.white),
+                        icon: const Icon(
+                          Icons.table_chart,
+                          color: Colors.white,
+                        ),
                         label: const Text('Excel'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green.shade600,
@@ -960,7 +1001,14 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                       ),
                                       child: Center(
                                         child: Text(
-                                          '-',
+                                          (compte['ouvertureDebit']
+                                                          as double? ??
+                                                      0) >
+                                                  0
+                                              ? _formatMontant(
+                                                compte['ouvertureDebit'],
+                                              )
+                                              : '',
                                           textAlign: TextAlign.right,
                                           style: TextStyle(
                                             color: Colors.indigo.shade700,
@@ -987,7 +1035,14 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                       ),
                                       child: Center(
                                         child: Text(
-                                          '-',
+                                          (compte['ouvertureCredit']
+                                                          as double? ??
+                                                      0) >
+                                                  0
+                                              ? _formatMontant(
+                                                compte['ouvertureCredit'],
+                                              )
+                                              : '',
                                           textAlign: TextAlign.right,
                                           style: TextStyle(
                                             color: Colors.indigo.shade700,
@@ -1014,12 +1069,11 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                       ),
                                       child: Center(
                                         child: Text(
-                                          (compte['mouvementDebit']
-                                                          as double? ??
+                                          (compte['soldeDebit'] as double? ??
                                                       0) >
                                                   0
                                               ? _formatMontant(
-                                                compte['mouvementDebit'],
+                                                compte['soldeDebit'],
                                               )
                                               : '',
                                           textAlign: TextAlign.right,
@@ -1048,12 +1102,11 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                       ),
                                       child: Center(
                                         child: Text(
-                                          (compte['mouvementCredit']
-                                                          as double? ??
+                                          (compte['soldeCredit'] as double? ??
                                                       0) >
                                                   0
                                               ? _formatMontant(
-                                                compte['mouvementCredit'],
+                                                compte['soldeCredit'],
                                               )
                                               : '',
                                           textAlign: TextAlign.right,
@@ -1177,6 +1230,14 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
     required List<Map<String, dynamic>> comptes,
     bool isTotalBalance = false,
   }) {
+    final ouvertureDebit = comptes.fold<double>(
+      0.0,
+      (sum, c) => sum + (c['ouvertureDebit'] as double? ?? 0),
+    );
+    final ouvertureCredit = comptes.fold<double>(
+      0.0,
+      (sum, c) => sum + (c['ouvertureCredit'] as double? ?? 0),
+    );
     final mouvementDebit = comptes.fold<double>(
       0.0,
       (sum, c) => sum + (c['mouvementDebit'] as double? ?? 0),
@@ -1184,6 +1245,14 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
     final mouvementCredit = comptes.fold<double>(
       0.0,
       (sum, c) => sum + (c['mouvementCredit'] as double? ?? 0),
+    );
+    final soldeDebit = comptes.fold<double>(
+      0.0,
+      (sum, c) => sum + (c['soldeDebit'] as double? ?? 0),
+    );
+    final soldeCredit = comptes.fold<double>(
+      0.0,
+      (sum, c) => sum + (c['soldeCredit'] as double? ?? 0),
     );
 
     return Container(
@@ -1224,13 +1293,14 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                   right: BorderSide(color: Colors.black, width: 1),
                 ),
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
-                  '',
+                  ouvertureDebit > 0 ? _formatMontant(ouvertureDebit) : '',
                   textAlign: TextAlign.right,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.indigo,
+                    fontSize: 14,
                   ),
                 ),
               ),
@@ -1246,13 +1316,14 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                   right: BorderSide(color: Colors.black, width: 1),
                 ),
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
-                  '',
+                  ouvertureCredit > 0 ? _formatMontant(ouvertureCredit) : '',
                   textAlign: TextAlign.right,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.indigo,
+                    fontSize: 14,
                   ),
                 ),
               ),
@@ -1322,7 +1393,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                           painter: _DiagonalLinePainter(),
                         )
                         : Text(
-                          _formatMontant(mouvementDebit),
+                          soldeDebit > 0 ? _formatMontant(soldeDebit) : '',
                           textAlign: TextAlign.right,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
@@ -1346,7 +1417,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                           painter: _DiagonalLinePainter(),
                         )
                         : Text(
-                          _formatMontant(mouvementCredit),
+                          soldeCredit > 0 ? _formatMontant(soldeCredit) : '',
                           textAlign: TextAlign.right,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,

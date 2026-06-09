@@ -1442,11 +1442,9 @@ class _ProjetDialogState extends State<_ProjetDialog> {
                                 // Recharger la liste des bailleurs
                                 await _reloadBailleurs();
 
-                                if (!mounted) return;
-                                // ignore: use_build_context_synchronously
+                                if (!context.mounted) return;
                                 Navigator.pop(context);
 
-                                // ignore: use_build_context_synchronously
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text('Bailleur créé avec succès'),
@@ -1454,8 +1452,7 @@ class _ProjetDialogState extends State<_ProjetDialog> {
                                   ),
                                 );
                               } catch (e) {
-                                if (!mounted) return;
-                                // ignore: use_build_context_synchronously
+                                if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text('Erreur: ${e.toString()}'),
