@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../models/exercice.dart';
+import '../models/projet.dart';
+import '../models/bailleur.dart';
+import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import '../services/export_service.dart';
+
+enum _CompteFilterMode { all, single, range }
+
+enum _GrandLivreType { general, tiers, analytique, tiersAnalytique }
 
 class GrandLivreScreen extends StatefulWidget {
   final bool showAppBar;
