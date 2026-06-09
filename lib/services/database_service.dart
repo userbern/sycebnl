@@ -997,7 +997,7 @@ class DatabaseService {
     String? description,
   }) async {
     await ensureDatabaseOpen();
-    
+
     // Check if account already exists
     final existing = await database.query(
       'compte',
@@ -1005,11 +1005,11 @@ class DatabaseService {
       whereArgs: [numeroCompte],
       limit: 1,
     );
-    
+
     if (existing.isNotEmpty) {
       throw Exception('Le compte $numeroCompte existe déjà');
     }
-    
+
     try {
       await database.insert('compte', {
         'numero_compte': numeroCompte,
@@ -1321,17 +1321,247 @@ class DatabaseService {
       throw Exception('Un exercice avec ce code existe déjà');
     }
 
-    await database.insert('exercice', {
-      'code': code,
-      'date_debut': dateDebut,
-      'date_fin': dateFin,
-      'duree_mois': dureeMois,
-      'is_active': 0,
-      'is_cloture': 0,
-      'created_at': DateTime.now().toIso8601String(),
-      'updated_at': DateTime.now().toIso8601String(),
+    await database.transaction((txn) async {
+      final nouvelExerciceId = await txn.insert('exercice', {
+        'code': code,
+        'date_debut': dateDebut,
+        'date_fin': dateFin,
+        'duree_mois': dureeMois,
+        'is_active': 0,
+        'is_cloture': 0,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      if (reportSoldes) {
+        await _reportSoldesOuverture(
+          txn,
+          nouvelExerciceId: nouvelExerciceId,
+          nouvelExerciceCode: code,
+          dateDebut: DateTime.parse(dateDebut),
+          exercices: exercices,
+        );
+      }
     });
   }
+
+  static Future<void> _reportSoldesOuverture(
+    Transaction txn, {
+    required int nouvelExerciceId,
+    required String nouvelExerciceCode,
+    required DateTime dateDebut,
+    required List<Map<String, dynamic>> exercices,
+  }) async {
+    final exercicePrecedent = _findExercicePrecedent(exercices, dateDebut);
+    if (exercicePrecedent == null) {
+      return;
+    }
+
+    final exercicePrecedentId = exercicePrecedent['id'] as int?;
+    if (exercicePrecedentId == null) {
+      return;
+    }
+
+    final soldes = await txn.rawQuery(
+      '''
+      SELECT
+        c.numero_compte,
+        c.intitule,
+        COALESCE(SUM(e.montant_debit - e.montant_credit), 0) AS solde
+      FROM compte c
+      JOIN ecritures e ON e.numero_compte = c.numero_compte
+      JOIN journaux_periodes jp ON jp.id = e.journal_periode_id
+      WHERE jp.exercice_id = ?
+        AND c.deleted_at IS NULL
+        AND substr(c.numero_compte, 1, 1) IN ('1', '2', '3', '4', '5')
+      GROUP BY c.numero_compte, c.intitule
+      HAVING ABS(solde) > 0.01
+      ORDER BY c.numero_compte
+      ''',
+      [exercicePrecedentId],
+    );
+
+    if (soldes.isEmpty) {
+      return;
+    }
+
+    await _ensureJournalAN(txn);
+
+    final now = DateTime.now().toIso8601String();
+    final periodeRows = await txn.query(
+      'journaux_periodes',
+      where: 'code_journal = ? AND annee = ? AND mois = ? AND exercice_id = ?',
+      whereArgs: ['AN', dateDebut.year, dateDebut.month, nouvelExerciceId],
+      limit: 1,
+    );
+
+    final periodeId =
+        periodeRows.isNotEmpty
+            ? periodeRows.first['id'] as int
+            : await txn.insert('journaux_periodes', {
+              'code_journal': 'AN',
+              'annee': dateDebut.year,
+              'mois': dateDebut.month,
+              'exercice_id': nouvelExerciceId,
+              'nombre_ecritures': 0,
+              'total_debit': 0,
+              'total_credit': 0,
+              'solde_final': 0,
+              'is_equilibre': 0,
+              'is_closed': 0,
+              'created_at': now,
+              'updated_at': now,
+            });
+
+    final dateOuverture = _formatDateYMD(dateDebut);
+    final document = 'OUV-$nouvelExerciceCode';
+    double totalDebit = 0;
+    double totalCredit = 0;
+
+    for (final row in soldes) {
+      final numeroCompte = row['numero_compte']?.toString() ?? '';
+      final solde = (row['solde'] as num?)?.toDouble() ?? 0.0;
+      if (numeroCompte.isEmpty || solde.abs() <= 0.01) {
+        continue;
+      }
+
+      final debit = solde > 0 ? solde : 0.0;
+      final credit = solde < 0 ? -solde : 0.0;
+      totalDebit += debit;
+      totalCredit += credit;
+
+      await txn.insert('ecritures', {
+        'journal_periode_id': periodeId,
+        'numero_enregistrement': 1,
+        'jour': dateDebut.day,
+        'date_comptable': dateOuverture,
+        'numero_document': document,
+        'reference': document,
+        'numero_compte': numeroCompte,
+        'numero_tiers': null,
+        'libelle': 'Solde d\'ouverture $nouvelExerciceCode',
+        'montant_debit': debit,
+        'montant_credit': credit,
+        'is_ventilee': 0,
+        'created_at': now,
+        'updated_at': now,
+      });
+    }
+
+    final ecart = totalDebit - totalCredit;
+    if (ecart.abs() > 0.01) {
+      await _ensureReportANouveauCompte(txn, now);
+      final debit = ecart < 0 ? -ecart : 0.0;
+      final credit = ecart > 0 ? ecart : 0.0;
+      totalDebit += debit;
+      totalCredit += credit;
+
+      await txn.insert('ecritures', {
+        'journal_periode_id': periodeId,
+        'numero_enregistrement': 1,
+        'jour': dateDebut.day,
+        'date_comptable': dateOuverture,
+        'numero_document': document,
+        'reference': document,
+        'numero_compte': '120000',
+        'numero_tiers': null,
+        'libelle': 'Report a nouveau $nouvelExerciceCode',
+        'montant_debit': debit,
+        'montant_credit': credit,
+        'is_ventilee': 0,
+        'created_at': now,
+        'updated_at': now,
+      });
+    }
+
+    await txn.update(
+      'journaux_periodes',
+      {
+        'nombre_ecritures': 1,
+        'total_debit': totalDebit,
+        'total_credit': totalCredit,
+        'solde_final': totalDebit - totalCredit,
+        'is_equilibre': (totalDebit - totalCredit).abs() <= 0.01 ? 1 : 0,
+        'updated_at': now,
+      },
+      where: 'id = ?',
+      whereArgs: [periodeId],
+    );
+  }
+
+  static Map<String, dynamic>? _findExercicePrecedent(
+    List<Map<String, dynamic>> exercices,
+    DateTime dateDebut,
+  ) {
+    Map<String, dynamic>? selected;
+    DateTime? selectedEnd;
+
+    for (final exercice in exercices) {
+      final rawEnd = exercice['date_fin'];
+      if (rawEnd == null) {
+        continue;
+      }
+
+      final end = DateTime.tryParse(rawEnd.toString());
+      if (end == null || !end.isBefore(dateDebut)) {
+        continue;
+      }
+
+      if (selectedEnd == null || end.isAfter(selectedEnd)) {
+        selected = exercice;
+        selectedEnd = end;
+      }
+    }
+
+    return selected;
+  }
+
+  static Future<void> _ensureJournalAN(Transaction txn) async {
+    final now = DateTime.now().toIso8601String();
+    await txn.insert('journal', {
+      'code': 'AN',
+      'libelle': 'A nouveaux',
+      'type': 'operations_diverses',
+      'numero_compte_tresorerie': null,
+      'saisie_analytique': 0,
+      'is_active': 1,
+      'created_at': now,
+      'updated_at': now,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  static Future<void> _ensureReportANouveauCompte(
+    Transaction txn,
+    String now,
+  ) async {
+    final existing = await txn.query(
+      'compte',
+      where: 'numero_compte = ? AND deleted_at IS NULL',
+      whereArgs: ['120000'],
+      limit: 1,
+    );
+    if (existing.isNotEmpty) {
+      return;
+    }
+
+    await txn.insert('compte', {
+      'numero_compte': '120000',
+      'intitule': 'Report a nouveau',
+      'type': 'detail',
+      'nature': 'bilan_ressources_durables',
+      'liaison_tiers': 0,
+      'description':
+          'Compte cree automatiquement pour equilibrer les soldes d\'ouverture',
+      'is_active': 1,
+      'created_at': now,
+      'updated_at': now,
+    });
+  }
+
+  static String _formatDateYMD(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
 
   /// Wrapper de hash/verification pour compatibilité
   static bool verifyPasswordHash(String password, String hash) {

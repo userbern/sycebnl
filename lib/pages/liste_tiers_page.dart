@@ -919,7 +919,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
   }
 
   NatureCompte? calculateNatureFromNumeroCompte(String numero) {
-    if (numero.isEmpty ) return null;
+    if (numero.isEmpty) return null;
 
     final firstDigit = int.tryParse(numero[0]);
     if (firstDigit == null) return null;
@@ -1114,11 +1114,11 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
 
   @override
   Widget build(BuildContext context) {
-    return RawKeyboardListener(
+    return KeyboardListener(
       focusNode: _focusNode,
       autofocus: true,
-      onKey: (event) {
-        if (event is RawKeyDownEvent &&
+      onKeyEvent: (event) {
+        if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyN &&
             HardwareKeyboard.instance.isControlPressed) {
           _showTiersDialog();

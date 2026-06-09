@@ -2319,6 +2319,427 @@ class ExportService {
     }
   }
 
+  static Future<void> exportGrandLivrePDF({
+    required Map<String, dynamic>? entite,
+    required DateTime dateDebut,
+    required DateTime dateFin,
+    required String typeLabel,
+    required String projetLabel,
+    required String bailleursLabel,
+    required List<Map<String, dynamic>> groups,
+    required BuildContext context,
+  }) async {
+    try {
+      final pdf = pw.Document();
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4.landscape,
+          margin: const pw.EdgeInsets.all(14),
+          build:
+              (context) => [
+                pw.Center(
+                  child: pw.Text(
+                    'GRAND LIVRE $typeLabel',
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.blue700,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 10),
+                _grandLivrePdfHeader(
+                  entite: entite,
+                  dateDebut: dateDebut,
+                  dateFin: dateFin,
+                  typeLabel: typeLabel,
+                  projetLabel: projetLabel,
+                  bailleursLabel: bailleursLabel,
+                ),
+                pw.SizedBox(height: 12),
+                ...groups.expand((group) {
+                  final rows =
+                      (group['rows'] as List<dynamic>? ?? [])
+                          .cast<Map<String, dynamic>>();
+                  return [
+                    pw.Container(
+                      width: double.infinity,
+                      color: PdfColors.blue700,
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Compte ${group['numero']} - ${group['intitule']}',
+                        style: pw.TextStyle(
+                          color: PdfColors.white,
+                          fontSize: 9,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    pw.Table(
+                      border: pw.TableBorder.all(
+                        color: PdfColors.black,
+                        width: .5,
+                      ),
+                      columnWidths: const {
+                        0: pw.FlexColumnWidth(1.1),
+                        1: pw.FlexColumnWidth(.8),
+                        2: pw.FlexColumnWidth(1.1),
+                        3: pw.FlexColumnWidth(3.4),
+                        4: pw.FlexColumnWidth(1.1),
+                        5: pw.FlexColumnWidth(1.1),
+                        6: pw.FlexColumnWidth(1.2),
+                      },
+                      children: [
+                        pw.TableRow(
+                          decoration: const pw.BoxDecoration(
+                            color: PdfColors.blue100,
+                          ),
+                          children: [
+                            _pdfCell('Date', bold: true),
+                            _pdfCell('Journal', bold: true),
+                            _pdfCell('N enregis.', bold: true),
+                            _pdfCell('Libelle', bold: true),
+                            _pdfCell('Debit', bold: true),
+                            _pdfCell('Credit', bold: true),
+                            _pdfCell('Solde', bold: true),
+                          ],
+                        ),
+                        pw.TableRow(
+                          decoration: const pw.BoxDecoration(
+                            color: PdfColors.grey100,
+                          ),
+                          children: [
+                            _pdfCell(''),
+                            _pdfCell(''),
+                            _pdfCell(''),
+                            _pdfCell('Solde d\'ouverture', bold: true),
+                            _pdfCell(''),
+                            _pdfCell(''),
+                            _pdfCell(_formatNumber(group['opening_balance'])),
+                          ],
+                        ),
+                        ...rows.map(
+                          (row) => pw.TableRow(
+                            children: [
+                              _pdfCell(_formatDateCell(row['date'])),
+                              _pdfCell(row['journal']?.toString() ?? ''),
+                              _pdfCell(
+                                row['numero_enregistrement']?.toString() ?? '',
+                              ),
+                              _pdfCell(row['libelle']?.toString() ?? ''),
+                              _pdfCell(_formatNumber(row['debit'])),
+                              _pdfCell(_formatNumber(row['credit'])),
+                              _pdfCell(_formatNumber(row['solde'])),
+                            ],
+                          ),
+                        ),
+                        pw.TableRow(
+                          decoration: const pw.BoxDecoration(
+                            color: PdfColors.blue100,
+                          ),
+                          children: [
+                            _pdfCell(''),
+                            _pdfCell(''),
+                            _pdfCell(''),
+                            _pdfCell(
+                              'TOTAL COMPTE ${group['numero']}',
+                              bold: true,
+                            ),
+                            _pdfCell(
+                              _formatNumber(group['total_debit']),
+                              bold: true,
+                            ),
+                            _pdfCell(
+                              _formatNumber(group['total_credit']),
+                              bold: true,
+                            ),
+                            _pdfCell(
+                              _formatNumber(group['final_balance']),
+                              bold: true,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    pw.SizedBox(height: 14),
+                  ];
+                }),
+              ],
+        ),
+      );
+
+      final directory = await _getExportDirectory();
+      final fileName =
+          'grand_livre_${DateTime.now().toString().split(' ').first}.pdf';
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsBytes(await pdf.save());
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF genere sur votre Bureau : $fileName'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur export PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  static Future<void> exportGrandLivreExcel({
+    required Map<String, dynamic>? entite,
+    required DateTime dateDebut,
+    required DateTime dateFin,
+    required String typeLabel,
+    required String projetLabel,
+    required String bailleursLabel,
+    required List<Map<String, dynamic>> groups,
+    required BuildContext context,
+  }) async {
+    try {
+      final excel = Excel.createExcel();
+      final defaultSheet = excel.getDefaultSheet();
+      if (defaultSheet != null) {
+        excel.delete(defaultSheet);
+      }
+
+      final headerStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Center,
+        backgroundColorHex: ExcelColor.fromHexString('#DCE6F1'),
+      );
+      final totalStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Right,
+        backgroundColorHex: ExcelColor.fromHexString('#DCE6F1'),
+      );
+
+      for (final group in groups) {
+        final numero = group['numero']?.toString() ?? 'Compte';
+        final sheetName = numero.length > 31 ? numero.substring(0, 31) : numero;
+        final sheet = excel[sheetName];
+        var rowIndex = 0;
+
+        _excelText(sheet, 0, rowIndex++, 'GRAND LIVRE $typeLabel');
+        _excelText(sheet, 0, rowIndex, 'Denomination sociale');
+        _excelText(
+          sheet,
+          1,
+          rowIndex,
+          entite?['denomination_sociale']?.toString() ?? '',
+        );
+        _excelText(sheet, 2, rowIndex, 'NIF');
+        _excelText(sheet, 3, rowIndex, entite?['numero_fiscal']?.toString() ?? '');
+        _excelText(sheet, 4, rowIndex, 'Periode');
+        _excelText(
+          sheet,
+          5,
+          rowIndex++,
+          '${_formatDateCell(dateDebut)} - ${_formatDateCell(dateFin)}',
+        );
+        _excelText(sheet, 0, rowIndex, 'Projet');
+        _excelText(sheet, 1, rowIndex, projetLabel);
+        _excelText(sheet, 2, rowIndex, 'Bailleurs');
+        _excelText(sheet, 3, rowIndex++, bailleursLabel);
+        rowIndex++;
+        _excelText(sheet, 0, rowIndex++, 'Compte $numero - ${group['intitule']}');
+
+        final headers = [
+          'Date',
+          'Journal',
+          'N enregis.',
+          'Libelle',
+          'Debit',
+          'Credit',
+          'Solde',
+        ];
+        for (var col = 0; col < headers.length; col++) {
+          final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: col, rowIndex: rowIndex),
+          );
+          cell.value = TextCellValue(headers[col]);
+          cell.cellStyle = headerStyle;
+        }
+        rowIndex++;
+
+        _excelText(sheet, 3, rowIndex, 'Solde d\'ouverture');
+        _excelNumber(
+          sheet,
+          6,
+          rowIndex++,
+          (group['opening_balance'] as num?)?.toDouble() ?? 0,
+        );
+
+        final rows =
+            (group['rows'] as List<dynamic>? ?? [])
+                .cast<Map<String, dynamic>>();
+        for (final item in rows) {
+          _excelText(sheet, 0, rowIndex, _formatDateCell(item['date']));
+          _excelText(sheet, 1, rowIndex, item['journal']?.toString() ?? '');
+          _excelText(
+            sheet,
+            2,
+            rowIndex,
+            item['numero_enregistrement']?.toString() ?? '',
+          );
+          _excelText(sheet, 3, rowIndex, item['libelle']?.toString() ?? '');
+          _excelNumber(
+            sheet,
+            4,
+            rowIndex,
+            (item['debit'] as num?)?.toDouble() ?? 0,
+          );
+          _excelNumber(
+            sheet,
+            5,
+            rowIndex,
+            (item['credit'] as num?)?.toDouble() ?? 0,
+          );
+          _excelNumber(
+            sheet,
+            6,
+            rowIndex++,
+            (item['solde'] as num?)?.toDouble() ?? 0,
+          );
+        }
+
+        _excelText(sheet, 3, rowIndex, 'TOTAL COMPTE $numero');
+        _excelNumber(sheet, 4, rowIndex, (group['total_debit'] as num?)?.toDouble() ?? 0);
+        _excelNumber(sheet, 5, rowIndex, (group['total_credit'] as num?)?.toDouble() ?? 0);
+        _excelNumber(sheet, 6, rowIndex, (group['final_balance'] as num?)?.toDouble() ?? 0);
+        for (var col = 3; col <= 6; col++) {
+          sheet
+              .cell(
+                CellIndex.indexByColumnRow(
+                  columnIndex: col,
+                  rowIndex: rowIndex,
+                ),
+              )
+              .cellStyle = totalStyle;
+        }
+
+        sheet.setColumnWidth(0, 14);
+        sheet.setColumnWidth(1, 12);
+        sheet.setColumnWidth(2, 14);
+        sheet.setColumnWidth(3, 42);
+        sheet.setColumnWidth(4, 16);
+        sheet.setColumnWidth(5, 16);
+        sheet.setColumnWidth(6, 16);
+      }
+
+      final directory = await _getExportDirectory();
+      final fileName =
+          'grand_livre_${DateTime.now().toString().split(' ').first}.xlsx';
+      final file = File('${directory.path}/$fileName');
+      final bytes = excel.encode();
+      if (bytes == null) {
+        throw Exception('Impossible de generer le fichier Excel');
+      }
+      await file.writeAsBytes(bytes, flush: true);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Excel genere sur votre Bureau : $fileName'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur export Excel: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  static pw.Widget _grandLivrePdfHeader({
+    required Map<String, dynamic>? entite,
+    required DateTime dateDebut,
+    required DateTime dateFin,
+    required String typeLabel,
+    required String projetLabel,
+    required String bailleursLabel,
+  }) {
+    final adresse = [
+      entite?['ville'],
+      entite?['quartier'],
+    ].where((value) => value != null && value.toString().isNotEmpty).join(', ');
+
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey500, width: .5),
+      children: [
+        pw.TableRow(
+          children: [
+            _pdfCell('Denomination sociale', bold: true),
+            _pdfCell(entite?['denomination_sociale']?.toString() ?? ''),
+            _pdfCell('NIF', bold: true),
+            _pdfCell(entite?['numero_fiscal']?.toString() ?? ''),
+          ],
+        ),
+        pw.TableRow(
+          children: [
+            _pdfCell('Adresse', bold: true),
+            _pdfCell(adresse),
+            _pdfCell('Periode', bold: true),
+            _pdfCell('${_formatDateCell(dateDebut)} - ${_formatDateCell(dateFin)}'),
+          ],
+        ),
+        pw.TableRow(
+          children: [
+            _pdfCell('TYPE', bold: true),
+            _pdfCell(typeLabel),
+            _pdfCell('PROJET', bold: true),
+            _pdfCell(projetLabel),
+          ],
+        ),
+        pw.TableRow(
+          children: [
+            _pdfCell('BAILLEUR', bold: true),
+            _pdfCell(bailleursLabel),
+            _pdfCell(''),
+            _pdfCell(''),
+          ],
+        ),
+      ],
+    );
+  }
+
+  static void _excelText(Sheet sheet, int col, int row, String value) {
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row))
+        .value = TextCellValue(value);
+  }
+
+  static void _excelNumber(Sheet sheet, int col, int row, double value) {
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row))
+        .value = DoubleCellValue(value);
+  }
+
+  static String _formatDateCell(dynamic value) {
+    DateTime? date;
+    if (value is DateTime) {
+      date = value;
+    } else if (value != null) {
+      date = DateTime.tryParse(value.toString());
+    }
+    if (date == null) return '';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
   static pw.Widget _pdfCell(String text, {bool bold = false}) {
     return pw.Padding(
       padding: const pw.EdgeInsets.all(4),

@@ -1,5 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/user_session.dart';
@@ -542,11 +540,9 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                                 ),
                               ),
                               // Cartes des bailleurs
-                              ..._filteredBailleurs
-                                  .map(
-                                    (bailleur) => _buildBailleurCard(bailleur),
-                                  )
-                                  ,
+                              ..._filteredBailleurs.map(
+                                (bailleur) => _buildBailleurCard(bailleur),
+                              ),
                             ],
                           ),
                         ),
@@ -856,7 +852,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
 
                           if (!mounted) return;
                           _loadBailleurs();
-                          
+
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(

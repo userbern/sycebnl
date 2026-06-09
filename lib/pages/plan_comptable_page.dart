@@ -216,10 +216,12 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return RawKeyboardListener(
+            return KeyboardListener(
               focusNode: FocusNode(),
-              onKey: (event) {
-                if (event.isKeyPressed(LogicalKeyboardKey.enter) && !isEdit) {
+              onKeyEvent: (event) {
+                if (event is KeyDownEvent &&
+                    event.logicalKey == LogicalKeyboardKey.enter &&
+                    !isEdit) {
                   addAccount();
                 }
               },
