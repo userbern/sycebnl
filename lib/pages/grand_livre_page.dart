@@ -942,7 +942,7 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Grand Livre ${_typeLabel(_criteria.type)}'),
-        backgroundColor: Colors.lightBlue.shade600,
+        backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
         actions: [
           TextButton.icon(
@@ -958,239 +958,238 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
           const SizedBox(width: 12),
         ],
       ),
-      backgroundColor: const Color(0xFFE9E4DA),
+      backgroundColor: Colors.grey.shade50,
       body: SafeArea(
-        child:
-            _errorMessage != null
-                ? Center(
-                  child: Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                )
-                : ListView(
-                  padding: const EdgeInsets.all(24),
-                  children: [
-                    Center(
-                      child: Text(
-                        'GRAND LIVRE ${_typeLabel(_criteria.type)}',
-                        style: TextStyle(
-                          color: Colors.blue.shade700,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    _buildDocumentHeader(),
-                    const SizedBox(height: 18),
-                    if (_isLoading)
-                      const Center(child: CircularProgressIndicator())
-                    else if (_groups.isEmpty)
-                      const Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Text(
-                            'Aucune ecriture ne correspond aux filtres.',
+        child: _errorMessage != null
+            ? Center(
+                child: Text(
+                  _errorMessage!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              )
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  final tableWidth = constraints.maxWidth > 900
+                      ? constraints.maxWidth
+                      : 900.0;
+                  return ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      Center(
+                        child: Text(
+                          'GRAND LIVRE ${_typeLabel(_criteria.type)}',
+                          style: TextStyle(
+                            color: Colors.blue.shade700,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
-                      )
-                    else
-                      ..._groups.map(_buildAccountTable),
-                  ],
-                ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildDocumentHeader(tableWidth),
+                      const SizedBox(height: 12),
+                      if (_isLoading)
+                        const Center(child: CircularProgressIndicator())
+                      else if (_groups.isEmpty)
+                        const Card(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Text(
+                              'Aucune ecriture ne correspond aux filtres.',
+                            ),
+                          ),
+                        )
+                      else
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: SizedBox(
+                            width: tableWidth,
+                            child: Column(
+                              children: _groups
+                                  .map((g) => _buildAccountTable(g))
+                                  .toList(),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
       ),
     );
   }
 
-  Widget _buildDocumentHeader() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 12,
+  Widget _buildDocumentHeader(double tableWidth) {
+    final denSociale =
+        _entite?['denomination_sociale']?.toString() ?? '-';
+    final nif = _entite?['numero_fiscal']?.toString() ?? '-';
+    final adresse = [
+      _entite?['ville'],
+      _entite?['quartier'],
+    ].where((v) => v != null && v.toString().isNotEmpty).join(', ');
+    final periode =
+        '${_formatDate(_criteria.dateDebut)} - ${_formatDate(_criteria.dateFin)}';
+    final type = _typeLabel(_criteria.type);
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: tableWidth,
+        child: Table(
+          border: TableBorder.all(color: Colors.black54, width: 0.7),
+          columnWidths: const {
+            0: FlexColumnWidth(1.6),
+            1: FlexColumnWidth(2.0),
+            2: FlexColumnWidth(0.7),
+            3: FlexColumnWidth(1.4),
+            4: FlexColumnWidth(0.8),
+            5: FlexColumnWidth(1.6),
+            6: FlexColumnWidth(0.8),
+            7: FlexColumnWidth(1.6),
+          },
           children: [
-            _infoBox(
-              'Denomination sociale',
-              _entite?['denomination_sociale']?.toString() ?? '-',
+            TableRow(
+              decoration: const BoxDecoration(color: Colors.white),
+              children: [
+                _headerCell('Dénomination sociale', bold: true),
+                _headerCell(denSociale),
+                _headerCell('NIF', bold: true),
+                _headerCell(nif),
+                _headerCell('Adresse', bold: true),
+                _headerCell(adresse),
+                _headerCell('Période', bold: true),
+                _headerCell(periode),
+              ],
             ),
-            _infoBox('NIF', _entite?['numero_fiscal']?.toString() ?? '-'),
-            _infoBox(
-              'Adresse',
-              [
-                _entite?['ville'],
-                _entite?['quartier'],
-              ].where((v) => v != null && v.toString().isNotEmpty).join(', '),
+            TableRow(
+              decoration: const BoxDecoration(color: Colors.white),
+              children: [
+                _headerCell('GRAND LIVRE', bold: true),
+                _headerCell(type),
+                _headerCell(''),
+                _headerCell('TYPE', bold: true),
+                _headerCell(type),
+                _headerCell(
+                  _isAnalytique ? 'PROJET : ${_criteria.projetLabel}' : '',
+                ),
+                _headerCell(
+                  _isAnalytique ? 'BAILLEUR' : '',
+                  bold: _isAnalytique,
+                ),
+                _headerCell(
+                  _isAnalytique ? _criteria.bailleursLabel : '',
+                ),
+              ],
             ),
-            _infoBox(
-              'Periode',
-              '${_formatDate(_criteria.dateDebut)} - ${_formatDate(_criteria.dateFin)}',
-              highlight: true,
-            ),
-            _infoBox('TYPE', _typeLabel(_criteria.type)),
-            if (_isAnalytique) _infoBox('PROJET', _criteria.projetLabel),
-            if (_isAnalytique)
-              _infoBox('BAILLEUR', _criteria.bailleursLabel, highlight: true),
           ],
         ),
       ),
     );
   }
 
-  Widget _infoBox(String label, String value, {bool highlight = false}) {
-    return SizedBox(
-      width: 370,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 11)),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-            decoration: BoxDecoration(
-              color: highlight ? const Color(0xFFFFF8BE) : Colors.white,
-              border: Border.all(color: Colors.blueGrey.shade100),
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: Text(
-              value.isEmpty ? '-' : value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
+  Widget _headerCell(String text, {bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+        ),
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
 
   Widget _buildAccountTable(_CompteGroup group) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade700,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(4),
-                topRight: Radius.circular(4),
-              ),
-            ),
-            child: Text(
-              'Compte ${group.numeroCompte} - ${group.intitule}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          color: Colors.blue.shade700,
+          child: Text(
+            'Compte ${group.numeroCompte} - ${group.intitule}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
             ),
           ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 1220),
-              child: Table(
-                border: TableBorder.all(color: Colors.black, width: 0.8),
-                columnWidths: const {
-                  0: FlexColumnWidth(1.2),
-                  1: FlexColumnWidth(.9),
-                  2: FlexColumnWidth(1.3),
-                  3: FlexColumnWidth(3.2),
-                  4: FlexColumnWidth(1.2),
-                  5: FlexColumnWidth(1.2),
-                  6: FlexColumnWidth(1.3),
-                },
-                children: [
-                  _tableRow(
-                    [
-                      'Date',
-                      'Journal',
-                      'N enregis.',
-                      'Libelle',
-                      'Debit',
-                      'Credit',
-                      'Solde',
-                    ],
-                    color: const Color(0xFFD8E7F1),
-                    bold: true,
-                  ),
-                  _tableRow(
-                    [
-                      '',
-                      '',
-                      '',
-                      'Solde d\'ouverture',
-                      '',
-                      '',
-                      _formatAmount(group.openingBalance),
-                    ],
-                    color: const Color(0xFFEEF6FB),
-                    bold: true,
-                  ),
-                  ...group.rows.map(
-                    (row) => _tableRow([
-                      row.dateComptable == null
-                          ? '-'
-                          : _formatDate(row.dateComptable!),
-                      row.codeJournal,
-                      row.numeroEnregistrement.toString().padLeft(3, '0'),
-                      row.libelle,
-                      _formatAmount(row.debit),
-                      _formatAmount(row.credit),
-                      _formatAmount(row.runningBalance),
-                    ]),
-                  ),
-                  _tableRow(
-                    [
-                      '',
-                      '',
-                      '',
-                      'TOTAL COMPTE ${group.numeroCompte}',
-                      _formatAmount(group.totalDebit),
-                      _formatAmount(group.totalCredit),
-                      _formatAmount(group.finalBalance),
-                    ],
-                    color: const Color(0xFFD8E7F1),
-                    bold: true,
-                  ),
-                ],
-              ),
+        ),
+        Table(
+          border: TableBorder.all(color: Colors.black, width: 0.8),
+          columnWidths: const {
+            0: FlexColumnWidth(1.2),
+            1: FlexColumnWidth(.9),
+            2: FlexColumnWidth(1.3),
+            3: FlexColumnWidth(3.2),
+            4: FlexColumnWidth(1.2),
+            5: FlexColumnWidth(1.2),
+            6: FlexColumnWidth(1.3),
+          },
+          children: [
+            _tableRow(
+              ['Date', 'Journal', 'N enregis.', 'Libelle', 'Debit', 'Credit', 'Solde'],
+              color: const Color(0xFFD8E7F1),
+              bold: true,
             ),
-          ),
-        ],
-      ),
+            _tableRow(
+              ['', '', '', 'Solde d\'ouverture', '', '', _formatAmount(group.openingBalance)],
+              color: const Color(0xFFEEF6FB),
+              bold: true,
+            ),
+            ...group.rows.map(
+              (row) => _tableRow([
+                row.dateComptable == null
+                    ? '-'
+                    : _formatDate(row.dateComptable!),
+                row.codeJournal,
+                row.numeroEnregistrement.toString().padLeft(3, '0'),
+                row.libelle,
+                _formatAmount(row.debit),
+                _formatAmount(row.credit),
+                _formatAmount(row.runningBalance),
+              ]),
+            ),
+            _tableRow(
+              [
+                '', '', '',
+                'TOTAL COMPTE ${group.numeroCompte}',
+                _formatAmount(group.totalDebit),
+                _formatAmount(group.totalCredit),
+                _formatAmount(group.finalBalance),
+              ],
+              color: const Color(0xFFD8E7F1),
+              bold: true,
+            ),
+          ],
+        ),
+      ],
     );
   }
 
   TableRow _tableRow(List<String> values, {Color? color, bool bold = false}) {
     return TableRow(
       decoration: BoxDecoration(color: color ?? Colors.white),
-      children:
-          values
-              .asMap()
-              .entries
-              .map(
-                (entry) => Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                  child: Text(
-                    entry.value,
-                    textAlign:
-                        entry.key >= 4 ? TextAlign.right : TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: bold ? FontWeight.w800 : FontWeight.normal,
-                    ),
-                  ),
+      children: values
+          .asMap()
+          .entries
+          .map(
+            (entry) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+              child: Text(
+                entry.value,
+                textAlign: entry.key >= 4 ? TextAlign.right : TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: bold ? FontWeight.w800 : FontWeight.normal,
                 ),
-              )
-              .toList(),
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 }
