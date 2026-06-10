@@ -7,7 +7,7 @@ import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
 
-enum _CompteFilterMode { all, single, range }
+enum _CompteFilterMode { single, range }
 
 enum _GrandLivreType { general, tiers, analytique, tiersAnalytique }
 
@@ -37,7 +37,6 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
 
   DateTime? _dateDebut;
   DateTime? _dateFin;
-  _CompteFilterMode _compteMode = _CompteFilterMode.all;
   _GrandLivreType _type = _GrandLivreType.general;
   int? _projetId;
   final Set<int> _bailleurIds = {};
@@ -184,7 +183,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                 exercice: _exercice!,
                 dateDebut: _dateDebut!,
                 dateFin: _dateFin!,
-                compteMode: _compteMode,
+                compteMode: _CompteFilterMode.range,
                 compteDebut: _compteDebutController.text.trim(),
                 compteFin: _compteFinController.text.trim(),
                 type: _type,
@@ -225,262 +224,355 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
   String _formatDate(DateTime date) =>
       '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
 
-  String _typeLabel(_GrandLivreType type) {
-    switch (type) {
-      case _GrandLivreType.general:
-        return 'GENERAL';
-      case _GrandLivreType.tiers:
-        return 'TIERS';
-      case _GrandLivreType.analytique:
-        return 'ANALYTIQUE';
-      case _GrandLivreType.tiersAnalytique:
-        return 'TIERS & ANALYTIQUE';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar:
           widget.showAppBar
               ? AppBar(
                 title: const Text('Grand Livre - Filtres'),
-                backgroundColor: Colors.lightBlue.shade600,
-                foregroundColor: Colors.white,
+                backgroundColor: Colors.blue.shade700,
+                elevation: 0,
               )
               : null,
-      backgroundColor: const Color(0xFFE9E4DA),
-      body: SafeArea(
-        child:
-            _errorMessage != null
-                ? Center(
-                  child: Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                )
-                : ListView(
-                  padding: const EdgeInsets.all(24),
-                  children: [
-                    Center(
-                      child: Text(
-                        'GRAND LIVRE ${_typeLabel(_type)}',
-                        style: TextStyle(
+      body: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.menu_book,
+                          size: 32,
                           color: Colors.blue.shade700,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Grand Livre',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 18),
-                    _buildFilters(),
-                  ],
-                ),
+                  ),
+                  Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child:
+                          _errorMessage != null
+                              ? Text(
+                                _errorMessage!,
+                                style: const TextStyle(color: Colors.red),
+                              )
+                              : _buildFilters(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildFilters() {
     final exercice = _exercice;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Form(
-          key: _formKey,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (exercice != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                const Icon(Icons.event_available, color: Colors.green),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Exercice actif : ${_formatDate(exercice.dateDebut)} → ${_formatDate(exercice.dateFin)}',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        _buildFormSection(
+          title: '🔹 Type d\'état',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (exercice != null)
-                Text(
-                  'Exercice en cours : ${_formatDate(exercice.dateDebut)} - ${_formatDate(exercice.dateFin)}',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 14,
-                runSpacing: 14,
+              Row(
                 children: [
-                  _dateField('Date debut', _dateDebutController, true),
-                  _dateField('Date fin', _dateFinController, false),
-                  SizedBox(
-                    width: 300,
-                    child: DropdownButtonFormField<_GrandLivreType>(
-                      value: _type,
-                      decoration: const InputDecoration(
-                        labelText: 'Type',
-                        border: OutlineInputBorder(),
-                      ),
-                      items:
-                          _GrandLivreType.values
+                  Expanded(
+                    child: RadioListTile<_GrandLivreType>(
+                      title: const Text('Général'),
+                      value: _GrandLivreType.general,
+                      groupValue: _type,
+                      activeColor: Colors.blue.shade700,
+                      dense: true,
+                      onChanged: (value) => setState(() {
+                        _type = value!;
+                        _projetId = null;
+                        _bailleurIds.clear();
+                        _bailleursProjet = [];
+                      }),
+                    ),
+                  ),
+                  Expanded(
+                    child: RadioListTile<_GrandLivreType>(
+                      title: const Text('Tiers'),
+                      value: _GrandLivreType.tiers,
+                      groupValue: _type,
+                      activeColor: Colors.blue.shade700,
+                      dense: true,
+                      onChanged: (value) => setState(() {
+                        _type = value!;
+                        _projetId = null;
+                        _bailleurIds.clear();
+                        _bailleursProjet = [];
+                      }),
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: RadioListTile<_GrandLivreType>(
+                      title: const Text('Analytique'),
+                      value: _GrandLivreType.analytique,
+                      groupValue: _type,
+                      activeColor: Colors.blue.shade700,
+                      dense: true,
+                      onChanged: (value) => setState(() => _type = value!),
+                    ),
+                  ),
+                  Expanded(
+                    child: RadioListTile<_GrandLivreType>(
+                      title: const Text('Tiers & Analytique'),
+                      value: _GrandLivreType.tiersAnalytique,
+                      groupValue: _type,
+                      activeColor: Colors.blue.shade700,
+                      dense: true,
+                      onChanged: (value) => setState(() => _type = value!),
+                    ),
+                  ),
+                ],
+              ),
+              if (_isAnalytique)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, left: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_projets.isEmpty)
+                        const Text(
+                          'Aucun projet disponible',
+                          style: TextStyle(color: Colors.red),
+                        )
+                      else
+                        DropdownButtonFormField<int>(
+                          value: _projetId,
+                          isExpanded: true,
+                          menuMaxHeight: 320,
+                          decoration: InputDecoration(
+                            labelText: 'Projet',
+                            hintText: 'Sélectionnez un projet',
+                            prefixIcon: const Icon(Icons.business_center),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: Colors.blue.shade700,
+                                width: 2,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 4,
+                              horizontal: 16,
+                            ),
+                          ),
+                          items: _projets
                               .map(
-                                (t) => DropdownMenuItem(
-                                  value: t,
-                                  child: Text(_typeLabel(t)),
+                                (p) => DropdownMenuItem<int>(
+                                  value: p.id,
+                                  child: Text(
+                                    '${p.code} - ${p.nom}',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               )
                               .toList(),
-                      onChanged: (value) async {
-                        if (value == null) return;
-                        setState(() {
-                          _type = value;
-                          if (!_isAnalytique) {
-                            _projetId = null;
-                            _bailleurIds.clear();
-                            _bailleursProjet = [];
-                          }
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 10,
-                children: [
-                  ChoiceChip(
-                    label: const Text('Tous'),
-                    selected: _compteMode == _CompteFilterMode.all,
-                    onSelected:
-                        (_) => setState(() {
-                          _compteMode = _CompteFilterMode.all;
-                          _compteDebutController.clear();
-                          _compteFinController.clear();
-                        }),
-                  ),
-                  ChoiceChip(
-                    label: const Text('Un seul'),
-                    selected: _compteMode == _CompteFilterMode.single,
-                    onSelected:
-                        (_) => setState(() {
-                          _compteMode = _CompteFilterMode.single;
-                          _compteFinController.clear();
-                        }),
-                  ),
-                  ChoiceChip(
-                    label: const Text('Plage'),
-                    selected: _compteMode == _CompteFilterMode.range,
-                    onSelected:
-                        (_) => setState(
-                          () => _compteMode = _CompteFilterMode.range,
+                          onChanged: (value) async {
+                            setState(() => _projetId = value);
+                            await _loadBailleursForProjet(value);
+                          },
+                          validator: (_) =>
+                              _isAnalytique && _projetId == null
+                                  ? 'Obligatoire'
+                                  : null,
                         ),
+                      if (_projetId != null) ...[
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Bailleurs :',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: (_bailleursProjet.isEmpty
+                                  ? _bailleurs
+                                  : _bailleursProjet)
+                              .map(
+                                (b) => FilterChip(
+                                  label: Text(b.sigle),
+                                  selected:
+                                      b.id != null &&
+                                      _bailleurIds.contains(b.id),
+                                  selectedColor:
+                                      Colors.blue.shade100,
+                                  onSelected: (selected) {
+                                    if (b.id == null) return;
+                                    setState(() {
+                                      selected
+                                          ? _bailleurIds.add(b.id!)
+                                          : _bailleurIds.remove(b.id);
+                                    });
+                                  },
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ],
+                    ],
                   ),
-                  if (_compteMode != _CompteFilterMode.all)
-                    SizedBox(
-                      width: 170,
-                      child: TextFormField(
-                        controller: _compteDebutController,
-                        decoration: InputDecoration(
-                          labelText:
-                              _compteMode == _CompteFilterMode.single
-                                  ? 'Compte'
-                                  : 'Compte debut',
-                          border: const OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (_compteMode == _CompteFilterMode.single &&
-                              (value == null || value.trim().isEmpty)) {
-                            return 'Obligatoire';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                  if (_compteMode == _CompteFilterMode.range)
-                    SizedBox(
-                      width: 170,
-                      child: TextFormField(
-                        controller: _compteFinController,
-                        decoration: const InputDecoration(
-                          labelText: 'Compte fin',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              if (_isAnalytique) ...[
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 14,
-                  runSpacing: 10,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 360,
-                      child: DropdownButtonFormField<int>(
-                        value: _projetId,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Projet',
-                          border: OutlineInputBorder(),
-                        ),
-                        items:
-                            _projets
-                                .map(
-                                  (p) => DropdownMenuItem(
-                                    value: p.id,
-                                    child: Text('${p.code} - ${p.nom}'),
-                                  ),
-                                )
-                                .toList(),
-                        onChanged: (value) async {
-                          setState(() => _projetId = value);
-                          await _loadBailleursForProjet(value);
-                        },
-                        validator:
-                            (_) =>
-                                _isAnalytique && _projetId == null
-                                    ? 'Obligatoire'
-                                    : null,
-                      ),
-                    ),
-                    SizedBox(
-                      width: 520,
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children:
-                            (_bailleursProjet.isEmpty
-                                    ? _bailleurs
-                                    : _bailleursProjet)
-                                .map(
-                                  (b) => FilterChip(
-                                    label: Text(b.sigle),
-                                    selected:
-                                        b.id != null &&
-                                        _bailleurIds.contains(b.id),
-                                    onSelected: (selected) {
-                                      if (b.id == null) return;
-                                      setState(() {
-                                        selected
-                                            ? _bailleurIds.add(b.id!)
-                                            : _bailleurIds.remove(b.id);
-                                      });
-                                    },
-                                  ),
-                                )
-                                .toList(),
-                      ),
-                    ),
-                  ],
                 ),
-              ],
-              const SizedBox(height: 18),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _openResults,
-                  icon: const Icon(Icons.search),
-                  label: const Text('Afficher les resultats'),
+            ],
+          ),
+        ),
+
+        const Divider(height: 32, thickness: 1),
+
+        _buildFormSection(
+          title: '🔹 Période (OBLIGATOIRE)',
+          child: Row(
+            children: [
+              Expanded(child: _dateField('Date début *', _dateDebutController, true)),
+              const SizedBox(width: 16),
+              Expanded(child: _dateField('Date fin *', _dateFinController, false)),
+            ],
+          ),
+        ),
+
+        const Divider(height: 32, thickness: 1),
+
+        _buildFormSection(
+          title: '🔹 Comptes',
+          subtitle: 'Laisser vide pour inclure tous les comptes',
+          child: Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _compteDebutController,
+                  decoration: InputDecoration(
+                    labelText: 'N° compte début',
+                    hintText: 'Ex: 401',
+                    prefixIcon: const Icon(Icons.account_balance_wallet),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: Colors.blue.shade700,
+                        width: 2,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextFormField(
+                  controller: _compteFinController,
+                  decoration: InputDecoration(
+                    labelText: 'N° compte fin',
+                    hintText: 'Ex: 499',
+                    prefixIcon: const Icon(Icons.account_balance_wallet),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: Colors.blue.shade700,
+                        width: 2,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
+                  ),
+                  keyboardType: TextInputType.number,
                 ),
               ),
             ],
           ),
         ),
-      ),
+
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton.icon(
+            onPressed: _isLoading ? null : _openResults,
+            icon: const Icon(Icons.menu_book, size: 22),
+            label: const Text(
+              'Afficher le grand livre',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 2,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -489,19 +581,72 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
     TextEditingController controller,
     bool isStart,
   ) {
-    return SizedBox(
-      width: 200,
-      child: TextFormField(
-        controller: controller,
-        readOnly: true,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          suffixIcon: const Icon(Icons.calendar_today),
+    return TextFormField(
+      controller: controller,
+      readOnly: true,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: 'jj/mm/aaaa',
+        prefixIcon: const Icon(Icons.calendar_today),
+        suffixIcon: IconButton(
+          icon: const Icon(Icons.clear, size: 20),
+          onPressed: () => setState(() {
+            controller.clear();
+            if (isStart) {
+              _dateDebut = null;
+            } else {
+              _dateFin = null;
+            }
+          }),
         ),
-        onTap: () => _selectDate(isStart: isStart),
-        validator:
-            (value) => value == null || value.isEmpty ? 'Obligatoire' : null,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 12,
+          horizontal: 16,
+        ),
+      ),
+      onTap: () => _selectDate(isStart: isStart),
+      validator: (value) =>
+          value == null || value.isEmpty ? 'Obligatoire' : null,
+    );
+  }
+
+  Widget _buildFormSection({
+    required String title,
+    String? subtitle,
+    required Widget child,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.blue.shade800,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          child,
+        ],
       ),
     );
   }
