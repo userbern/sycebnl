@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 
-
 class JournalResultsPage extends StatefulWidget {
-  final String? codeJournal; // null = tous
-  final int? moisDebut; // 1-12
+  final String? codeJournal;
+  final int? moisDebut;
   final int? anneeDebut;
-  final int? moisFin; // 1-12
+  final int? moisFin;
   final int? anneeFin;
-  final String typeEtat; // 'base' ou 'tiers'
+  final String typeEtat;
   final bool showAppBar;
 
   const JournalResultsPage({
@@ -29,8 +28,10 @@ class JournalResultsPage extends StatefulWidget {
 class _JournalResultsPageState extends State<JournalResultsPage> {
   bool _isLoading = true;
   String? _errorMessage;
-  List<_JournalEntryRow> _entries = [];
+  List<_JournalEntry> _entries = [];
   Map<String, dynamic>? _entite;
+
+  bool get _isAll => widget.codeJournal == null || widget.codeJournal!.isEmpty;
 
   @override
   void initState() {
@@ -45,31 +46,20 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
         _errorMessage = null;
       });
 
-      if (!DatabaseService.isConnected) {
-        throw Exception('Base de donnees non connectee');
-      }
+      if (!DatabaseService.isConnected) throw Exception('Base de donnees non connectee');
 
       final db = DatabaseService.database;
-
       final entiteRows = await db.query('entite', limit: 1);
-      final entite = entiteRows.isNotEmpty ? entiteRows.first : null;
+      final rows = await db.rawQuery(_buildQuery(), _buildArgs());
 
-      final entries = await db.rawQuery(_buildQuery(), _buildQueryArgs());
-
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
       setState(() {
-        _entite = entite;
-        _entries = entries.map(_JournalEntryRow.fromMap).toList();
+        _entite = entiteRows.isNotEmpty ? entiteRows.first : null;
+        _entries = rows.map(_JournalEntry.fromMap).toList();
         _isLoading = false;
       });
     } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
       setState(() {
         _errorMessage = e.toString();
         _isLoading = false;
@@ -79,10 +69,10 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
 
   String _buildQuery() {
     final isTiers = widget.typeEtat == 'tiers';
-    final query = StringBuffer();
+    final q = StringBuffer();
 
     if (isTiers) {
-      query.write('''
+      q.write('''
         SELECT
           e.id,
           jp.code_journal,
@@ -90,23 +80,21 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
           jp.annee,
           jp.mois,
           e.numero_enregistrement,
-          e.jour,
           e.date_comptable,
-          e.numero_document,
-          e.numero_tiers,
-          COALESCE(t.intitule, e.numero_tiers) AS libelle,
-          e.reference,
+          e.jour,
+          e.numero_tiers AS numero_compte,
+          COALESCE(t.intitule, e.numero_tiers, '') AS compte_intitule,
+          e.libelle,
           e.montant_debit,
-          e.montant_credit,
-          e.created_at
+          e.montant_credit
         FROM ecritures e
         JOIN journaux_periodes jp ON e.journal_periode_id = jp.id
         LEFT JOIN journal j ON j.code = jp.code_journal
-        LEFT JOIN tiers t ON e.numero_tiers = t.numero_compte
-        WHERE e.numero_tiers IS NOT NULL
+        LEFT JOIN tiers t ON t.numero_compte = e.numero_tiers
+        WHERE e.numero_tiers IS NOT NULL AND TRIM(COALESCE(e.numero_tiers,'')) != ''
       ''');
     } else {
-      query.write('''
+      q.write('''
         SELECT
           e.id,
           jp.code_journal,
@@ -114,169 +102,160 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
           jp.annee,
           jp.mois,
           e.numero_enregistrement,
-          e.jour,
           e.date_comptable,
-          e.numero_document,
-          e.numero_compte AS numero_tiers,
+          e.jour,
+          e.numero_compte,
+          COALESCE(c.intitule, '') AS compte_intitule,
           e.libelle,
-          e.reference,
           e.montant_debit,
-          e.montant_credit,
-          e.created_at
+          e.montant_credit
         FROM ecritures e
         JOIN journaux_periodes jp ON e.journal_periode_id = jp.id
         LEFT JOIN journal j ON j.code = jp.code_journal
+        LEFT JOIN compte c ON c.numero_compte = e.numero_compte
         WHERE 1 = 1
       ''');
     }
 
-    if (widget.codeJournal != null && widget.codeJournal!.isNotEmpty) {
-      query.write(' AND jp.code_journal = ?');
-    }
+    if (!_isAll) q.write(' AND jp.code_journal = ?');
 
     if (widget.moisDebut != null && widget.anneeDebut != null) {
-      query.write(' AND (jp.annee > ? OR (jp.annee = ? AND jp.mois >= ?))');
+      q.write(' AND (jp.annee > ? OR (jp.annee = ? AND jp.mois >= ?))');
     }
-
     if (widget.moisFin != null && widget.anneeFin != null) {
-      query.write(' AND (jp.annee < ? OR (jp.annee = ? AND jp.mois <= ?))');
+      q.write(' AND (jp.annee < ? OR (jp.annee = ? AND jp.mois <= ?))');
     }
 
-    query.write('''
+    q.write('''
       ORDER BY
         jp.code_journal ASC,
         jp.annee ASC,
         jp.mois ASC,
-        substr(e.date_comptable, 1, 10) ASC,
+        substr(COALESCE(e.date_comptable,''), 1, 10) ASC,
         e.numero_enregistrement ASC,
         e.id ASC
     ''');
 
-    return query.toString();
+    return q.toString();
   }
 
-  List<dynamic> _buildQueryArgs() {
+  List<dynamic> _buildArgs() {
     final args = <dynamic>[];
-
-    if (widget.codeJournal != null && widget.codeJournal!.isNotEmpty) {
-      args.add(widget.codeJournal);
-    }
-
+    if (!_isAll) args.add(widget.codeJournal);
     if (widget.moisDebut != null && widget.anneeDebut != null) {
       args.addAll([widget.anneeDebut, widget.anneeDebut, widget.moisDebut]);
     }
-
     if (widget.moisFin != null && widget.anneeFin != null) {
       args.addAll([widget.anneeFin, widget.anneeFin, widget.moisFin]);
     }
-
     return args;
   }
 
-  String _formatAmount(double value) {
-    final parts = value.toStringAsFixed(2).split('.');
-    final integerPart = parts[0];
-    final decimalPart = parts[1];
-    final buffer = StringBuffer();
+  // ───────────── helpers ─────────────
 
-    for (var i = 0; i < integerPart.length; i++) {
-      buffer.write(integerPart[i]);
-      final remaining = integerPart.length - i - 1;
-      if (remaining > 0 && remaining % 3 == 0) {
-        buffer.write(' ');
-      }
-    }
-
-    return '${buffer.toString()}.$decimalPart';
+  String _fmt(double v) {
+    if (v == 0) return '';
+    final raw = v.toStringAsFixed(0);
+    return raw.replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]} ',
+    );
   }
 
-  String _formatDateDisplay(DateTime? date) {
-    if (date == null) {
-      return '-';
-    }
-
-    return '${date.day.toString().padLeft(2, '0')}/'
-        '${date.month.toString().padLeft(2, '0')}/'
-        '${date.year.toString().padLeft(4, '0')}';
+  String _fmtDate(DateTime? d) {
+    if (d == null) return '-';
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
   }
 
-  String _monthLabel(int month, int year) {
-    const months = [
-      'janvier',
-      'fevrier',
-      'mars',
-      'avril',
-      'mai',
-      'juin',
-      'juillet',
-      'aout',
-      'septembre',
-      'octobre',
-      'novembre',
-      'decembre',
+  String _monthName(int m) {
+    const n = [
+      'janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin',
+      'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre',
     ];
-
-    return '${months[month - 1]} $year';
+    return n[m - 1];
   }
 
-  String get _pageTitle =>
-      widget.typeEtat == 'tiers' ? 'Journal - Tiers' : 'Journal';
+  String get _periodeLabel {
+    if (widget.moisDebut == null) return 'Toutes periodes';
+    return '${_monthName(widget.moisDebut!)} ${widget.anneeDebut}'
+        ' - ${_monthName(widget.moisFin!)} ${widget.anneeFin}';
+  }
+
+  // ───────────── build ─────────────
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar:
-          widget.showAppBar
-              ? AppBar(
-                title: Text(_pageTitle),
-                backgroundColor: Colors.blue.shade400,
-                foregroundColor: Colors.white,
-                actions: [
-                  IconButton(
-                    tooltip: 'Actualiser',
-                    onPressed: _loadData,
-                    icon: const Icon(Icons.refresh),
-                  ),
-                  IconButton(
-                    tooltip: 'Telecharger PDF',
-                    onPressed: _isLoading ? null : _exportPdf,
-                    icon: const Icon(Icons.picture_as_pdf),
-                  ),
-                  IconButton(
-                    tooltip: 'Telecharger Excel',
-                    onPressed: _isLoading ? null : _exportExcel,
-                    icon: const Icon(Icons.table_chart),
-                  ),
-                ],
-              )
-              : null,
+      backgroundColor: Colors.white,
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: Text(
+                widget.typeEtat == 'tiers' ? 'Journal - Tiers' : 'Journal',
+              ),
+              backgroundColor: Colors.lightBlue.shade600,
+              foregroundColor: Colors.white,
+              actions: [
+                IconButton(
+                  tooltip: 'Actualiser',
+                  onPressed: _loadData,
+                  icon: const Icon(Icons.refresh),
+                ),
+                TextButton.icon(
+                  onPressed: _isLoading ? null : _exportPdf,
+                  icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+                  label: const Text('PDF', style: TextStyle(color: Colors.white)),
+                ),
+                TextButton.icon(
+                  onPressed: _isLoading ? null : _exportExcel,
+                  icon: const Icon(Icons.table_view, color: Colors.white),
+                  label: const Text('Excel', style: TextStyle(color: Colors.white)),
+                ),
+                const SizedBox(width: 8),
+              ],
+            )
+          : null,
       body: SafeArea(
-        child:
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _errorMessage != null
-                ? _buildErrorState()
-                : RefreshIndicator(
-                  onRefresh: _loadData,
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _errorMessage != null
+                ? _buildError()
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                     children: [
-                      _buildHeaderCard(),
-                      const SizedBox(height: 16),
-                      _buildSummaryCard(),
-                      const SizedBox(height: 16),
-                      if (_entries.isNotEmpty)
-                        _buildResultsTable()
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'JOURNAL${_isAll ? '' : ' - ${widget.codeJournal}'}'
+                          ' (${widget.typeEtat == 'tiers' ? 'TIERS' : 'BASE'})',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.blue.shade700,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                      _buildDocumentHeader(),
+                      const SizedBox(height: 12),
+                      if (_entries.isEmpty)
+                        const Card(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Text('Aucune ecriture ne correspond aux criteres choisis.'),
+                          ),
+                        )
+                      else if (_isAll)
+                        ..._buildGroupedTables()
                       else
-                        _buildNoDataCard(),
+                        _buildSingleTable(_entries),
                     ],
                   ),
-                ),
       ),
     );
   }
 
-  Widget _buildErrorState() {
+  Widget _buildError() {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -285,16 +264,6 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
           children: [
             Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
             const SizedBox(height: 16),
-            Text(
-              'Impossible de charger les resultats',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: Colors.red.shade700,
-              ),
-            ),
-            const SizedBox(height: 8),
             Text(
               _errorMessage ?? 'Erreur inconnue',
               textAlign: TextAlign.center,
@@ -312,460 +281,307 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
     );
   }
 
-  Widget _buildNoDataCard() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            Icon(Icons.search_off, size: 64, color: Colors.blue.shade200),
-            const SizedBox(height: 16),
-            const Text(
-              'Aucune ecriture ne correspond aux criteres choisis.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // ───────────── en-tête document (style grand livre) ─────────────
 
-  Widget _buildHeaderCard() {
-    final entiteName =
-        (_entite?['name']?.toString() ?? 'Entite').replaceAll('"', '').trim();
-    final journal =
-        (widget.codeJournal != null && widget.codeJournal!.isNotEmpty)
-            ? widget.codeJournal!
-            : 'Tous les journaux';
-    final periode =
-        widget.moisDebut != null && widget.anneeDebut != null
-            ? '${_monthLabel(widget.moisDebut!, widget.anneeDebut!)} a ${_monthLabel(widget.moisFin!, widget.anneeFin!)}'
-            : 'Toutes periodes';
+  Widget _buildDocumentHeader() {
+    final entite = _entite?['denomination_sociale']?.toString() ?? ' ';
+    final nif = _entite?['numero_fiscal']?.toString() ?? ' ';
+    final adresse = [_entite?['ville'], _entite?['quartier']]
+        .where((v) => v != null && v.toString().isNotEmpty)
+        .join(', ');
+    final journal = _isAll ? 'Tous les journaux' : widget.codeJournal!;
+    final type = widget.typeEtat == 'tiers' ? 'TIERS' : 'BASE';
 
-    return Card(
-      elevation: 0,
-      color: Colors.blue.shade50,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade100,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(Icons.receipt_long, color: Colors.blue.shade700),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entiteName,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.blue.shade900,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _pageTitle,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 24,
-              runSpacing: 12,
-              children: [
-                _buildHeaderInfo('Journal', journal),
-                _buildHeaderInfo('Periode', periode),
-                _buildHeaderInfo(
-                  'Type',
-                  widget.typeEtat == 'tiers' ? 'Tiers' : 'Base',
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderInfo(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.black54,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSummaryCard() {
-    final totalDebit = _entries.fold<double>(0, (sum, row) => sum + row.debit);
-    final totalCredit = _entries.fold<double>(
-      0,
-      (sum, row) => sum + row.credit,
-    );
-    final solde = totalDebit - totalCredit;
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          children: [
-            _buildStatCard(
-              'Ecritures',
-              _entries.length.toString(),
-              Icons.list_alt,
-              Colors.blue,
-            ),
-            _buildStatCard(
-              'Debit',
-              _formatAmount(totalDebit),
-              Icons.call_made,
-              Colors.green,
-            ),
-            _buildStatCard(
-              'Credit',
-              _formatAmount(totalCredit),
-              Icons.call_received,
-              Colors.red,
-            ),
-            _buildStatCard(
-              'Solde',
-              _formatAmount(solde),
-              Icons.balance,
-              Colors.orange,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
     return Container(
-      width: 220,
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.18)),
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade300, width: 1.5),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
+      child: Column(
+        children: [
+          // Ligne 1 : entité, NIF, adresse, période
+          Row(
+            children: [
+              Expanded(child: _headerCell('Dénomination sociale', bold: true)),
+              Expanded(child: _headerCell(entite, bold: true)),
+              Expanded(child: _headerCell('NIF', bold: true)),
+              Expanded(child: _headerCell(nif, borderBottom: true)),
+              Expanded(child: _headerCell('Adresse', bold: true, borderBottom: true)),
+              Expanded(child: _headerCell(adresse.isEmpty ? '-' : adresse, borderBottom: true)),
+              Expanded(child: _headerCell('Période', bold: true, borderBottom: true)),
+              Expanded(child: _headerCell(_periodeLabel, borderBottom: true)),
+            ],
+          ),
+          // Ligne 2 : journal + type
+          Row(
+            children: [
+              Expanded(child: _headerCell('JOURNAL', bold: true)),
+              Expanded(flex: 3, child: _headerCell(journal, bold: true)),
+              Expanded(child: _headerCell('TYPE', bold: true, borderAll: true)),
+              Expanded(child: _headerCell(type, bold: true, borderAll: true)),
+              const Expanded(flex: 2, child: SizedBox()),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _headerCell(
+    String text, {
+    bool bold = false,
+    bool borderBottom = false,
+    bool borderAll = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        border: borderAll
+            ? Border.all(color: Colors.grey.shade300, width: 1)
+            : borderBottom
+                ? Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1))
+                : null,
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontWeight: bold ? FontWeight.bold : FontWeight.w500,
+          fontSize: 12,
+          color: Colors.grey.shade800,
+        ),
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  // ───────────── tables ─────────────
+
+  /// Mode ALL : un bloc par journal
+  List<Widget> _buildGroupedTables() {
+    // Grouper par code_journal
+    final grouped = <String, _JournalGroup>{};
+    for (final e in _entries) {
+      final g = grouped.putIfAbsent(
+        e.codeJournal,
+        () => _JournalGroup(code: e.codeJournal, libelle: e.journalLibelle),
+      );
+      g.entries.add(e);
+      g.totalDebit += e.debit;
+      g.totalCredit += e.credit;
+    }
+
+    final sortedGroups = grouped.values.toList()
+      ..sort((a, b) => a.code.compareTo(b.code));
+
+    return sortedGroups.map((g) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(fontSize: 12, color: Colors.black54),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            color: Colors.blue.shade700,
+            child: Text(
+              'Journal ${g.code} - ${g.libelle}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+              ),
             ),
           ),
+          _buildTable(g.entries, showJournalTotals: true, journalGroup: g),
         ],
-      ),
-    );
+      );
+    }).toList();
   }
 
-  Widget _buildResultsTable() {
-    final grouped = _groupEntries();
+  /// Mode code unique : table directe
+  Widget _buildSingleTable(List<_JournalEntry> entries) {
+    final totalDebit = entries.fold<double>(0, (s, e) => s + e.debit);
+    final totalCredit = entries.fold<double>(0, (s, e) => s + e.credit);
+    final g = _JournalGroup(
+      code: widget.codeJournal ?? '',
+      libelle: entries.isNotEmpty ? entries.first.journalLibelle : '',
+    )
+      ..totalDebit = totalDebit
+      ..totalCredit = totalCredit;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Resultats',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Colors.blue.shade800,
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          color: Colors.blue.shade700,
+          child: Text(
+            'Journal ${g.code} - ${g.libelle}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
           ),
         ),
-        const SizedBox(height: 12),
-        ...grouped.entries.map(
-          (entry) => Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: _buildJournalGroupCard(entry.value),
-          ),
-        ),
+        _buildTable(entries, showJournalTotals: true, journalGroup: g),
       ],
     );
   }
 
-  Map<String, _JournalGroup> _groupEntries() {
-    final groups = <String, _JournalGroup>{};
-
-    for (final row in _entries) {
-      final journalGroup = groups.putIfAbsent(
-        row.codeJournal,
-        () => _JournalGroup(
-          codeJournal: row.codeJournal,
-          journalLibelle: row.journalLibelle,
-        ),
-      );
-      journalGroup.addRow(row);
-    }
-
-    final sortedEntries =
-        groups.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
-    return Map.fromEntries(sortedEntries);
-  }
-
-  Widget _buildJournalGroupCard(_JournalGroup group) {
-    final months =
-        group.months.entries.toList()
-          ..sort((a, b) => a.value.sortKey.compareTo(b.value.sortKey));
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ExpansionTile(
-        initiallyExpanded: true,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        title: Text(
-          '${group.codeJournal} - ${group.journalLibelle}',
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text(
-          '${group.monthCount} mois - ${group.entryCount} ecritures - Debit ${_formatAmount(group.totalDebit)} / Credit ${_formatAmount(group.totalCredit)}',
-        ),
-        children: [
-          ...months.map(
-            (monthEntry) => Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: _buildMonthCard(monthEntry.value),
+  Widget _buildTable(
+    List<_JournalEntry> entries, {
+    bool showJournalTotals = false,
+    _JournalGroup? journalGroup,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final minW = constraints.maxWidth > 900 ? constraints.maxWidth : 900.0;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: minW),
+            child: Table(
+          border: TableBorder.all(color: Colors.black, width: 0.8),
+          columnWidths: const {
+            0: FlexColumnWidth(1.2), // Date
+            1: FlexColumnWidth(1.1), // N° Compte
+            2: FlexColumnWidth(2.5), // Intitulé
+            3: FlexColumnWidth(1.2), // N° Enregistrement
+            4: FlexColumnWidth(3.5), // Libellé écriture
+            5: FlexColumnWidth(1.3), // Débit
+            6: FlexColumnWidth(1.3), // Crédit
+          },
+          children: [
+            // En-tête colonnes
+            _tableRow(
+              ['Date', 'N Compte', 'Intitule', 'N Enreg.', 'Libelle', 'Debit', 'Credit'],
+              color: const Color(0xFFD8E7F1),
+              bold: true,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMonthCard(_JournalMonthGroup group) {
-    return Card(
-      color: Colors.grey.shade50,
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: ExpansionTile(
-        initiallyExpanded: group.entries.length <= 25,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        title: Text(
-          _monthLabel(group.month, group.year),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text(
-          '${group.entries.length} ecritures - Debit ${_formatAmount(group.totalDebit)} / Credit ${_formatAmount(group.totalCredit)}',
-        ),
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowColor: WidgetStateProperty.resolveWith(
-                (states) => Colors.blue.shade50,
+            // Lignes
+            ...entries.map(
+              (e) => _tableRow([
+                _fmtDate(e.dateComptable),
+                e.numeroCompte,
+                e.compteIntitule,
+                e.numeroEnregistrement > 0
+                    ? e.numeroEnregistrement.toString().padLeft(3, '0')
+                    : '-',
+                e.libelle,
+                _fmt(e.debit),
+                _fmt(e.credit),
+              ]),
+            ),
+            // Ligne totaux
+            if (showJournalTotals && journalGroup != null)
+              _tableRow(
+                [
+                  '',
+                  '',
+                  '',
+                  '',
+                  'TOTAL  (${entries.length} ecritures)',
+                  _fmt(journalGroup.totalDebit),
+                  _fmt(journalGroup.totalCredit),
+                ],
+                color: const Color(0xFFD8E7F1),
+                bold: true,
               ),
-              columns: const [
-                DataColumn(label: Text('Date ecriture')),
-                DataColumn(label: Text('N° piece')),
-                DataColumn(label: Text('Num./Compte')),
-                DataColumn(label: Text('Libelle')),
-                DataColumn(label: Text('Debit')),
-                DataColumn(label: Text('Credit')),
-                DataColumn(label: Text('Reference')),
-              ],
-              rows:
-                  group.entries.map((row) {
-                    return DataRow(
-                      cells: [
-                        DataCell(Text(_formatDateDisplay(row.dateEcriture))),
-                        DataCell(Text(row.numeroDocument)),
-                        DataCell(Text(row.numeroTiers)),
-                        DataCell(
-                          SizedBox(
-                            width: 300,
-                            child: Text(
-                              row.libelle,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                        DataCell(Text(_formatAmount(row.debit))),
-                        DataCell(Text(_formatAmount(row.credit))),
-                        DataCell(
-                          Text(
-                            row.reference?.isNotEmpty == true
-                                ? row.reference!
-                                : '-',
-                          ),
-                        ),
-                      ],
-                    );
-                  }).toList(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              'Solde mois: ${_formatAmount(group.totalDebit - group.totalCredit)}',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _exportPdf() async {
-    try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Export PDF en cours de developpement')),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de l export PDF: $e'),
-            backgroundColor: Colors.red,
+          ],
+        ),
           ),
         );
-      }
-    }
+      },
+    );
+  }
+
+  TableRow _tableRow(List<String> values, {Color? color, bool bold = false}) {
+    return TableRow(
+      decoration: BoxDecoration(color: color ?? Colors.white),
+      children: values.asMap().entries.map((entry) {
+        final isAmount = entry.key >= 5;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+          child: Text(
+            entry.value,
+            textAlign: isAmount ? TextAlign.right : TextAlign.left,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: bold ? FontWeight.w800 : FontWeight.normal,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // ───────────── exports (placeholder) ─────────────
+
+  Future<void> _exportPdf() async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Export PDF en cours de developpement')),
+    );
   }
 
   Future<void> _exportExcel() async {
-    try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Export Excel en cours de developpement')),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de l export Excel: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Export Excel en cours de developpement')),
+    );
   }
 }
 
-class _JournalEntryRow {
+// ═══════════════════════════ Modèles ═══════════════════════════
+
+class _JournalEntry {
   final int id;
   final String codeJournal;
   final String journalLibelle;
   final int annee;
   final int mois;
-  final DateTime? dateEcriture;
-  final String numeroDocument;
-  final String numeroTiers;
+  final int numeroEnregistrement;
+  final DateTime? dateComptable;
+  final String numeroCompte;
+  final String compteIntitule;
   final String libelle;
-  final String? reference;
   final double debit;
   final double credit;
 
-  const _JournalEntryRow({
+  const _JournalEntry({
     required this.id,
     required this.codeJournal,
     required this.journalLibelle,
     required this.annee,
     required this.mois,
-    required this.dateEcriture,
-    required this.numeroDocument,
-    required this.numeroTiers,
+    required this.numeroEnregistrement,
+    required this.dateComptable,
+    required this.numeroCompte,
+    required this.compteIntitule,
     required this.libelle,
-    required this.reference,
     required this.debit,
     required this.credit,
   });
 
-  factory _JournalEntryRow.fromMap(Map<String, dynamic> map) {
-    DateTime? parseDate(dynamic value) {
-      if (value == null) {
-        return null;
-      }
-
-      final raw = value.toString();
-      if (raw.isEmpty) {
-        return null;
-      }
-
-      return DateTime.tryParse(raw);
+  factory _JournalEntry.fromMap(Map<String, dynamic> map) {
+    DateTime? parseDate(dynamic v) {
+      if (v == null) return null;
+      final s = v.toString();
+      if (s.isEmpty) return null;
+      return DateTime.tryParse(s);
     }
 
-    return _JournalEntryRow(
+    return _JournalEntry(
       id: (map['id'] as num?)?.toInt() ?? 0,
-      codeJournal: (map['code_journal'] ?? '').toString(),
-      journalLibelle:
-          (map['journal_libelle'] ?? map['code_journal'] ?? '').toString(),
+      codeJournal: map['code_journal']?.toString() ?? '',
+      journalLibelle: (map['journal_libelle'] ?? map['code_journal'] ?? '').toString(),
       annee: (map['annee'] as num?)?.toInt() ?? 0,
       mois: (map['mois'] as num?)?.toInt() ?? 0,
-      dateEcriture: parseDate(map['date_comptable']),
-      numeroDocument: (map['numero_document'] ?? '').toString(),
-      numeroTiers: (map['numero_tiers'] ?? '').toString(),
-      libelle: (map['libelle'] ?? '').toString(),
-      reference: map['reference']?.toString(),
+      numeroEnregistrement: (map['numero_enregistrement'] as num?)?.toInt() ?? 0,
+      dateComptable: parseDate(map['date_comptable']),
+      numeroCompte: map['numero_compte']?.toString() ?? '',
+      compteIntitule: map['compte_intitule']?.toString() ?? '',
+      libelle: map['libelle']?.toString() ?? '',
       debit: (map['montant_debit'] as num?)?.toDouble() ?? 0,
       credit: (map['montant_credit'] as num?)?.toDouble() ?? 0,
     );
@@ -773,50 +589,11 @@ class _JournalEntryRow {
 }
 
 class _JournalGroup {
-  final String codeJournal;
-  final String journalLibelle;
-  final Map<String, _JournalMonthGroup> months = {};
-  int entryCount = 0;
+  final String code;
+  final String libelle;
+  final List<_JournalEntry> entries = [];
   double totalDebit = 0;
   double totalCredit = 0;
 
-  _JournalGroup({required this.codeJournal, required this.journalLibelle});
-
-  void addRow(_JournalEntryRow row) {
-    entryCount += 1;
-    totalDebit += row.debit;
-    totalCredit += row.credit;
-
-    final monthGroup = months.putIfAbsent(
-      row.monthKey,
-      () => _JournalMonthGroup(year: row.annee, month: row.mois),
-    );
-    monthGroup.addRow(row);
-  }
-
-  int get monthCount => months.length;
-}
-
-class _JournalMonthGroup {
-  final int year;
-  final int month;
-  final List<_JournalEntryRow> entries = [];
-  double totalDebit = 0;
-  double totalCredit = 0;
-
-  _JournalMonthGroup({required this.year, required this.month});
-
-  void addRow(_JournalEntryRow row) {
-    entries.add(row);
-    totalDebit += row.debit;
-    totalCredit += row.credit;
-  }
-
-  String get sortKey =>
-      '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}';
-}
-
-extension on _JournalEntryRow {
-  String get monthKey =>
-      '${annee.toString().padLeft(4, '0')}-${mois.toString().padLeft(2, '0')}';
+  _JournalGroup({required this.code, required this.libelle});
 }
