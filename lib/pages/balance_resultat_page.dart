@@ -377,30 +377,95 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
     return parts.join(', ');
   }
 
-  Widget _headerCell(
-    String text, {
-    bool bold = false,
-    bool borderBottom = false,
-    bool borderAll = false,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        border:
-            borderAll
-                ? Border.all(color: Colors.grey.shade300, width: 1)
-                : borderBottom
-                ? Border(
-                  bottom: BorderSide(color: Colors.grey.shade300, width: 1),
-                )
-                : null,
-      ),
+  Widget _headerCell(String text, {bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       child: Text(
         text,
         style: TextStyle(
-          fontWeight: bold ? FontWeight.bold : FontWeight.w500,
           fontSize: 12,
-          color: Colors.grey.shade800,
+          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+        ),
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  String _typeLabel() {
+    switch (widget.typeEtat) {
+      case 'general':
+        return 'GÉNÉRAL';
+      case 'tiers':
+        return 'TIERS';
+      case 'tiers_analytique':
+        return 'TIERS & ANALYTIQUE';
+      default:
+        return 'ANALYTIQUE';
+    }
+  }
+
+  Widget _buildDocumentHeader(double tableWidth) {
+    final denSociale = _entite?['denomination_sociale']?.toString() ?? '-';
+    final nif = _entite?['numero_fiscal']?.toString() ?? '-';
+    final periode =
+        '${_formatDate(widget.dateDebut)} - ${_formatDate(widget.dateFin)}';
+    final type = _typeLabel();
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: tableWidth,
+        child: Table(
+          border: TableBorder.all(color: Colors.black54, width: 0.7),
+          columnWidths: const {
+            0: FlexColumnWidth(1.6),
+            1: FlexColumnWidth(2.0),
+            2: FlexColumnWidth(0.7),
+            3: FlexColumnWidth(1.4),
+            4: FlexColumnWidth(0.8),
+            5: FlexColumnWidth(1.6),
+            6: FlexColumnWidth(0.8),
+            7: FlexColumnWidth(1.6),
+          },
+          children: [
+            TableRow(
+              decoration: const BoxDecoration(color: Colors.white),
+              children: [
+                _headerCell('Dénomination sociale', bold: true),
+                _headerCell(denSociale),
+                _headerCell('NIF', bold: true),
+                _headerCell(nif),
+                _headerCell('Adresse', bold: true),
+                _headerCell(_formatAddress()),
+                _headerCell('Période', bold: true),
+                _headerCell(periode),
+              ],
+            ),
+            TableRow(
+              decoration: const BoxDecoration(color: Colors.white),
+              children: [
+                _headerCell('BALANCE', bold: true),
+                _headerCell(type),
+                _headerCell(''),
+                _headerCell('TYPE', bold: true),
+                _headerCell(type),
+                _headerCell(
+                  widget.projetId != null
+                      ? 'PROJET : ${_projetDesignation ?? ''}'
+                      : '',
+                ),
+                _headerCell(
+                  widget.projetId != null ? 'BAILLEUR' : '',
+                  bold: widget.projetId != null,
+                ),
+                _headerCell(
+                  widget.projetId != null
+                      ? (_bailleursDesignation ?? '')
+                      : '',
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -489,121 +554,16 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                         color: Colors.blue.shade800,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    // Carte d'informations (nouveau tableau)
-                    Container(
-                      margin: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(
-                          color: Colors.grey.shade300,
-                          width: 1.5,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        children: [
-                          // Ligne 1
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _headerCell(
-                                  'Dénomination sociale',
-                                  bold: true,
-                                ),
-                              ),
-                              Expanded(
-                                child: _headerCell(
-                                  _entite?['denomination_sociale'] as String? ??
-                                      ' ',
-                                  bold: true,
-                                ),
-                              ),
-                              Expanded(child: _headerCell('NIF', bold: true)),
-                              Expanded(
-                                child: _headerCell(
-                                  _entite?['numero_fiscal'] as String? ?? ' ',
-                                  borderBottom: true,
-                                ),
-                              ),
-                              Expanded(
-                                child: _headerCell(
-                                  'Adresse',
-                                  bold: true,
-                                  borderBottom: true,
-                                ),
-                              ),
-                              Expanded(
-                                child: _headerCell(
-                                  _formatAddress(),
-                                  borderBottom: true,
-                                ),
-                              ),
-                              Expanded(
-                                child: _headerCell(
-                                  'Période',
-                                  bold: true,
-                                  borderBottom: true,
-                                ),
-                              ),
-                              Expanded(
-                                child: _headerCell(
-                                  '${_formatDate(widget.dateDebut)} - ${_formatDate(widget.dateFin)}',
-                                  borderBottom: true,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Row(),
-                          // Ligne 3
-                          Row(
-                            children: [
-                              Expanded(child: _headerCell('TYPE', bold: true)),
-                              Expanded(
-                                child: _headerCell(() {
-                                  switch (widget.typeEtat) {
-                                    case 'general':
-                                      return 'GÉNÉRAL';
-                                    case 'tiers':
-                                      return 'TIERS';
-                                    case 'tiers_analytique':
-                                      return 'TIERS & ANALYTIQUE';
-                                    default:
-                                      return 'ANALYTIQUE';
-                                  }
-                                }(), bold: true),
-                              ),
-                              const Expanded(child: SizedBox()),
-                              Expanded(
-                                child: _headerCell(
-                                  'PROJET',
-                                  bold: true,
-                                  borderAll: true,
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: _headerCell(
-                                  _projetDesignation ?? ' ',
-                                  borderAll: true,
-                                ),
-                              ),
-                              Expanded(
-                                child: _headerCell(
-                                  'BAILLEUR',
-                                  bold: true,
-                                  borderAll: true,
-                                ),
-                              ),
-                              Expanded(
-                                child: _headerCell(
-                                  _bailleursDesignation ?? ' ',
-                                  borderAll: true,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) =>
+                            _buildDocumentHeader(
+                              constraints.maxWidth > 900
+                                  ? constraints.maxWidth
+                                  : 900.0,
+                            ),
                       ),
                     ),
                     // Tableau des comptes

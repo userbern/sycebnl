@@ -967,59 +967,46 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
                   style: const TextStyle(color: Colors.red),
                 ),
               )
-            : LayoutBuilder(
-                builder: (context, constraints) {
-                  final tableWidth = constraints.maxWidth > 900
-                      ? constraints.maxWidth
-                      : 900.0;
-                  return ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      Center(
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Center(
+                    child: Text(
+                      'GRAND LIVRE ${_typeLabel(_criteria.type)}',
+                      style: TextStyle(
+                        color: Colors.blue.shade700,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDocumentHeader(),
+                  const SizedBox(height: 12),
+                  if (_isLoading)
+                    const Center(child: CircularProgressIndicator())
+                  else if (_groups.isEmpty)
+                    const Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
                         child: Text(
-                          'GRAND LIVRE ${_typeLabel(_criteria.type)}',
-                          style: TextStyle(
-                            color: Colors.blue.shade700,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                          ),
+                          'Aucune ecriture ne correspond aux filtres.',
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      _buildDocumentHeader(tableWidth),
-                      const SizedBox(height: 12),
-                      if (_isLoading)
-                        const Center(child: CircularProgressIndicator())
-                      else if (_groups.isEmpty)
-                        const Card(
-                          child: Padding(
-                            padding: EdgeInsets.all(24),
-                            child: Text(
-                              'Aucune ecriture ne correspond aux filtres.',
-                            ),
-                          ),
-                        )
-                      else
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: SizedBox(
-                            width: tableWidth,
-                            child: Column(
-                              children: _groups
-                                  .map((g) => _buildAccountTable(g))
-                                  .toList(),
-                            ),
-                          ),
-                        ),
-                    ],
-                  );
-                },
+                    )
+                  else
+                    Column(
+                      children: _groups
+                          .map((g) => _buildAccountTable(g))
+                          .toList(),
+                    ),
+                ],
               ),
       ),
     );
   }
 
-  Widget _buildDocumentHeader(double tableWidth) {
+  Widget _buildDocumentHeader() {
     final denSociale =
         _entite?['denomination_sociale']?.toString() ?? '-';
     final nif = _entite?['numero_fiscal']?.toString() ?? '-';
@@ -1031,11 +1018,7 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
         '${_formatDate(_criteria.dateDebut)} - ${_formatDate(_criteria.dateFin)}';
     final type = _typeLabel(_criteria.type);
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SizedBox(
-        width: tableWidth,
-        child: Table(
+    return Table(
           border: TableBorder.all(color: Colors.black54, width: 0.7),
           columnWidths: const {
             0: FlexColumnWidth(1.6),
@@ -1082,9 +1065,7 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
               ],
             ),
           ],
-        ),
-      ),
-    );
+        );
   }
 
   Widget _headerCell(String text, {bool bold = false}) {

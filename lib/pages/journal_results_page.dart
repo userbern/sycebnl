@@ -192,7 +192,7 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
               title: Text(
                 widget.typeEtat == 'tiers' ? 'Journal - Tiers' : 'Journal',
               ),
-              backgroundColor: Colors.lightBlue.shade600,
+              backgroundColor: Colors.blue.shade700,
               foregroundColor: Colors.white,
               actions: [
                 IconButton(
@@ -236,7 +236,14 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
                           ),
                         ),
                       ),
-                      _buildDocumentHeader(),
+                      LayoutBuilder(
+                        builder: (context, constraints) =>
+                            _buildDocumentHeader(
+                              constraints.maxWidth > 900
+                                  ? constraints.maxWidth
+                                  : 900.0,
+                            ),
+                      ),
                       const SizedBox(height: 12),
                       if (_entries.isEmpty)
                         const Card(
@@ -283,73 +290,72 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
 
   // ───────────── en-tête document (style grand livre) ─────────────
 
-  Widget _buildDocumentHeader() {
-    final entite = _entite?['denomination_sociale']?.toString() ?? ' ';
-    final nif = _entite?['numero_fiscal']?.toString() ?? ' ';
+  Widget _buildDocumentHeader(double tableWidth) {
+    final entite = _entite?['denomination_sociale']?.toString() ?? '-';
+    final nif = _entite?['numero_fiscal']?.toString() ?? '-';
     final adresse = [_entite?['ville'], _entite?['quartier']]
         .where((v) => v != null && v.toString().isNotEmpty)
         .join(', ');
     final journal = _isAll ? 'Tous les journaux' : widget.codeJournal!;
     final type = widget.typeEtat == 'tiers' ? 'TIERS' : 'BASE';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300, width: 1.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
-          // Ligne 1 : entité, NIF, adresse, période
-          Row(
-            children: [
-              Expanded(child: _headerCell('Dénomination sociale', bold: true)),
-              Expanded(child: _headerCell(entite, bold: true)),
-              Expanded(child: _headerCell('NIF', bold: true)),
-              Expanded(child: _headerCell(nif, borderBottom: true)),
-              Expanded(child: _headerCell('Adresse', bold: true, borderBottom: true)),
-              Expanded(child: _headerCell(adresse.isEmpty ? '-' : adresse, borderBottom: true)),
-              Expanded(child: _headerCell('Période', bold: true, borderBottom: true)),
-              Expanded(child: _headerCell(_periodeLabel, borderBottom: true)),
-            ],
-          ),
-          // Ligne 2 : journal + type
-          Row(
-            children: [
-              Expanded(child: _headerCell('JOURNAL', bold: true)),
-              Expanded(flex: 3, child: _headerCell(journal, bold: true)),
-              Expanded(child: _headerCell('TYPE', bold: true, borderAll: true)),
-              Expanded(child: _headerCell(type, bold: true, borderAll: true)),
-              const Expanded(flex: 2, child: SizedBox()),
-            ],
-          ),
-        ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: tableWidth,
+        child: Table(
+          border: TableBorder.all(color: Colors.black54, width: 0.7),
+          columnWidths: const {
+            0: FlexColumnWidth(1.6),
+            1: FlexColumnWidth(2.0),
+            2: FlexColumnWidth(0.7),
+            3: FlexColumnWidth(1.4),
+            4: FlexColumnWidth(0.8),
+            5: FlexColumnWidth(1.6),
+            6: FlexColumnWidth(0.8),
+            7: FlexColumnWidth(1.6),
+          },
+          children: [
+            TableRow(
+              decoration: const BoxDecoration(color: Colors.white),
+              children: [
+                _headerCell('Dénomination sociale', bold: true),
+                _headerCell(entite),
+                _headerCell('NIF', bold: true),
+                _headerCell(nif),
+                _headerCell('Adresse', bold: true),
+                _headerCell(adresse.isEmpty ? '-' : adresse),
+                _headerCell('Période', bold: true),
+                _headerCell(_periodeLabel),
+              ],
+            ),
+            TableRow(
+              decoration: const BoxDecoration(color: Colors.white),
+              children: [
+                _headerCell('JOURNAL', bold: true),
+                _headerCell(journal),
+                _headerCell(''),
+                _headerCell('TYPE', bold: true),
+                _headerCell(type),
+                _headerCell(''),
+                _headerCell(''),
+                _headerCell(''),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _headerCell(
-    String text, {
-    bool bold = false,
-    bool borderBottom = false,
-    bool borderAll = false,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        border: borderAll
-            ? Border.all(color: Colors.grey.shade300, width: 1)
-            : borderBottom
-                ? Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1))
-                : null,
-      ),
+  Widget _headerCell(String text, {bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       child: Text(
         text,
         style: TextStyle(
-          fontWeight: bold ? FontWeight.bold : FontWeight.w500,
           fontSize: 12,
-          color: Colors.grey.shade800,
+          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
         ),
         overflow: TextOverflow.ellipsis,
       ),
