@@ -21,6 +21,7 @@ import 'saisie_ecriture_page.dart';
 import 'balance_comptes_page.dart';
 import 'permissions_page.dart';
 import 'interrogations_lettrages_page.dart';
+import 'liste_exercices_page.dart';
 import '../models/saisie_comptable.dart';
 
 class HomePage extends StatefulWidget {
@@ -129,8 +130,8 @@ class _HomePageState extends State<HomePage> {
     _saisieCompleter?.complete(false);
     _saisieCompleter = null;
 
-    // Si on revient de la page Nouvel Exercice (index 12), rafraîchir la liste
-    if (_currentPageIndex == 12 && index != 12) {
+    // Rafraîchir la liste si on quitte la page Nouvel Exercice ou Liste exercices
+    if ((_currentPageIndex == 12 || _currentPageIndex == 17) && index != _currentPageIndex) {
       await _refreshExercices();
     }
 
@@ -867,8 +868,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildExercicesMenu() {
+    final bool isOnExercices =
+        _currentPageIndex == 17 || _currentPageIndex == 12;
+
     if (_isSidebarCollapsed) {
-      final bool isActive = _currentPageIndex == 12;
       return Tooltip(
         message: 'EXERCICES',
         preferBelow: false,
@@ -876,13 +879,15 @@ class _HomePageState extends State<HomePage> {
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
-            onTap: () => _toggleMenu('EXERCICES'),
+            onTap: () => _showPage(17),
             child: Container(
               height: 44,
               alignment: Alignment.center,
               child: Icon(
                 Icons.calendar_today,
-                color: isActive ? Colors.blue.shade900 : Colors.blue.shade400,
+                color: isOnExercices
+                    ? Colors.blue.shade900
+                    : Colors.blue.shade400,
                 size: 22,
               ),
             ),
@@ -891,39 +896,31 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    final isExpanded = _expandedMenu == 'EXERCICES';
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Bouton principal EXERCICES → page liste
         InkWell(
-          onTap: () => _toggleMenu('EXERCICES'),
+          onTap: () => _showPage(17),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: isExpanded ? Colors.blue.shade100 : Colors.transparent,
+              color: _currentPageIndex == 17
+                  ? Colors.blue.shade100
+                  : Colors.transparent,
               border: Border(
                 left: BorderSide(
-                  color: isExpanded ? Colors.blue.shade400 : Colors.transparent,
+                  color: isOnExercices
+                      ? Colors.blue.shade400
+                      : Colors.transparent,
                   width: 3,
                 ),
               ),
             ),
             child: Row(
               children: [
-                Icon(
-                  isExpanded
-                      ? Icons.keyboard_arrow_down
-                      : Icons.keyboard_arrow_right,
-                  color: Colors.blue.shade400,
-                  size: 18,
-                ),
-                const SizedBox(width: 10),
-                Icon(
-                  Icons.calendar_today,
-                  color: Colors.blue.shade400,
-                  size: 20,
-                ),
+                Icon(Icons.calendar_today,
+                    color: Colors.blue.shade400, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -940,88 +937,83 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-        if (isExpanded) ...[
-          // Liste des exercices existants
-          ..._exercices.map(
-            (exercice) => InkWell(
-              onTap: () => _switchExercice(exercice['id']),
-              child: Container(
-                padding: const EdgeInsets.only(left: 52, top: 8, bottom: 8),
-                decoration: BoxDecoration(
-                  color:
-                      _activeExerciceId == exercice['id']
-                          ? Colors.green.shade100
-                          : Colors.transparent,
-                ),
-                child: Row(
-                  children: [
-                    if (_activeExerciceId == exercice['id'])
-                      Icon(
-                        Icons.check_circle,
-                        color: Colors.green.shade700,
-                        size: 16,
-                      ),
-                    if (_activeExerciceId == exercice['id'])
-                      const SizedBox(width: 6),
-                    Text(
-                      exercice['code'].toString(),
-                      style: TextStyle(
-                        color:
-                            _activeExerciceId == exercice['id']
-                                ? Colors.green.shade900
-                                : Colors.blue.shade400,
-                        fontSize: 12.5,
-                        fontWeight:
-                            _activeExerciceId == exercice['id']
-                                ? FontWeight.w600
-                                : FontWeight.w500,
-                      ),
-                    ),
-                  ],
+        // Sous-item fixe : Nouvel exercice
+        InkWell(
+          onTap: () => _showPage(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: _currentPageIndex == 12
+                  ? Colors.blue.shade100
+                  : Colors.transparent,
+              border: Border(
+                left: BorderSide(
+                  color: _currentPageIndex == 12
+                      ? Colors.blue.shade400
+                      : Colors.transparent,
+                  width: 3,
                 ),
               ),
             ),
-          ),
-          // Bouton pour créer un nouvel exercice
-          InkWell(
-            onTap: () => _showPage(12),
-            child: Container(
-              padding: const EdgeInsets.only(left: 52, top: 8, bottom: 8),
-              decoration: BoxDecoration(
-                color:
-                    _currentPageIndex == 12
-                        ? Colors.blue.shade200
-                        : Colors.transparent,
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.add_circle_outline,
-                    color: Colors.blue.shade400,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
+            child: Row(
+              children: [
+                Icon(Icons.add_circle_outline,
+                    color: Colors.blue.shade400, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
                     'Nouvel exercice',
                     style: TextStyle(
-                      color:
-                          _currentPageIndex == 12
-                              ? Colors.blue.shade900
-                              : Colors.blue.shade400,
-                      fontSize: 12.5,
-                      fontWeight:
-                          _currentPageIndex == 12
-                              ? FontWeight.w600
-                              : FontWeight.w500,
+                      color: Colors.blue.shade900,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ],
     );
+  }
+
+  Future<void> _editExercice(
+      int id, String code, String dateDebut, String dateFin) async {
+    try {
+      final db = DatabaseService.database;
+      final d = DateTime.parse(dateDebut);
+      final f = DateTime.parse(dateFin);
+      final dureeMois = (f.year - d.year) * 12 + (f.month - d.month) + 1;
+      await db.update(
+        'exercice',
+        {
+          'code': code,
+          'date_debut': dateDebut,
+          'date_fin': dateFin,
+          'duree_mois': dureeMois,
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      await _refreshExercices();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Exercice modifié avec succès'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur : ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _switchExercice(int exerciceId) async {
@@ -1122,6 +1114,14 @@ class _HomePageState extends State<HomePage> {
             permissions: [],
           ),
           showAppBar: false,
+        );
+      case 17:
+        return ListeExercicesPage(
+          exercices: _exercices,
+          activeExerciceId: _activeExerciceId,
+          onSwitch: _switchExercice,
+          onCreateNew: () => _showPage(12),
+          onEdit: _editExercice,
         );
       case 13:
         return BalanceComptesPage(

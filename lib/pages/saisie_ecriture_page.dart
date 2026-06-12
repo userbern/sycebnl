@@ -1282,15 +1282,12 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
           if (!widget.showAppBar) _buildEmbeddedToolbar(),
           // En-tête avec infos du journal et totaux
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: Colors.blue.shade400,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            color: Colors.blue.shade500,
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              spacing: 12,
               children: [
-                // Ligne 1: Journal et nombre d'écritures
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1313,198 +1310,59 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                         ),
                       ],
                     ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      spacing: 8,
-                      children: [
-                        Icon(Icons.assignment, size: 16, color: Colors.white70),
-                        Text(
-                          '$_nombreEnregistrementsUniques',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                    const Spacer(),
+                    _buildHeaderStat(
+                      'DÉBIT',
+                      formatMontantCFA(_totaux.totalDebit),
+                      Colors.white,
+                    ),
+                    _buildHeaderStatDivider(),
+                    _buildHeaderStat(
+                      'CRÉDIT',
+                      formatMontantCFA(_totaux.totalCredit),
+                      Colors.white,
+                    ),
+                    _buildHeaderStatDivider(),
+                    _buildHeaderStat(
+                      'SOLDE',
+                      formatMontantCFA(_totaux.solde),
+                      _totaux.isEquilibre
+                          ? Colors.greenAccent.shade100
+                          : Colors.redAccent.shade100,
+                    ),
+                    _buildHeaderStatDivider(),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '$_nombreEnregistrementsUniques',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'écriture${_nombreEnregistrementsUniques > 1 ? 's' : ''}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.white70,
+                          Text(
+                            'écriture${_nombreEnregistrementsUniques > 1 ? 's' : ''}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.white70,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
-
-                // Ligne 2: Totaux (Débit/Crédit/Solde)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Débit
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        spacing: 6,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade100,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Icon(
-                              Icons.arrow_downward,
-                              size: 14,
-                              color: Colors.blue.shade400,
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'Débit',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                              Text(
-                                formatMontantCFA(_totaux.totalDebit),
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-
-                      // Crédit
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        spacing: 6,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade100,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Icon(
-                              Icons.arrow_upward,
-                              size: 14,
-                              color: Colors.green.shade700,
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'Crédit',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                              Text(
-                                formatMontantCFA(_totaux.totalCredit),
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-
-                      // Séparateur
-                      Container(
-                        width: 1,
-                        height: 40,
-                        color: Colors.white.withValues(alpha: 0.15),
-                      ),
-
-                      // Solde
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        spacing: 6,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color:
-                                  _totaux.isEquilibre
-                                      ? Colors.green.shade100
-                                      : Colors.red.shade100,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Icon(
-                              _totaux.isEquilibre
-                                  ? Icons.check_circle
-                                  : Icons.error,
-                              size: 14,
-                              color:
-                                  _totaux.isEquilibre
-                                      ? Colors.green.shade700
-                                      : Colors.red.shade700,
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'Solde',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                              Text(
-                                formatMontantCFA(_totaux.solde),
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color:
-                                      _totaux.isEquilibre
-                                          ? Colors.greenAccent
-                                          : Colors.redAccent,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Ligne 3: Enregistrement en cours (s'il existe)
-                if (_currentNumeroEnregistrement != null)
+                if (_currentNumeroEnregistrement != null) ...[
+                  const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
-                      vertical: 8,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
                       color:
@@ -1515,35 +1373,28 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
-                      spacing: 6,
                       children: [
                         Icon(
                           _isCurrentEnregistrementBalanced
                               ? Icons.check_circle
                               : Icons.timer,
-                          size: 16,
+                          size: 14,
                           color: Colors.white,
                         ),
+                        const SizedBox(width: 6),
                         Text(
-                          'Enregistrement n° $_currentNumeroEnregistrement',
+                          'Enregistrement n° $_currentNumeroEnregistrement'
+                          '${_isCurrentEnregistrementBalanced ? ' (équilibré)' : ' (en cours)'}',
                           style: const TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w500,
                             color: Colors.white,
-                          ),
-                        ),
-                        Text(
-                          _isCurrentEnregistrementBalanced
-                              ? '(équilibré)'
-                              : '(en cours)',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.white70,
                           ),
                         ),
                       ],
                     ),
                   ),
+                ],
               ],
             ),
           ),
@@ -1560,12 +1411,51 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     );
   }
 
-  Widget _buildEmbeddedToolbar() {
+  Widget _buildHeaderStat(String label, String value, Color valueColor) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: Colors.white70,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: valueColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderStatDivider() {
+    return Container(
+      width: 1,
+      height: 30,
+      color: Colors.white.withValues(alpha: 0.2),
+    );
+  }
+
+  Widget _buildEmbeddedToolbar() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: Row(
         children: [
-          if (widget.onClose != null) ...[
+          if (widget.onClose != null)
             OutlinedButton.icon(
               onPressed: () {
                 if (_totaux.isEquilibre) {
@@ -1574,18 +1464,23 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                   _showBalanceWarning();
                 }
               },
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('Retour'),
+              icon: const Icon(Icons.arrow_back, size: 16),
+              label: const Text('Retour', style: TextStyle(fontSize: 13)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+              ),
             ),
-            const SizedBox(width: 12),
-          ],
           Expanded(
             child: Text(
               'Saisie Écriture',
+              textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 17,
                 fontWeight: FontWeight.w600,
-                color: Colors.blue.shade400,
+                color: Colors.blue.shade500,
               ),
             ),
           ),
@@ -1614,9 +1509,18 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     return Container(
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           // LIGNE 1: Champs de saisie
@@ -1639,10 +1543,24 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                         }),
                       )
                       : Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Text(
-                          'Aucune écriture saisie',
-                          style: TextStyle(color: Colors.grey.shade600),
+                        padding: const EdgeInsets.symmetric(vertical: 48),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.receipt_long_outlined,
+                              size: 44,
+                              color: Colors.grey.shade300,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Aucune écriture saisie',
+                              style: TextStyle(
+                                color: Colors.grey.shade400,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
             ),
@@ -1652,172 +1570,295 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     );
   }
 
+  InputDecoration _inputDeco(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      isDense: true,
+    );
+  }
+
+  Widget _buildLabeledInputCell({
+    required String label,
+    required double width,
+    required Widget child,
+  }) {
+    return Container(
+      width: width,
+      constraints: const BoxConstraints(minHeight: 52),
+      decoration: BoxDecoration(
+        border: Border(right: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 8, top: 6, bottom: 2),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey.shade500,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+
   // Ligne 1: Champs de saisie
   Widget _buildInputRow() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade300, width: 2),
-        ),
+        color: Colors.grey.shade50,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // N° d'enregistrement (automatique, non-éditable)
-          _buildCell(
-            width: 120,
-            child: Container(
-              alignment: Alignment.center,
-              padding: const EdgeInsets.all(8),
-              child: Text(
-                _currentNumeroEnregistrement?.toString() ?? '—',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue.shade500,
+          Row(
+            children: [
+              // N° d'enregistrement (automatique, non-éditable)
+              _buildLabeledInputCell(
+                label: 'N° ENR',
+                width: 120,
+                child: Container(
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                  child: Text(
+                    _currentNumeroEnregistrement?.toString() ?? '—',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade500,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
 
-          // Jour
-          _buildCell(
-            width: 85,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: TextField(
-                controller: _jourController,
-                focusNode: _jourFocusNode,
-                autofocus: true,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  hintText: 'JJ',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
+              // Jour
+              _buildLabeledInputCell(
+                label: 'JOUR',
+                width: 85,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                  child: TextField(
+                    controller: _jourController,
+                    focusNode: _jourFocusNode,
+                    autofocus: true,
+                    keyboardType: TextInputType.number,
+                    decoration: _inputDeco('JJ'),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                  isDense: true,
                 ),
               ),
-            ),
-          ),
 
-          // N° Document
-          _buildCell(
-            width: 130,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: TextField(
-                controller: _numeroDocController,
-                decoration: InputDecoration(
-                  hintText: 'N° Doc',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
+              // N° Document
+              _buildLabeledInputCell(
+                label: 'N° DOC',
+                width: 130,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                  child: TextField(
+                    controller: _numeroDocController,
+                    decoration: _inputDeco('N° Doc'),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                  isDense: true,
                 ),
               ),
-            ),
-          ),
 
-          // Référence
-          _buildCell(
-            width: 120,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: TextField(
-                controller: _referenceController,
-                decoration: InputDecoration(
-                  hintText: 'Ref',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
+              // Référence
+              _buildLabeledInputCell(
+                label: 'RÉF',
+                width: 120,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                  child: TextField(
+                    controller: _referenceController,
+                    decoration: _inputDeco('Réf'),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                  isDense: true,
                 ),
               ),
-            ),
-          ),
 
-          // Compte
-          _buildCell(
-            width: 170,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Autocomplete<Compte>(
-                initialValue: TextEditingValue(text: _compteController.text),
-                displayStringForOption: (Compte option) => option.numeroCompte,
-                optionsBuilder: (TextEditingValue textEditingValue) {
-                  if (textEditingValue.text.isEmpty) {
-                    return const Iterable<Compte>.empty();
-                  }
-                  final query = textEditingValue.text.toLowerCase();
-                  final matches =
-                      _comptes.where((compte) {
-                        return compte.numeroCompte.toLowerCase().contains(
-                              query,
-                            ) ||
-                            compte.intitule.toLowerCase().contains(query);
-                      }).toList();
-                  return _applyJournalCompteFilter(matches);
-                },
-                onSelected: (Compte selection) {
-                  _compteController.text = selection.numeroCompte;
-                  _onCompteSelected(selection.numeroCompte);
-                },
-                fieldViewBuilder: (
-                  BuildContext context,
-                  TextEditingController textEditingController,
-                  FocusNode focusNode,
-                  VoidCallback onFieldSubmitted,
-                ) {
-                  // Stocker le FocusNode pour pouvoir l'utiliser dans _clearAmountsOnly()
-                  _compteFocusNode = focusNode;
-                  _compteFieldController = textEditingController;
-
-                  return TextField(
-                    controller: textEditingController,
-                    focusNode: focusNode,
-                    onTapOutside: (_) {
-                      _autoCompleteCompteIfPrefix(
-                        textEditingController.text,
-                        textEditingController,
-                      );
+              // Compte
+              _buildLabeledInputCell(
+                label: 'COMPTE',
+                width: 170,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                  child: Autocomplete<Compte>(
+                    initialValue: TextEditingValue(
+                      text: _compteController.text,
+                    ),
+                    displayStringForOption:
+                        (Compte option) => option.numeroCompte,
+                    optionsBuilder: (TextEditingValue textEditingValue) {
+                      if (textEditingValue.text.isEmpty) {
+                        return const Iterable<Compte>.empty();
+                      }
+                      final query = textEditingValue.text.toLowerCase();
+                      final matches =
+                          _comptes.where((compte) {
+                            return compte.numeroCompte.toLowerCase().contains(
+                                  query,
+                                ) ||
+                                compte.intitule.toLowerCase().contains(query);
+                          }).toList();
+                      return _applyJournalCompteFilter(matches);
                     },
-                    onChanged: (value) {
-                      _compteController.text = value;
-                      setState(() {
-                        _selectedCompteNumero = value;
-                        try {
-                          final compte = _comptes.firstWhere(
-                            (c) => c.numeroCompte == value,
+                    onSelected: (Compte selection) {
+                      _compteController.text = selection.numeroCompte;
+                      _onCompteSelected(selection.numeroCompte);
+                    },
+                    fieldViewBuilder: (
+                      BuildContext context,
+                      TextEditingController textEditingController,
+                      FocusNode focusNode,
+                      VoidCallback onFieldSubmitted,
+                    ) {
+                      // Stocker le FocusNode pour pouvoir l'utiliser dans _clearAmountsOnly()
+                      _compteFocusNode = focusNode;
+                      _compteFieldController = textEditingController;
+
+                      return TextField(
+                        controller: textEditingController,
+                        focusNode: focusNode,
+                        onTapOutside: (_) {
+                          _autoCompleteCompteIfPrefix(
+                            textEditingController.text,
+                            textEditingController,
                           );
-                          _showTiersField = compte.liaisonTiers;
-                        } catch (e) {
-                          _showTiersField = false;
-                        }
-                      });
-                    },
-                    onSubmitted: (value) {
-                      _autoCompleteCompteIfPrefix(value, textEditingController);
-                    },
-                    onEditingComplete: () {
-                      _autoCompleteCompteIfPrefix(
-                        textEditingController.text,
-                        textEditingController,
+                        },
+                        onChanged: (value) {
+                          _compteController.text = value;
+                          setState(() {
+                            _selectedCompteNumero = value;
+                            try {
+                              final compte = _comptes.firstWhere(
+                                (c) => c.numeroCompte == value,
+                              );
+                              _showTiersField = compte.liaisonTiers;
+                            } catch (e) {
+                              _showTiersField = false;
+                            }
+                          });
+                        },
+                        onSubmitted: (value) {
+                          _autoCompleteCompteIfPrefix(
+                            value,
+                            textEditingController,
+                          );
+                        },
+                        onEditingComplete: () {
+                          _autoCompleteCompteIfPrefix(
+                            textEditingController.text,
+                            textEditingController,
+                          );
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Compte (code/nom)',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
+                          isDense: true,
+                          suffixIcon:
+                              textEditingController.text.isNotEmpty
+                                  ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 18),
+                                    onPressed: () {
+                                      textEditingController.clear();
+                                      _compteController.clear();
+                                      setState(() {
+                                        _selectedCompteNumero = null;
+                                        _showTiersField = false;
+                                      });
+                                    },
+                                  )
+                                  : null,
+                        ),
                       );
                     },
+                    optionsViewBuilder: (
+                      BuildContext context,
+                      AutocompleteOnSelected<Compte> onSelected,
+                      Iterable<Compte> options,
+                    ) {
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          elevation: 4,
+                          child: Container(
+                            width: 170,
+                            constraints: const BoxConstraints(maxHeight: 250),
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              shrinkWrap: true,
+                              itemCount: options.length,
+                              itemBuilder: (BuildContext context, int index) {
+                                final Compte option = options.elementAt(index);
+                                return InkWell(
+                                  onTap: () => onSelected(option),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    color:
+                                        index % 2 == 0
+                                            ? Colors.white
+                                            : Colors.grey.shade50,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          option.numeroCompte,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        Text(
+                                          option.intitule,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+              // Tiers
+              _buildLabeledInputCell(
+                label: 'TIERS',
+                width: 120,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedTiersNumero,
                     decoration: InputDecoration(
-                      hintText: 'Compte (code/nom)',
+                      hintText: 'Tiers',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(4),
                       ),
@@ -1826,278 +1867,135 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                         vertical: 8,
                       ),
                       isDense: true,
-                      suffixIcon:
-                          textEditingController.text.isNotEmpty
-                              ? IconButton(
-                                icon: const Icon(Icons.clear, size: 18),
-                                onPressed: () {
-                                  textEditingController.clear();
-                                  _compteController.clear();
-                                  setState(() {
-                                    _selectedCompteNumero = null;
-                                    _showTiersField = false;
-                                  });
-                                },
-                              )
-                              : null,
+                      filled: !_showTiersField,
+                      fillColor: !_showTiersField ? Colors.grey.shade200 : null,
                     ),
-                  );
-                },
-                optionsViewBuilder: (
-                  BuildContext context,
-                  AutocompleteOnSelected<Compte> onSelected,
-                  Iterable<Compte> options,
-                ) {
-                  return Align(
-                    alignment: Alignment.topLeft,
-                    child: Material(
-                      elevation: 4,
-                      child: Container(
-                        width: 170,
-                        constraints: const BoxConstraints(maxHeight: 250),
-                        child: ListView.builder(
-                          padding: EdgeInsets.zero,
-                          shrinkWrap: true,
-                          itemCount: options.length,
-                          itemBuilder: (BuildContext context, int index) {
-                            final Compte option = options.elementAt(index);
-                            return InkWell(
-                              onTap: () => onSelected(option),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                                color:
-                                    index % 2 == 0
-                                        ? Colors.white
-                                        : Colors.grey.shade50,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      option.numeroCompte,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
+                    isExpanded: true,
+                    disabledHint: Text(
+                      'Non requis',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    items:
+                        _showTiersField
+                            ? _filteredTiers
+                                .map(
+                                  (tier) => DropdownMenuItem<String>(
+                                    value: tier.numeroCompte,
+                                    child: Text(
+                                      tier.numeroCompte,
+                                      style: const TextStyle(fontSize: 12),
                                     ),
-                                    Text(
-                                      option.intitule,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
+                                  ),
+                                )
+                                .toList()
+                            : null,
+                    onChanged:
+                        _showTiersField
+                            ? (value) =>
+                                setState(() => _selectedTiersNumero = value)
+                            : null,
+                  ),
+                ),
+              ),
+
+              // Libellé
+              _buildLabeledInputCell(
+                label: 'LIBELLÉ',
+                width: 200,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                  child: TextField(
+                    controller: _libelleController,
+                    decoration: _inputDeco('Libellé'),
+                  ),
+                ),
+              ),
+
+              // Débit
+              _buildLabeledInputCell(
+                label: 'DÉBIT',
+                width: 110,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                  child: TextField(
+                    controller: _debitController,
+                    keyboardType: TextInputType.numberWithOptions(
+                      decimal: true,
                     ),
-                  );
-                },
-              ),
-            ),
-          ),
-
-          // Tiers
-          _buildCell(
-            width: 120,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: DropdownButtonFormField<String>(
-                value: _selectedTiersNumero,
-                decoration: InputDecoration(
-                  hintText: 'Tiers',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _submitForm(),
+                    decoration: _inputDeco('0'),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                  isDense: true,
-                  filled: !_showTiersField,
-                  fillColor: !_showTiersField ? Colors.grey.shade200 : null,
-                ),
-                isExpanded: true,
-                disabledHint: Text(
-                  'Non requis',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
-                items:
-                    _showTiersField
-                        ? _filteredTiers.map((tier) {
-                          return DropdownMenuItem<String>(
-                            value: tier.numeroCompte,
-                            child: Text(
-                              tier.numeroCompte,
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          );
-                        }).toList()
-                        : null,
-                onChanged:
-                    _showTiersField
-                        ? (value) =>
-                            setState(() => _selectedTiersNumero = value)
-                        : null,
-              ),
-            ),
-          ),
-
-          // Libellé
-          _buildCell(
-            width: 200,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: TextField(
-                controller: _libelleController,
-                decoration: InputDecoration(
-                  hintText: 'Libellé',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                  isDense: true,
                 ),
               ),
-            ),
-          ),
 
-          // Débit
-          _buildCell(
-            width: 110,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: TextField(
-                controller: _debitController,
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _submitForm(),
-                decoration: InputDecoration(
-                  hintText: 'Débit',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                  isDense: true,
-                ),
-              ),
-            ),
-          ),
-
-          // Crédit
-          _buildCell(
-            width: 110,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: TextField(
-                controller: _creditController,
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  hintText: 'Crédit',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                  isDense: true,
-                ),
-              ),
-            ),
-          ),
-
-          // Actions
-          _buildCell(
-            width: 270,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      onPressed: _submitForm,
-                      icon: Icon(
-                        _editingIndex != null ? Icons.edit : Icons.add,
-                        size: 14,
+              // Crédit + espace pour VENTIL & ACTIONS
+              _buildLabeledInputCell(
+                label: 'CRÉDIT',
+                width: 380,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                  child: SizedBox(
+                    width: 102,
+                    child: TextField(
+                      controller: _creditController,
+                      keyboardType: TextInputType.numberWithOptions(
+                        decimal: true,
                       ),
-                      label: Text(
-                        _editingIndex != null ? 'Modif.' : 'Ajouter',
-                        style: const TextStyle(fontSize: 11),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade700,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 6,
-                        ),
-                      ),
+                      decoration: _inputDeco('0'),
                     ),
                   ),
-                  const SizedBox(width: 2),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      onPressed:
-                          !_isCurrentEnregistrementBalanced
-                              ? _balanceEnregistrement
-                              : null,
-                      icon: const Icon(Icons.balance, size: 14),
-                      label: const Text(
-                        'Équil.',
-                        style: TextStyle(fontSize: 11),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange.shade700,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 6,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 2),
-                  Expanded(
-                    flex: 2,
-                    child: OutlinedButton.icon(
-                      onPressed: _clearForm,
-                      icon: const Icon(Icons.clear, size: 14),
-                      label: Text(
-                        _editingIndex != null ? 'Réinit.' : 'Annul.',
-                        style: const TextStyle(fontSize: 11),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 6,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
+            ],
+          ),
+
+          // Boutons centrés
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _clearForm,
+                  icon: const Icon(Icons.close, size: 14),
+                  label: Text(
+                    _editingIndex != null ? 'Réinitialiser' : 'Annuler',
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed:
+                      !_isCurrentEnregistrementBalanced
+                          ? _balanceEnregistrement
+                          : null,
+                  icon: const Icon(Icons.balance, size: 14),
+                  label: const Text('Équilibrer'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade600,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: _submitForm,
+                  icon: Icon(
+                    _editingIndex != null ? Icons.edit : Icons.add,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                  label: Text(_editingIndex != null ? 'Modifier' : 'Ajouter'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade500,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -2108,23 +2006,20 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
   // Ligne 2: En-têtes
   Widget _buildHeaderRow() {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-      ),
+      decoration: BoxDecoration(color: Colors.blue.shade500),
       child: Row(
         children: [
-          _buildHeaderCell('N° Enr', 120),
-          _buildHeaderCell('Jour', 85),
-          _buildHeaderCell('N° Doc', 130),
-          _buildHeaderCell('Ref', 120),
-          _buildHeaderCell('Compte', 170),
-          _buildHeaderCell('Tiers', 120),
-          _buildHeaderCell('Libellé', 200),
-          _buildHeaderCell('Débit', 110),
-          _buildHeaderCell('Crédit', 110),
-          _buildHeaderCell('Ventilation', 120),
-          _buildHeaderCell('Actions', 150),
+          _buildHeaderCell('N° ENR', 120),
+          _buildHeaderCell('JOUR', 85),
+          _buildHeaderCell('N° DOC', 130),
+          _buildHeaderCell('RÉF', 120),
+          _buildHeaderCell('COMPTE', 170),
+          _buildHeaderCell('TIERS', 120),
+          _buildHeaderCell('LIBELLÉ', 200),
+          _buildHeaderCell('DÉBIT', 110),
+          _buildHeaderCell('CRÉDIT', 110),
+          _buildHeaderCell('VENTIL.', 120),
+          _buildHeaderCell('ACTIONS', 150),
         ],
       ),
     );
@@ -2142,7 +2037,11 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
           ),
           child: Row(
             children: [
-              _buildDataCell(ecriture.numeroEnregistrement.toString(), 120),
+              _buildDataCell(
+                ecriture.numeroEnregistrement.toString(),
+                120,
+                isNumEnr: true,
+              ),
               _buildDataCell(ecriture.jour.toString(), 85),
               _buildDataCell(ecriture.numeroDocument, 130),
               _buildDataCell(ecriture.reference ?? '-', 120),
@@ -2268,23 +2167,34 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     double width, {
     bool isDebit = false,
     bool isCredit = false,
+    bool isNumEnr = false,
   }) {
     final bool isMontantCell = isDebit || isCredit;
-    final Color amountColor = Colors.indigo.shade700;
+    Color textColor;
+    if (isNumEnr) {
+      textColor = Colors.blue.shade600;
+    } else if (isDebit) {
+      textColor = Colors.indigo.shade700;
+    } else if (isCredit) {
+      textColor = Colors.teal.shade700;
+    } else {
+      textColor = Colors.grey.shade800;
+    }
 
     return _buildCell(
       width: width,
       minHeight: 14,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        alignment: isMontantCell ? Alignment.centerRight : Alignment.centerLeft,
         child: Text(
           content,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: isMontantCell ? amountColor : Colors.black,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+            color: textColor,
+            fontSize: 11,
+            fontWeight:
+                isMontantCell || isNumEnr ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ),
@@ -2293,18 +2203,23 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
 
   // Cellule en-tête
   Widget _buildHeaderCell(String title, double width) {
-    return _buildCell(
+    return Container(
       width: width,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        alignment: Alignment.center,
-        child: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.grey.shade700,
-            fontSize: 12,
-          ),
+      constraints: const BoxConstraints(minHeight: 40),
+      decoration: BoxDecoration(
+        border: Border(
+          right: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      alignment: Alignment.center,
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+          fontSize: 11,
+          letterSpacing: 0.5,
         ),
       ),
     );
@@ -3077,7 +2992,7 @@ class _VentilationDialogState extends State<VentilationDialog> {
                             child: ElevatedButton(
                               onPressed: _enregistrerLigne,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.indigo.shade600,
+                                backgroundColor: Colors.blue.shade600,
                                 foregroundColor: Colors.white,
                               ),
                               child: const FittedBox(

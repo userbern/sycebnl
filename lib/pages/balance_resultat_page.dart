@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../models/exercice.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
@@ -44,6 +44,8 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
   Map<String, dynamic>? _entite;
   String? _projetDesignation;
   String? _bailleursDesignation;
+  double _soldeOuvertureDebit = 0.0;
+  double _soldeOuvertureCredit = 0.0;
 
   @override
   void initState() {
@@ -298,11 +300,55 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         });
       }
 
+      // Solde d'ouverture : exercice précédent, comptes de bilan (classes 1–5)
+      double soldeOuvDebit = 0.0;
+      double soldeOuvCredit = 0.0;
+
+      final currentStart = widget.exercice?.dateDebut;
+      if (currentStart != null) {
+        final currentStartStr =
+            '${currentStart.year.toString().padLeft(4, '0')}-'
+            '${currentStart.month.toString().padLeft(2, '0')}-'
+            '${currentStart.day.toString().padLeft(2, '0')}';
+
+        final prevExRows = await db.rawQuery(
+          'SELECT id FROM exercice WHERE date(date_fin) < date(?) ORDER BY date_fin DESC LIMIT 1',
+          [currentStartStr],
+        );
+
+        if (prevExRows.isNotEmpty) {
+          final prevId = prevExRows.first['id'];
+          final soldeRows = await db.rawQuery('''
+            SELECT
+              SUM(CASE WHEN net > 0 THEN net  ELSE 0 END) AS total_debit,
+              SUM(CASE WHEN net < 0 THEN -net ELSE 0 END) AS total_credit
+            FROM (
+              SELECT
+                e.numero_compte,
+                COALESCE(SUM(e.montant_debit), 0) - COALESCE(SUM(e.montant_credit), 0) AS net
+              FROM ecritures e
+              JOIN journaux_periodes jp ON e.journal_periode_id = jp.id
+              JOIN compte c ON e.numero_compte = c.numero_compte
+              WHERE jp.exercice_id = ?
+                AND CAST(SUBSTR(TRIM(c.numero_compte), 1, 1) AS INTEGER) BETWEEN 1 AND 5
+              GROUP BY e.numero_compte
+            )
+          ''', [prevId]);
+
+          if (soldeRows.isNotEmpty) {
+            soldeOuvDebit  = (soldeRows.first['total_debit']  as num?)?.toDouble() ?? 0.0;
+            soldeOuvCredit = (soldeRows.first['total_credit'] as num?)?.toDouble() ?? 0.0;
+          }
+        }
+      }
+
       setState(() {
         _comptes = comptes;
         _entite = entite;
         _projetDesignation = projetDesignation;
         _bailleursDesignation = bailleursDesignation;
+        _soldeOuvertureDebit = soldeOuvDebit;
+        _soldeOuvertureCredit = soldeOuvCredit;
         _isLoading = false;
       });
     } catch (e) {
@@ -567,372 +613,58 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                       ),
                     ),
                     // Tableau des comptes
-                    Container(
-                      margin: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black, width: 1),
-                        borderRadius: BorderRadius.circular(0),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
                       ),
-                      child: Column(
-                        children: [
-                          // Première ligne d'en-tête (titres)
-                          Container(
-                            decoration: BoxDecoration(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black, width: 1),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Ligne de groupe (fusionnée via Row)
+                            Container(
                               color: Colors.blue.shade100,
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: Colors.black,
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                // N° Compte et Intitulé
-                                Expanded(
-                                  flex: 3,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 2,
-                                    ),
-                                    child: const SizedBox(),
-                                  ),
-                                ),
-                                // SOLDE D'OUVERTURE
-                                Expanded(
-                                  flex: 2,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        right: BorderSide(color: Colors.black),
-                                      ),
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        'SOLDE D\'OUVERTURE',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // MOUVEMENTS
-                                Expanded(
-                                  flex: 2,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        right: BorderSide(color: Colors.black),
-                                      ),
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        'MOUVEMENTS',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // SOLDE DE CLOTURE
-                                Expanded(
-                                  flex: 2,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        'SOLDE DE CLOTURE',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // Deuxième ligne d'en-têtes (colonnes)
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade100,
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: Colors.black,
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                // N° Compte
-                                Expanded(
-                                  flex: 1,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        right: BorderSide(
-                                          color: Colors.black,
-                                          width: 1,
-                                        ),
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'N° COMPTE',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // Intitulé
-                                Expanded(
-                                  flex: 2,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        right: BorderSide(
-                                          color: Colors.black,
-                                          width: 1,
-                                        ),
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'INTITULES',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // Solde d'ouverture - Débiteur
-                                Expanded(
-                                  flex: 1,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        right: BorderSide(
-                                          color: Colors.black,
-                                          width: 1,
-                                        ),
-                                      ),
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        'DEBITEUR',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // Solde d'ouverture - Créditeur
-                                Expanded(
-                                  flex: 1,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        right: BorderSide(
-                                          color: Colors.black,
-                                          width: 1,
-                                        ),
-                                      ),
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        'CREDITEUR',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // Mouvements - Débit
-                                Expanded(
-                                  flex: 1,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        right: BorderSide(
-                                          color: Colors.black,
-                                          width: 1,
-                                        ),
-                                      ),
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        'DEBIT',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // Mouvements - Crédit
-                                Expanded(
-                                  flex: 1,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        right: BorderSide(
-                                          color: Colors.black,
-                                          width: 1,
-                                        ),
-                                      ),
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        'CREDIT',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // Solde de clôture - Débiteur
-                                Expanded(
-                                  flex: 1,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        right: BorderSide(
-                                          color: Colors.black,
-                                          width: 1,
-                                        ),
-                                      ),
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        'DEBITEUR',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // Solde de clôture - Créditeur
-                                Expanded(
-                                  flex: 1,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 4,
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        'CREDITEUR',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // Lignes des comptes
-                          ..._comptes.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final compte = entry.value;
-                            final isEvenRow = index % 2 == 0;
-
-                            return Container(
-                              decoration: BoxDecoration(
-                                color:
-                                    isEvenRow
-                                        ? Colors.white
-                                        : Colors.grey.shade50,
-                                border: Border(
-                                  bottom: BorderSide(
-                                    color: Colors.black,
-                                    width: 1,
-                                  ),
-                                ),
-                              ),
                               child: Row(
                                 children: [
-                                  // N° Compte
                                   Expanded(
-                                    flex: 1,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        border: Border(
-                                          right: BorderSide(
-                                            color: Colors.black,
-                                            width: 1,
-                                          ),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        compte['numero'],
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
+                                    flex: 3,
+                                    child: const SizedBox(height: 26),
                                   ),
-                                  // Intitulé
                                   Expanded(
                                     flex: 2,
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 2,
+                                      height: 26,
+                                      decoration: BoxDecoration(
+                                        border: Border(
+                                          left: BorderSide(
+                                            color: Colors.black,
+                                            width: 1,
+                                          ),
+                                          right: BorderSide(
+                                            color: Colors.black,
+                                            width: 1,
+                                          ),
+                                        ),
                                       ),
+                                      child: const Center(
+                                        child: Text(
+                                          "SOLDE D'OUVERTURE",
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Container(
+                                      height: 26,
                                       decoration: BoxDecoration(
                                         border: Border(
                                           right: BorderSide(
@@ -941,198 +673,27 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                           ),
                                         ),
                                       ),
-                                      child: Text(compte['intitule']),
-                                    ),
-                                  ),
-                                  // Solde d'ouverture - Débiteur
-                                  Expanded(
-                                    flex: 1,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        border: Border(
-                                          right: BorderSide(
-                                            color: Colors.black,
-                                            width: 1,
-                                          ),
-                                        ),
-                                      ),
-                                      child: Center(
+                                      child: const Center(
                                         child: Text(
-                                          (compte['ouvertureDebit']
-                                                          as double? ??
-                                                      0) >
-                                                  0
-                                              ? _formatMontant(
-                                                compte['ouvertureDebit'],
-                                              )
-                                              : '',
-                                          textAlign: TextAlign.right,
+                                          'MOUVEMENTS',
                                           style: TextStyle(
-                                            color: Colors.indigo.shade700,
                                             fontWeight: FontWeight.bold,
+                                            fontSize: 11,
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                  // Solde d'ouverture - Créditeur
                                   Expanded(
-                                    flex: 1,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        border: Border(
-                                          right: BorderSide(
-                                            color: Colors.black,
-                                            width: 1,
-                                          ),
-                                        ),
-                                      ),
-                                      child: Center(
+                                    flex: 2,
+                                    child: SizedBox(
+                                      height: 26,
+                                      child: const Center(
                                         child: Text(
-                                          (compte['ouvertureCredit']
-                                                          as double? ??
-                                                      0) >
-                                                  0
-                                              ? _formatMontant(
-                                                compte['ouvertureCredit'],
-                                              )
-                                              : '',
-                                          textAlign: TextAlign.right,
+                                          'SOLDE DE CLOTURE',
                                           style: TextStyle(
-                                            color: Colors.indigo.shade700,
                                             fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  // Mouvements - Débit
-                                  Expanded(
-                                    flex: 1,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        border: Border(
-                                          right: BorderSide(
-                                            color: Colors.black,
-                                            width: 1,
-                                          ),
-                                        ),
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          (compte['soldeDebit'] as double? ??
-                                                      0) >
-                                                  0
-                                              ? _formatMontant(
-                                                compte['soldeDebit'],
-                                              )
-                                              : '',
-                                          textAlign: TextAlign.right,
-                                          style: TextStyle(
-                                            color: Colors.indigo.shade700,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  // Mouvements - Crédit
-                                  Expanded(
-                                    flex: 1,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        border: Border(
-                                          right: BorderSide(
-                                            color: Colors.black,
-                                            width: 1,
-                                          ),
-                                        ),
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          (compte['soldeCredit'] as double? ??
-                                                      0) >
-                                                  0
-                                              ? _formatMontant(
-                                                compte['soldeCredit'],
-                                              )
-                                              : '',
-                                          textAlign: TextAlign.right,
-                                          style: TextStyle(
-                                            color: Colors.indigo.shade700,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  // Solde de clôture - Débiteur
-                                  Expanded(
-                                    flex: 1,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        border: Border(
-                                          right: BorderSide(
-                                            color: Colors.black,
-                                            width: 1,
-                                          ),
-                                        ),
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          (compte['mouvementDebit']
-                                                          as double? ??
-                                                      0) >
-                                                  0
-                                              ? _formatMontant(
-                                                compte['mouvementDebit'],
-                                              )
-                                              : '',
-                                          textAlign: TextAlign.right,
-                                          style: TextStyle(
-                                            color: Colors.indigo.shade700,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  // Solde de clôture - Créditeur
-                                  Expanded(
-                                    flex: 1,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 2,
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          (compte['mouvementCredit']
-                                                          as double? ??
-                                                      0) >
-                                                  0
-                                              ? _formatMontant(
-                                                compte['mouvementCredit'],
-                                              )
-                                              : '',
-                                          textAlign: TextAlign.right,
-                                          style: TextStyle(
-                                            color: Colors.indigo.shade700,
-                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
                                           ),
                                         ),
                                       ),
@@ -1140,43 +701,168 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                   ),
                                 ],
                               ),
+                            ),
+                            // Table pour les lignes de données
+                            Table(
+                              border: TableBorder(
+                                horizontalInside: BorderSide(
+                                  color: Colors.black,
+                                  width: 1,
+                                ),
+                                verticalInside: BorderSide(
+                                  color: Colors.black,
+                                  width: 1,
+                                ),
+                                top: BorderSide(
+                                  color: Colors.black,
+                                  width: 1,
+                                ),
+                              ),
+                              columnWidths: const {
+                                0: FlexColumnWidth(1),
+                                1: FlexColumnWidth(2),
+                                2: FlexColumnWidth(1),
+                                3: FlexColumnWidth(1),
+                                4: FlexColumnWidth(1),
+                                5: FlexColumnWidth(1),
+                                6: FlexColumnWidth(1),
+                                7: FlexColumnWidth(1),
+                              },
+                              children: [
+                          // Ligne des intitulés de colonnes
+                          TableRow(
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade100,
+                            ),
+                            children: [
+                              _cell('N° COMPTE', bold: true),
+                              _cell('INTITULES', bold: true),
+                              _cell(
+                                'DEBITEUR',
+                                bold: true,
+                                align: TextAlign.center,
+                              ),
+                              _cell(
+                                'CREDITEUR',
+                                bold: true,
+                                align: TextAlign.center,
+                              ),
+                              _cell(
+                                'DEBIT',
+                                bold: true,
+                                align: TextAlign.center,
+                              ),
+                              _cell(
+                                'CREDIT',
+                                bold: true,
+                                align: TextAlign.center,
+                              ),
+                              _cell(
+                                'DEBITEUR',
+                                bold: true,
+                                align: TextAlign.center,
+                              ),
+                              _cell(
+                                'CREDITEUR',
+                                bold: true,
+                                align: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                          // Ligne solde d'ouverture exercice précédent
+                          _buildSoldeOuvertureTableRow(),
+                          // Lignes des comptes
+                          ..._comptes.asMap().entries.map((entry) {
+                            final i = entry.key;
+                            final c = entry.value;
+                            return TableRow(
+                              decoration: BoxDecoration(
+                                color: i % 2 == 0
+                                    ? Colors.white
+                                    : Colors.grey.shade50,
+                              ),
+                              children: [
+                                _cell(c['numero'], bold: true),
+                                _cell(c['intitule']),
+                                _cell(
+                                  (c['ouvertureDebit'] as double? ?? 0) > 0
+                                      ? _formatMontant(c['ouvertureDebit'])
+                                      : '',
+                                  align: TextAlign.right,
+                                  color: Colors.indigo.shade700,
+                                ),
+                                _cell(
+                                  (c['ouvertureCredit'] as double? ?? 0) > 0
+                                      ? _formatMontant(c['ouvertureCredit'])
+                                      : '',
+                                  align: TextAlign.right,
+                                  color: Colors.indigo.shade700,
+                                ),
+                                _cell(
+                                  (c['mouvementDebit'] as double? ?? 0) > 0
+                                      ? _formatMontant(c['mouvementDebit'])
+                                      : '',
+                                  align: TextAlign.right,
+                                  color: Colors.indigo.shade700,
+                                ),
+                                _cell(
+                                  (c['mouvementCredit'] as double? ?? 0) > 0
+                                      ? _formatMontant(c['mouvementCredit'])
+                                      : '',
+                                  align: TextAlign.right,
+                                  color: Colors.indigo.shade700,
+                                ),
+                                _cell(
+                                  (c['soldeDebit'] as double? ?? 0) > 0
+                                      ? _formatMontant(c['soldeDebit'])
+                                      : '',
+                                  align: TextAlign.right,
+                                  color: Colors.indigo.shade700,
+                                ),
+                                _cell(
+                                  (c['soldeCredit'] as double? ?? 0) > 0
+                                      ? _formatMontant(c['soldeCredit'])
+                                      : '',
+                                  align: TextAlign.right,
+                                  color: Colors.indigo.shade700,
+                                ),
+                              ],
                             );
                           }),
-                          // Ligne COMPTES DU BILAN (1-5)
-                          _buildTotalRow(
-                            label: 'COMPTES DU BILAN',
-                            comptes:
-                                _comptes.where((c) {
-                                  final num =
-                                      int.tryParse(
-                                        c['numero'].toString().substring(0, 1),
-                                      ) ??
-                                      0;
-                                  return num >= 1 && num <= 5;
-                                }).toList(),
+                          // COMPTES DU BILAN
+                          _buildTotalTableRow(
+                            'COMPTES DU BILAN',
+                            _comptes.where((c) {
+                              final n = int.tryParse(
+                                    c['numero'].toString().substring(0, 1),
+                                  ) ??
+                                  0;
+                              return n >= 1 && n <= 5;
+                            }).toList(),
                           ),
-                          // Ligne COMPTES DE GESTION (6-8)
-                          _buildTotalRow(
-                            label: 'COMPTES DE GESTION',
-                            comptes:
-                                _comptes.where((c) {
-                                  final num =
-                                      int.tryParse(
-                                        c['numero'].toString().substring(0, 1),
-                                      ) ??
-                                      0;
-                                  return num >= 6 && num <= 8;
-                                }).toList(),
+                          // COMPTES DE GESTION
+                          _buildTotalTableRow(
+                            'COMPTES DE GESTION',
+                            _comptes.where((c) {
+                              final n = int.tryParse(
+                                    c['numero'].toString().substring(0, 1),
+                                  ) ??
+                                  0;
+                              return n >= 6 && n <= 8;
+                            }).toList(),
                           ),
-                          // Ligne TOTAL DE LA BALANCE
-                          _buildTotalRow(
-                            label: 'TOTAL DE LA BALANCE',
-                            comptes: _comptes,
+                          // TOTAL DE LA BALANCE
+                          _buildTotalTableRow(
+                            'TOTAL DE LA BALANCE',
+                            _comptes,
                             isTotalBalance: true,
                           ),
-                          // Ligne NATURE DU RESULTAT
-                          _buildNatureResultatRow(),
-                        ],
+                              ],
+                            ),
+                            // NATURE DU RESULTAT (cellules fusionnées via Row)
+                            _buildNatureResultatWidget(),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -1184,276 +870,166 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
               ),
     );
   }
-
-  Widget _buildTotalRow({
-    required String label,
-    required List<Map<String, dynamic>> comptes,
-    bool isTotalBalance = false,
+  Widget _cell(
+    String text, {
+    bool bold = false,
+    bool italic = false,
+    Color? color,
+    TextAlign align = TextAlign.left,
+    Widget? child,
   }) {
-    final ouvertureDebit = comptes.fold<double>(
-      0.0,
-      (sum, c) => sum + (c['ouvertureDebit'] as double? ?? 0),
-    );
-    final ouvertureCredit = comptes.fold<double>(
-      0.0,
-      (sum, c) => sum + (c['ouvertureCredit'] as double? ?? 0),
-    );
-    final mouvementDebit = comptes.fold<double>(
-      0.0,
-      (sum, c) => sum + (c['mouvementDebit'] as double? ?? 0),
-    );
-    final mouvementCredit = comptes.fold<double>(
-      0.0,
-      (sum, c) => sum + (c['mouvementCredit'] as double? ?? 0),
-    );
-    final soldeDebit = comptes.fold<double>(
-      0.0,
-      (sum, c) => sum + (c['soldeDebit'] as double? ?? 0),
-    );
-    final soldeCredit = comptes.fold<double>(
-      0.0,
-      (sum, c) => sum + (c['soldeCredit'] as double? ?? 0),
-    );
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        border: Border(
-          top: BorderSide(color: Colors.black, width: 1),
-          bottom: BorderSide(color: Colors.black, width: 1),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.black, width: 1),
-                ),
-              ),
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      child: child ??
+          Text(
+            text,
+            textAlign: align,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+              fontStyle: italic ? FontStyle.italic : FontStyle.normal,
+              color: color,
             ),
           ),
-          // Solde d'ouverture - Débiteur
-          Expanded(
-            flex: 1,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.black, width: 1),
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  ouvertureDebit > 0 ? _formatMontant(ouvertureDebit) : '',
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.indigo,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // Solde d'ouverture - Créditeur
-          Expanded(
-            flex: 1,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.black, width: 1),
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  ouvertureCredit > 0 ? _formatMontant(ouvertureCredit) : '',
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.indigo,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // Mouvements - Débit
-          Expanded(
-            flex: 1,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.black, width: 1),
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  _formatMontant(mouvementDebit),
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.indigo,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // Mouvements - Crédit
-          Expanded(
-            flex: 1,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.black, width: 1),
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  _formatMontant(mouvementCredit),
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.indigo,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // Solde de clôture - Débiteur (ligne oblique si Total de la Balance)
-          Expanded(
-            flex: 1,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.black, width: 1),
-                ),
-              ),
-              child: Center(
-                child:
-                    isTotalBalance
-                        ? CustomPaint(
-                          size: const Size(40, 20),
-                          painter: _DiagonalLinePainter(),
-                        )
-                        : Text(
-                          soldeDebit > 0 ? _formatMontant(soldeDebit) : '',
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.indigo,
-                            fontSize: 14,
-                          ),
-                        ),
-              ),
-            ),
-          ),
-          // Solde de clôture - Créditeur (ligne oblique si Total de la Balance)
-          Expanded(
-            flex: 1,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Center(
-                child:
-                    isTotalBalance
-                        ? CustomPaint(
-                          size: const Size(40, 20),
-                          painter: _DiagonalLinePainter(),
-                        )
-                        : Text(
-                          soldeCredit > 0 ? _formatMontant(soldeCredit) : '',
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.indigo,
-                            fontSize: 14,
-                          ),
-                        ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
-  Widget _buildNatureResultatRow() {
-    final comptesGestion = _comptes.where((c) {
-      final num = int.tryParse(c['numero'].toString().substring(0, 1)) ?? 0;
-      return num >= 6 && num <= 8;
+  TableRow _buildSoldeOuvertureTableRow() {
+    return TableRow(
+      decoration: BoxDecoration(color: Colors.teal.shade50),
+      children: [
+        _cell(''),
+        _cell("Solde d'ouverture", bold: true, italic: true),
+        _cell(
+          _soldeOuvertureDebit > 0 ? _formatMontant(_soldeOuvertureDebit) : '',
+          align: TextAlign.right,
+          color: Colors.teal.shade700,
+          bold: true,
+        ),
+        _cell(
+          _soldeOuvertureCredit > 0
+              ? _formatMontant(_soldeOuvertureCredit)
+              : '',
+          align: TextAlign.right,
+          color: Colors.teal.shade700,
+          bold: true,
+        ),
+        _cell(''), _cell(''), _cell(''), _cell(''),
+      ],
+    );
+  }
+
+  TableRow _buildTotalTableRow(
+    String label,
+    List<Map<String, dynamic>> comptes, {
+    bool isTotalBalance = false,
+  }) {
+    final oD = comptes.fold<double>(
+      0.0, (s, c) => s + (c['ouvertureDebit'] as double? ?? 0));
+    final oC = comptes.fold<double>(
+      0.0, (s, c) => s + (c['ouvertureCredit'] as double? ?? 0));
+    final mD = comptes.fold<double>(
+      0.0, (s, c) => s + (c['mouvementDebit'] as double? ?? 0));
+    final mC = comptes.fold<double>(
+      0.0, (s, c) => s + (c['mouvementCredit'] as double? ?? 0));
+    final sD = comptes.fold<double>(
+      0.0, (s, c) => s + (c['soldeDebit'] as double? ?? 0));
+    final sC = comptes.fold<double>(
+      0.0, (s, c) => s + (c['soldeCredit'] as double? ?? 0));
+
+    final diag = _cell(
+      '',
+      child: Center(
+        child: CustomPaint(
+          size: const Size(40, 16),
+          painter: _DiagonalLinePainter(),
+        ),
+      ),
+    );
+
+    return TableRow(
+      decoration: BoxDecoration(color: Colors.blue.shade50),
+      children: [
+        _cell(label, bold: true),
+        _cell(''),
+        _cell(oD > 0 ? _formatMontant(oD) : '',
+            align: TextAlign.right, bold: true, color: Colors.indigo),
+        _cell(oC > 0 ? _formatMontant(oC) : '',
+            align: TextAlign.right, bold: true, color: Colors.indigo),
+        _cell(_formatMontant(mD),
+            align: TextAlign.right, bold: true, color: Colors.indigo),
+        _cell(_formatMontant(mC),
+            align: TextAlign.right, bold: true, color: Colors.indigo),
+        isTotalBalance
+            ? diag
+            : _cell(sD > 0 ? _formatMontant(sD) : '',
+                align: TextAlign.right, bold: true, color: Colors.indigo),
+        isTotalBalance
+            ? diag
+            : _cell(sC > 0 ? _formatMontant(sC) : '',
+                align: TextAlign.right, bold: true, color: Colors.indigo),
+      ],
+    );
+  }
+
+  Widget _buildNatureResultatWidget() {
+    final gestion = _comptes.where((c) {
+      final n = int.tryParse(c['numero'].toString().substring(0, 1)) ?? 0;
+      return n >= 6 && n <= 8;
     });
+    final tD = gestion.fold<double>(
+      0.0, (s, c) => s + (c['mouvementDebit'] as double? ?? 0));
+    final tC = gestion.fold<double>(
+      0.0, (s, c) => s + (c['mouvementCredit'] as double? ?? 0));
 
-    final totalDebit = comptesGestion.fold<double>(
-      0.0,
-      (sum, c) => sum + (c['mouvementDebit'] as double? ?? 0),
-    );
-    final totalCredit = comptesGestion.fold<double>(
-      0.0,
-      (sum, c) => sum + (c['mouvementCredit'] as double? ?? 0),
-    );
-
-    String natureResultat = 'NUL';
-    if (totalCredit > totalDebit) {
-      natureResultat = 'EXCEDENT';
-    } else if (totalCredit < totalDebit) {
-      natureResultat = 'DEFICIT';
+    String nature = 'NUL';
+    if (tC > tD) {
+      nature = 'EXCEDENT';
+    } else if (tC < tD) {
+      nature = 'DEFICIT';
     }
+
+    final col = nature == 'EXCEDENT'
+        ? Colors.green.shade700
+        : nature == 'DEFICIT'
+        ? Colors.red.shade700
+        : Colors.blue.shade700;
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.amber.shade50,
-        border: Border(bottom: BorderSide(color: Colors.black, width: 1)),
+        border: Border(top: BorderSide(color: Colors.black, width: 1)),
       ),
       child: Row(
         children: [
+          // Label sur 2 colonnes (flex 3)
           Expanded(
             flex: 3,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.black, width: 1),
-                ),
-              ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
               child: const Text(
                 'NATURE DU RESULTAT',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
               ),
             ),
           ),
-          // Les 6 dernières cellules fusionnées en une
+          // Valeur sur les 6 colonnes restantes (flex 6)
           Expanded(
             flex: 6,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(color: Colors.black, width: 1),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: Center(
                 child: Text(
-                  natureResultat,
+                  nature,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color:
-                        natureResultat == 'EXCEDENT'
-                            ? Colors.green.shade700
-                            : natureResultat == 'DEFICIT'
-                            ? Colors.red.shade700
-                            : Colors.blue.shade700,
+                    fontSize: 14,
+                    color: col,
                   ),
                 ),
               ),
