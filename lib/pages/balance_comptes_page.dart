@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/exercice.dart';
 import '../models/projet.dart';
 import '../services/auth_service.dart';
@@ -329,11 +330,21 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                 elevation: 0,
               )
               : null,
-      body: Center(
+      body: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent &&
+              event.logicalKey == LogicalKeyboardKey.enter) {
+            _afficherBalance();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: Center(
         child: Container(
           constraints: const BoxConstraints(
-            maxWidth: 800, // Largeur maximale réduite
-            maxHeight: 850, // Hauteur maximale pour éviter le défilement
+            maxWidth: 800,
+            maxHeight: 850,
           ),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
@@ -959,6 +970,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

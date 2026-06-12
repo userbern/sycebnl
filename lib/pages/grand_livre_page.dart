@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/exercice.dart';
 import '../models/projet.dart';
@@ -7,7 +8,7 @@ import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
 
-enum _CompteFilterMode { single, range }
+enum _CompteFilterMode { all, single, range }
 
 enum _GrandLivreType { general, tiers, analytique, tiersAnalytique }
 
@@ -26,6 +27,9 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
   final _dateFinController = TextEditingController();
   final _compteDebutController = TextEditingController();
   final _compteFinController = TextEditingController();
+  final _compteUniqueController = TextEditingController();
+
+  _CompteFilterMode _compteMode = _CompteFilterMode.all;
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -57,6 +61,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
     _dateFinController.dispose();
     _compteDebutController.dispose();
     _compteFinController.dispose();
+    _compteUniqueController.dispose();
     super.dispose();
   }
 
@@ -183,9 +188,13 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                 exercice: _exercice!,
                 dateDebut: _dateDebut!,
                 dateFin: _dateFin!,
-                compteMode: _CompteFilterMode.range,
-                compteDebut: _compteDebutController.text.trim(),
-                compteFin: _compteFinController.text.trim(),
+                compteMode: _compteMode,
+                compteDebut: _compteMode == _CompteFilterMode.single
+                    ? _compteUniqueController.text.trim()
+                    : _compteDebutController.text.trim(),
+                compteFin: _compteMode == _CompteFilterMode.range
+                    ? _compteFinController.text.trim()
+                    : '',
                 type: _type,
                 projetId: _projetId,
                 projetLabel: _selectedProjetLabel(),
@@ -236,7 +245,17 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                 elevation: 0,
               )
               : null,
-      body: Center(
+      body: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent &&
+              event.logicalKey == LogicalKeyboardKey.enter) {
+            _openResults();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 800),
           child: SingleChildScrollView(
@@ -289,6 +308,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }
@@ -494,60 +514,109 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
 
         _buildFormSection(
           title: '🔹 Comptes',
-          subtitle: 'Laisser vide pour inclure tous les comptes',
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _compteDebutController,
+              Row(
+                children: [
+                  Expanded(
+                    child: RadioListTile<_CompteFilterMode>(
+                      title: const Text('Tous les comptes'),
+                      value: _CompteFilterMode.all,
+                      groupValue: _compteMode,
+                      activeColor: Colors.blue.shade700,
+                      dense: true,
+                      onChanged: (v) => setState(() => _compteMode = v!),
+                    ),
+                  ),
+                  Expanded(
+                    child: RadioListTile<_CompteFilterMode>(
+                      title: const Text('Compte spécifique'),
+                      value: _CompteFilterMode.single,
+                      groupValue: _compteMode,
+                      activeColor: Colors.blue.shade700,
+                      dense: true,
+                      onChanged: (v) => setState(() => _compteMode = v!),
+                    ),
+                  ),
+                  Expanded(
+                    child: RadioListTile<_CompteFilterMode>(
+                      title: const Text('Plage de comptes'),
+                      value: _CompteFilterMode.range,
+                      groupValue: _compteMode,
+                      activeColor: Colors.blue.shade700,
+                      dense: true,
+                      onChanged: (v) => setState(() => _compteMode = v!),
+                    ),
+                  ),
+                ],
+              ),
+              if (_compteMode == _CompteFilterMode.single) ...[
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _compteUniqueController,
                   decoration: InputDecoration(
-                    labelText: 'N° compte début',
-                    hintText: 'Ex: 401',
+                    labelText: 'N° compte',
+                    hintText: 'Ex: 401000',
                     prefixIcon: const Icon(Icons.account_balance_wallet),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: Colors.blue.shade700,
-                        width: 2,
-                      ),
+                      borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 16,
-                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                   ),
                   keyboardType: TextInputType.number,
+                  validator: (_) => _compteMode == _CompteFilterMode.single &&
+                          _compteUniqueController.text.trim().isEmpty
+                      ? 'Obligatoire'
+                      : null,
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: TextFormField(
-                  controller: _compteFinController,
-                  decoration: InputDecoration(
-                    labelText: 'N° compte fin',
-                    hintText: 'Ex: 499',
-                    prefixIcon: const Icon(Icons.account_balance_wallet),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: Colors.blue.shade700,
-                        width: 2,
+              ],
+              if (_compteMode == _CompteFilterMode.range) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _compteDebutController,
+                        decoration: InputDecoration(
+                          labelText: 'N° compte début',
+                          hintText: 'Ex: 401',
+                          prefixIcon: const Icon(Icons.account_balance_wallet),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        ),
+                        keyboardType: TextInputType.number,
                       ),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 16,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _compteFinController,
+                        decoration: InputDecoration(
+                          labelText: 'N° compte fin',
+                          hintText: 'Ex: 499',
+                          prefixIcon: const Icon(Icons.account_balance_wallet),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
                     ),
-                  ),
-                  keyboardType: TextInputType.number,
+                  ],
                 ),
-              ),
+              ],
             ],
           ),
         ),
