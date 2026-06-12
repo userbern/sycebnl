@@ -613,7 +613,10 @@ class _HomePageState extends State<HomePage> {
                         _SubMenuItem('Journaux de saisie', 16),
                         _SubMenuItem('Interrogations & Lettrages', 11),
                       ]),
-                      _buildExercicesMenu(),
+                      _buildMenuItem('EXERCICE', Icons.calendar_today, [
+                        _SubMenuItem('Exercices', 17),
+                        _SubMenuItem('Nouvel exercice', 12),
+                      ]),
                       _buildMenuItem('EDITION', Icons.print, [
                         _SubMenuItem('Balance des comptes', 13),
                         _SubMenuItem('Grand livre', 14),
@@ -867,117 +870,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildExercicesMenu() {
-    final bool isOnExercices =
-        _currentPageIndex == 17 || _currentPageIndex == 12;
-
-    if (_isSidebarCollapsed) {
-      return Tooltip(
-        message: 'EXERCICES',
-        preferBelow: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => _showPage(17),
-            child: Container(
-              height: 44,
-              alignment: Alignment.center,
-              child: Icon(
-                Icons.calendar_today,
-                color: isOnExercices
-                    ? Colors.blue.shade900
-                    : Colors.blue.shade400,
-                size: 22,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Bouton principal EXERCICES → page liste
-        InkWell(
-          onTap: () => _showPage(17),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: _currentPageIndex == 17
-                  ? Colors.blue.shade100
-                  : Colors.transparent,
-              border: Border(
-                left: BorderSide(
-                  color: isOnExercices
-                      ? Colors.blue.shade400
-                      : Colors.transparent,
-                  width: 3,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.calendar_today,
-                    color: Colors.blue.shade400, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'EXERCICES',
-                    style: TextStyle(
-                      color: Colors.blue.shade900,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        // Sous-item fixe : Nouvel exercice
-        InkWell(
-          onTap: () => _showPage(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: _currentPageIndex == 12
-                  ? Colors.blue.shade100
-                  : Colors.transparent,
-              border: Border(
-                left: BorderSide(
-                  color: _currentPageIndex == 12
-                      ? Colors.blue.shade400
-                      : Colors.transparent,
-                  width: 3,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.add_circle_outline,
-                    color: Colors.blue.shade400, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Nouvel exercice',
-                    style: TextStyle(
-                      color: Colors.blue.shade900,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   Future<void> _editExercice(
       int id, String code, String dateDebut, String dateFin) async {
