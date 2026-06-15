@@ -92,8 +92,11 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
     TextEditingController controller,
     bool isDebut,
   ) async {
-    final DateTime firstDate = DateTime(1900);
-    final DateTime lastDate = DateTime(2100, 12, 31);
+    final exercice = _exercice;
+    if (exercice == null) return;
+
+    final DateTime firstDate = exercice.dateDebut;
+    final DateTime lastDate = exercice.dateFin;
     final DateTime initialDate = _clampDate(
       isDebut ? _dateDebut : _dateFin,
       firstDate,
@@ -111,10 +114,15 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
       setState(() {
         if (isDebut) {
           _dateDebut = picked;
+          controller.text = _formatDate(picked);
+          if (_dateFin != null && _dateFin!.isBefore(picked)) {
+            _dateFin = picked;
+            _dateFinController.text = _formatDate(picked);
+          }
         } else {
           _dateFin = picked;
+          controller.text = _formatDate(picked);
         }
-        controller.text = _formatDate(picked);
       });
     }
   }
@@ -262,6 +270,12 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
       if (!mounted) return;
       setState(() {
         _exercice = exercice;
+        if (exercice != null) {
+          _dateDebut = exercice.dateDebut;
+          _dateFin = exercice.dateFin;
+          _dateDebutController.text = _formatDate(exercice.dateDebut);
+          _dateFinController.text = _formatDate(exercice.dateFin);
+        }
         _isLoadingExercice = false;
       });
 
@@ -325,7 +339,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
       appBar:
           widget.showAppBar
               ? AppBar(
-                title: Text('Balance Générale des Comptes', style: TextStyle(color: Colors.blue.shade700)),
+                title: Text('Balance Générale des Comptes', style: TextStyle(color: Colors.black)),
                 backgroundColor: Colors.blue.shade700,
                 elevation: 0,
               )
@@ -362,7 +376,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                         Icon(
                           Icons.account_balance,
                           size: 32,
-                          color: Colors.blue.shade700,
+                          color: Colors.blue,
                         ),
                         const SizedBox(width: 12),
                         Text(
@@ -370,7 +384,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue.shade700,
+                            color: Colors.black,
                           ),
                         ),
                       ],
@@ -404,7 +418,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                 children: [
                                   Icon(
                                     Icons.event_available,
-                                    color: Colors.blue.shade700,
+                                    color: Colors.blue,
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
@@ -432,7 +446,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                         title: const Text('Général'),
                                         value: 'general',
                                         groupValue: _typeEtat,
-                                        activeColor: Colors.blue.shade700,
+                                        activeColor: Colors.blue,
                                         onChanged: (value) {
                                           setState(() {
                                             _typeEtat = value!;
@@ -447,7 +461,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                         title: const Text('Tiers'),
                                         value: 'tiers',
                                         groupValue: _typeEtat,
-                                        activeColor: Colors.blue.shade700,
+                                        activeColor: Colors.blue,
                                         onChanged: (value) {
                                           setState(() {
                                             _typeEtat = value!;
@@ -466,7 +480,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                         title: const Text('Analytique'),
                                         value: 'analytique',
                                         groupValue: _typeEtat,
-                                        activeColor: Colors.blue.shade700,
+                                        activeColor: Colors.blue,
                                         onChanged: (value) {
                                           setState(() {
                                             _typeEtat = value!;
@@ -480,7 +494,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                         title: const Text('Tiers & Analytique'),
                                         value: 'tiers_analytique',
                                         groupValue: _typeEtat,
-                                        activeColor: Colors.blue.shade700,
+                                        activeColor: Colors.blue,
                                         onChanged: (value) {
                                           setState(() {
                                             _typeEtat = value!;
@@ -550,7 +564,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                                 borderRadius:
                                                     BorderRadius.circular(8),
                                                 borderSide: BorderSide(
-                                                  color: Colors.blue.shade700,
+                                                  color: Colors.blue,
                                                   width: 2,
                                                 ),
                                               ),
@@ -640,7 +654,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                                 ),
                                               ),
                                               value: _tousLesBailleurs,
-                                              activeColor: Colors.blue.shade700,
+                                              activeColor: Colors.blue,
                                               dense: true,
                                               onChanged: (value) {
                                                 setState(() {
@@ -676,7 +690,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                                 value: _bailleursSelectionnes
                                                     .contains(bailleurId),
                                                 activeColor:
-                                                    Colors.blue.shade700,
+                                                    Colors.blue,
                                                 dense: true,
                                                 onChanged:
                                                     _tousLesBailleurs
@@ -738,7 +752,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
                                         borderSide: BorderSide(
-                                          color: Colors.blue.shade700,
+                                          color: Colors.blue,
                                           width: 2,
                                         ),
                                       ),
@@ -788,7 +802,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
                                         borderSide: BorderSide(
-                                          color: Colors.blue.shade700,
+                                          color: Colors.blue,
                                           width: 2,
                                         ),
                                       ),
@@ -841,7 +855,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
                                         borderSide: BorderSide(
-                                          color: Colors.blue.shade700,
+                                          color: Colors.blue,
                                           width: 2,
                                         ),
                                       ),
@@ -870,7 +884,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
                                         borderSide: BorderSide(
-                                          color: Colors.blue.shade700,
+                                          color: Colors.blue,
                                           width: 2,
                                         ),
                                       ),
@@ -952,7 +966,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                 ),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue.shade700,
+                                backgroundColor: Colors.blue,
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
@@ -990,7 +1004,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Colors.blue.shade800,
+              color: Colors.blue,
             ),
           ),
           if (subtitle != null) ...[

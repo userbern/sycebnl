@@ -52,11 +52,17 @@ class DatabaseService {
           // Créer les tables
           await _createTables(db);
 
-          // Insérer les modules
-          await db.insert('modules', {'nom': 'notre_entite'});
-          await db.insert('modules', {'nom': 'parametrages'});
-          await db.insert('modules', {'nom': 'traitements'});
-          await db.insert('modules', {'nom': 'edition'});
+          // Insérer les modules granulaires (un par sous-menu)
+          for (final nom in const [
+            'identification',
+            'plan_comptable', 'liste_tiers', 'codes_journaux',
+            'liste_bailleurs', 'liste_projets', 'gestion_budgets',
+            'saisie_comptable', 'journaux_de_saisie', 'interrogations',
+            'balance_comptes', 'grand_livre', 'journal',
+            'exercices',
+          ]) {
+            await db.insert('modules', {'nom': nom});
+          }
 
           // Créer l'entité avec les données utilisateur
           if (entiteData != null) {
@@ -109,10 +115,11 @@ class DatabaseService {
             );
             if (adminId.isNotEmpty) {
               final userId = adminId.first['id'];
-              for (int moduleId = 1; moduleId <= 4; moduleId++) {
+              final modules = await db.query('modules');
+              for (final module in modules) {
                 await db.insert('permissions', {
                   'utilisateur_id': userId,
-                  'module_id': moduleId,
+                  'module_id': module['id'],
                   'lecture': 1,
                   'ajout': 1,
                   'modification': 1,
@@ -307,6 +314,89 @@ class DatabaseService {
             }
           } catch (e) {
             print('Erreur général migration: $e');
+          }
+
+          // Migration : modules granulaires
+          try {
+            final existingModules = await db.query('modules');
+            final existingNoms =
+                existingModules.map((m) => m['nom'] as String).toSet();
+
+            if (!existingNoms.contains('plan_comptable')) {
+              const oldToNew = {
+                'notre_entite': ['identification'],
+                'parametrages': [
+                  'plan_comptable', 'liste_tiers', 'codes_journaux',
+                  'liste_bailleurs', 'liste_projets', 'gestion_budgets',
+                ],
+                'traitements': [
+                  'saisie_comptable', 'journaux_de_saisie', 'interrogations',
+                ],
+                'edition': ['balance_comptes', 'grand_livre', 'journal'],
+              };
+
+              final users = await db.rawQuery(
+                'SELECT id FROM utilisateur WHERE deleted_at IS NULL',
+              );
+
+              for (final entry in oldToNew.entries) {
+                final oldRow = existingModules
+                    .where((m) => m['nom'] == entry.key)
+                    .firstOrNull;
+                final oldId = oldRow?['id'] as int?;
+
+                for (final newNom in entry.value) {
+                  if (existingNoms.contains(newNom)) continue;
+                  final newId = await db.insert('modules', {'nom': newNom});
+
+                  for (final user in users) {
+                    final userId = user['id'] as int;
+                    Map<String, dynamic> oldPerms = {};
+                    if (oldId != null) {
+                      final rows = await db.query(
+                        'permissions',
+                        where: 'utilisateur_id = ? AND module_id = ?',
+                        whereArgs: [userId, oldId],
+                      );
+                      if (rows.isNotEmpty) oldPerms = rows.first;
+                    }
+                    await db.insert(
+                      'permissions',
+                      {
+                        'utilisateur_id': userId,
+                        'module_id': newId,
+                        'lecture': oldPerms['lecture'] ?? 0,
+                        'ajout': oldPerms['ajout'] ?? 0,
+                        'modification': oldPerms['modification'] ?? 0,
+                        'suppression': oldPerms['suppression'] ?? 0,
+                        'created_at': DateTime.now().toIso8601String(),
+                      },
+                      conflictAlgorithm: ConflictAlgorithm.ignore,
+                    );
+                  }
+                }
+              }
+
+              // Module exercices (pas d'ancien équivalent)
+              if (!existingNoms.contains('exercices')) {
+                final newId = await db.insert('modules', {'nom': 'exercices'});
+                for (final user in users) {
+                  await db.insert(
+                    'permissions',
+                    {
+                      'utilisateur_id': user['id'] as int,
+                      'module_id': newId,
+                      'lecture': 0, 'ajout': 0,
+                      'modification': 0, 'suppression': 0,
+                      'created_at': DateTime.now().toIso8601String(),
+                    },
+                    conflictAlgorithm: ConflictAlgorithm.ignore,
+                  );
+                }
+              }
+            }
+          } catch (e) {
+            print('Migration modules granulaires: $e');
           }
         },
       ),

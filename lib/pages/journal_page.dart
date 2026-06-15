@@ -60,11 +60,13 @@ class _JournalPageState extends State<JournalPage> {
     }
   }
 
-  // Ouvre un dialog avec champ de recherche intégré pour choisir le code journal
   Future<void> _pickCodeJournal() async {
     final result = await showDialog<String>(
       context: context,
-      builder: (context) => _JournalSearchDialog(journals: _journals, selected: _selectedCodeJournal),
+      builder: (context) => _JournalSearchDialog(
+        journals: _journals,
+        selected: _selectedCodeJournal,
+      ),
     );
     if (result != null) {
       setState(() => _selectedCodeJournal = result);
@@ -99,17 +101,34 @@ class _JournalPageState extends State<JournalPage> {
             ? DateTime(_anneeFin!, _moisFin!)
             : null);
 
-    // S'assurer que la valeur sélectionnée existe dans la liste
     final validValue = months.any(
-      (m) => m.year == selectedMonth?.year && m.month == selectedMonth?.month,
-    )
+          (m) =>
+              m.year == selectedMonth?.year && m.month == selectedMonth?.month,
+        )
         ? selectedMonth
         : null;
 
     return DropdownButtonFormField<DateTime>(
       value: validValue,
-      decoration: _fieldDecoration(isStart ? 'Debut' : 'Fin'),
-      hint: const Text('Selectionner'),
+      decoration: InputDecoration(
+        labelText: isStart ? 'Début' : 'Fin',
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.blue, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        filled: true,
+        fillColor: Colors.white,
+      ),
+      hint: const Text('Sélectionner'),
       items: months
           .map(
             (m) => DropdownMenuItem<DateTime>(
@@ -135,8 +154,8 @@ class _JournalPageState extends State<JournalPage> {
 
   String _getMonthLabel(int month) {
     const months = [
-      'Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin',
-      'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
     ];
     return months[month - 1];
   }
@@ -148,10 +167,13 @@ class _JournalPageState extends State<JournalPage> {
   }
 
   Future<void> _searchResults() async {
-    if (_moisDebut == null || _anneeDebut == null || _moisFin == null || _anneeFin == null) {
+    if (_moisDebut == null ||
+        _anneeDebut == null ||
+        _moisFin == null ||
+        _anneeFin == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Veuillez selectionner une periode'),
+          content: Text('Veuillez sélectionner une période'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -164,7 +186,8 @@ class _JournalPageState extends State<JournalPage> {
       context,
       MaterialPageRoute(
         builder: (context) => JournalResultsPage(
-          codeJournal: _selectedCodeJournal != 'ALL' ? _selectedCodeJournal : null,
+          codeJournal:
+              _selectedCodeJournal != 'ALL' ? _selectedCodeJournal : null,
           moisDebut: _moisDebut,
           anneeDebut: _anneeDebut,
           moisFin: _moisFin,
@@ -190,201 +213,233 @@ class _JournalPageState extends State<JournalPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: widget.showAppBar
-          ? AppBar(
-              title: const Text('Journal'),
-              backgroundColor: Colors.blue.shade400,
-              foregroundColor: Colors.white,
-            )
-          : null,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeaderCard(),
-                    const SizedBox(height: 24),
-                    _buildFiltersCard(),
-                    const SizedBox(height: 24),
-                    _buildActionsRow(),
-                  ],
+            : Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 680),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 32,
+                    ),
+                    child: Column(
+                      children: [
+                        /* _buildHeaderCard(), */
+                        const SizedBox(height: 20),
+                        _buildFiltersCard(),
+                      ],
+                    ),
+                  ),
                 ),
               ),
       ),
     );
   }
 
-  Widget _buildHeaderCard() {
-    return Card(
-      margin: const EdgeInsets.only(top: 16),
-      elevation: 0,
-      color: Colors.blue.shade50,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade100,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(Icons.receipt_long, color: Colors.blue.shade700),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Consultation des ecritures comptables par journal',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.blue.shade900,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Le journal regroupe les ecritures valides par code journal puis par mois afin de faciliter la consultation, le controle et l impression.',
-                    style: TextStyle(fontSize: 13, color: Colors.black87, height: 1.3),
-                  ),
-                ],
-              ),
-            ),
-          ],
+/*   Widget _buildHeaderCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Colors.blue, Colors.blue],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.menu_book, color: Colors.white, size: 14),
+                SizedBox(width: 6),
+                Text(
+                  'JOURNAL COMPTABLE',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Consultation des écritures',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Regroupement des écritures validées par code journal puis par mois pour faciliter la consultation, le contrôle et l\'impression.',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.white.withValues(alpha: 0.85),
+              height: 1.5,
+            ),
+          ),
+        ],
       ),
     );
   }
+ */
 
   Widget _buildFiltersCard() {
     return Card(
-      margin: const EdgeInsets.only(top: 16, left: 96, right: 96),
-      elevation: 0,
+      elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: Colors.grey.shade50,
       child: Padding(
-        padding: const EdgeInsets.all(36),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Paramètres de recherche',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Colors.blue.shade800,
-              ),
+            _buildSectionLabel('CODE JOURNAL'),
+            _buildCodeJournalField(),
+            const Divider(height: 32, thickness: 0.8),
+            _buildSectionLabel('PÉRIODE'),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildPeriodDropdown(isStart: true)),
+                const SizedBox(width: 12),
+                Expanded(child: _buildPeriodDropdown(isStart: false)),
+              ],
             ),
-            const SizedBox(height: 24),
-            _buildFilterGroup('1. Code journal', [
-              // Champ cliquable qui ouvre le dialog de recherche
-              InkWell(
-                onTap: _pickCodeJournal,
-                borderRadius: BorderRadius.circular(12),
-                child: InputDecorator(
-                  decoration: _fieldDecoration('Code journal'),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _journalLabel(_selectedCodeJournal),
-                          style: const TextStyle(fontSize: 16),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+            const Divider(height: 32, thickness: 0.8),
+            _buildSectionLabel('TYPE D\'ÉTAT'),
+            _buildTypeEtatToggle(),
+            const Divider(height: 32, thickness: 0.8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _searchResults,
+                    icon: const Icon(Icons.search, size: 18),
+                    label: const Text('Rechercher'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      const Icon(Icons.arrow_drop_down, color: Colors.black54),
-                    ],
+                      side: BorderSide(color: Colors.blue),
+                      foregroundColor: Colors.blue,
+                    ),
                   ),
                 ),
-              ),
-            ]),
-            const SizedBox(height: 24),
-            _buildFilterGroup('2. Période', [
-              Row(
-                children: [
-                  Expanded(child: _buildPeriodDropdown(isStart: true)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildPeriodDropdown(isStart: false)),
-                ],
-              ),
-            ]),
-            const SizedBox(height: 24),
-            _buildFilterGroup('3. Type d etat', [
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'base', label: Text('Base')),
-                  ButtonSegment(value: 'tiers', label: Text('Tiers')),
-                ],
-                selected: {_typeEtat},
-                onSelectionChanged: (selected) {
-                  setState(() => _typeEtat = selected.first);
-                },
-              ),
-            ]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _resetFilters,
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('Réinitialiser'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      side: BorderSide(color: Colors.grey.shade400),
+                      foregroundColor: Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildFilterGroup(String title, List<Widget> children) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
+  Widget _buildSectionLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: Colors.blue,
+          letterSpacing: 1.2,
         ),
-        const SizedBox(height: 12),
-        ...children.map(
-          (child) => Padding(padding: const EdgeInsets.only(bottom: 12), child: child),
-        ),
-      ],
+      ),
     );
   }
 
-  InputDecoration _fieldDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      filled: true,
-      fillColor: Colors.white,
+  Widget _buildCodeJournalField() {
+    return InkWell(
+      onTap: _pickCodeJournal,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                _journalLabel(_selectedCodeJournal),
+                style: const TextStyle(fontSize: 15),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade600),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildActionsRow() {
+  Widget _buildTypeEtatToggle() {
     return Row(
       children: [
-        Expanded(
-          child: FilledButton.icon(
-            onPressed: _searchResults,
-            icon: const Icon(Icons.search),
-            label: const Text('Rechercher'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: _resetFilters,
-            icon: const Icon(Icons.restart_alt),
-            label: const Text('Reinitialiser'),
-          ),
-        ),
+        _buildTypeButton('base', 'Base'),
+        const SizedBox(width: 8),
+        _buildTypeButton('tiers', 'Tiers'),
       ],
+    );
+  }
+
+  Widget _buildTypeButton(String value, String label) {
+    final selected = _typeEtat == value;
+    return OutlinedButton(
+      onPressed: () => setState(() => _typeEtat = value),
+      style: OutlinedButton.styleFrom(
+        backgroundColor: selected ? Colors.blue.shade50 : Colors.white,
+        side: BorderSide(
+          color: selected ? Colors.blue : Colors.grey.shade400,
+          width: selected ? 1.5 : 1,
+        ),
+        foregroundColor:
+            selected ? Colors.blue : Colors.grey.shade700,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 14)),
     );
   }
 }
 
-// Dialog de sélection du code journal avec champ de recherche intégré
 class _JournalSearchDialog extends StatefulWidget {
   final List<Journal> journals;
   final String selected;
@@ -439,7 +494,7 @@ class _JournalSearchDialogState extends State<_JournalSearchDialog> {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: Colors.blue.shade800,
+                  color: Colors.blue,
                 ),
               ),
             ),
@@ -451,7 +506,9 @@ class _JournalSearchDialogState extends State<_JournalSearchDialog> {
                 decoration: InputDecoration(
                   hintText: 'Rechercher...',
                   prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   isDense: true,
                 ),
@@ -462,11 +519,12 @@ class _JournalSearchDialogState extends State<_JournalSearchDialog> {
             Expanded(
               child: ListView(
                 children: [
-                  // Option "Tous"
                   ListTile(
                     leading: Icon(
                       Icons.all_inclusive,
-                      color: widget.selected == 'ALL' ? Colors.blue : Colors.black38,
+                      color: widget.selected == 'ALL'
+                          ? Colors.blue
+                          : Colors.blue,
                     ),
                     title: const Text('Tous les codes journaux'),
                     selected: widget.selected == 'ALL',
@@ -486,13 +544,16 @@ class _JournalSearchDialogState extends State<_JournalSearchDialog> {
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                             color: widget.selected == j.code
-                                ? Colors.blue.shade700
-                                : Colors.black54,
+                                ? Colors.blue
+                                : Colors.blue,
                           ),
                         ),
                       ),
                       title: Text(j.code),
-                      subtitle: Text(j.intitule, style: const TextStyle(fontSize: 12)),
+                      subtitle: Text(
+                        j.intitule,
+                        style: const TextStyle(fontSize: 12),
+                      ),
                       selected: widget.selected == j.code,
                       selectedTileColor: Colors.blue.shade50,
                       onTap: () => Navigator.pop(context, j.code),

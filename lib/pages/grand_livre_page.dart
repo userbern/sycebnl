@@ -236,15 +236,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar:
-          widget.showAppBar
-              ? AppBar(
-                title: const Text('Grand Livre - Filtres'),
-                backgroundColor: Colors.blue.shade700,
-                elevation: 0,
-              )
-              : null,
+      backgroundColor: Colors.grey.shade50, 
       body: Focus(
         autofocus: true,
         onKeyEvent: (node, event) {
@@ -273,7 +265,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                         Icon(
                           Icons.menu_book,
                           size: 32,
-                          color: Colors.blue.shade700,
+                          color: Colors.blue,
                         ),
                         const SizedBox(width: 12),
                         const Text(
@@ -323,7 +315,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
             padding: const EdgeInsets.only(bottom: 12),
             child: Row(
               children: [
-                const Icon(Icons.event_available, color: Colors.green),
+                const Icon(Icons.event_available, color: Colors.blue),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -347,7 +339,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                       title: const Text('Général'),
                       value: _GrandLivreType.general,
                       groupValue: _type,
-                      activeColor: Colors.blue.shade700,
+                      activeColor: Colors.blue,
                       dense: true,
                       onChanged: (value) => setState(() {
                         _type = value!;
@@ -362,7 +354,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                       title: const Text('Tiers'),
                       value: _GrandLivreType.tiers,
                       groupValue: _type,
-                      activeColor: Colors.blue.shade700,
+                      activeColor: Colors.blue,
                       dense: true,
                       onChanged: (value) => setState(() {
                         _type = value!;
@@ -381,7 +373,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                       title: const Text('Analytique'),
                       value: _GrandLivreType.analytique,
                       groupValue: _type,
-                      activeColor: Colors.blue.shade700,
+                      activeColor: Colors.blue,
                       dense: true,
                       onChanged: (value) => setState(() => _type = value!),
                     ),
@@ -391,7 +383,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                       title: const Text('Tiers & Analytique'),
                       value: _GrandLivreType.tiersAnalytique,
                       groupValue: _type,
-                      activeColor: Colors.blue.shade700,
+                      activeColor: Colors.blue,
                       dense: true,
                       onChanged: (value) => setState(() => _type = value!),
                     ),
@@ -424,7 +416,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide: BorderSide(
-                                color: Colors.blue.shade700,
+                                color: Colors.blue,
                                 width: 2,
                               ),
                             ),
@@ -524,7 +516,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                       title: const Text('Tous les comptes'),
                       value: _CompteFilterMode.all,
                       groupValue: _compteMode,
-                      activeColor: Colors.blue.shade700,
+                      activeColor: Colors.blue,
                       dense: true,
                       onChanged: (v) => setState(() => _compteMode = v!),
                     ),
@@ -534,7 +526,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                       title: const Text('Compte spécifique'),
                       value: _CompteFilterMode.single,
                       groupValue: _compteMode,
-                      activeColor: Colors.blue.shade700,
+                      activeColor: Colors.blue,
                       dense: true,
                       onChanged: (v) => setState(() => _compteMode = v!),
                     ),
@@ -544,7 +536,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                       title: const Text('Plage de comptes'),
                       value: _CompteFilterMode.range,
                       groupValue: _compteMode,
-                      activeColor: Colors.blue.shade700,
+                      activeColor: Colors.blue,
                       dense: true,
                       onChanged: (v) => setState(() => _compteMode = v!),
                     ),
@@ -626,13 +618,13 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
           height: 50,
           child: ElevatedButton.icon(
             onPressed: _isLoading ? null : _openResults,
-            icon: const Icon(Icons.menu_book, size: 22),
-            label: const Text(
+            icon: Icon(Icons.menu_book, size: 22, color: Colors.white),
+            label: Text(
               'Afficher le grand livre',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade700,
+              backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -671,7 +663,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+          borderSide: BorderSide(color: Colors.blue, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(
           vertical: 12,
@@ -699,7 +691,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Colors.blue.shade800,
+              color: Colors.blue,
             ),
           ),
           if (subtitle != null) ...[
@@ -1011,7 +1003,7 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Grand Livre ${_typeLabel(_criteria.type)}'),
-        backgroundColor: Colors.blue.shade700,
+        backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
           TextButton.icon(
@@ -1043,7 +1035,7 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
                     child: Text(
                       'GRAND LIVRE ${_typeLabel(_criteria.type)}',
                       style: TextStyle(
-                        color: Colors.blue.shade700,
+                        color: Colors.blue,
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                       ),
@@ -1158,7 +1150,7 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          color: Colors.blue.shade700,
+          color: Colors.blue,
           child: Text(
             'Compte ${group.numeroCompte} - ${group.intitule}',
             style: const TextStyle(

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/database_service.dart';
+import '../services/auth_service_local.dart';
 import '../models/user_session.dart';
 import 'entite_identification_page.dart';
 import 'nouvel_exercice_page.dart';
@@ -47,6 +48,8 @@ class _HomePageState extends State<HomePage> {
   int _journauxRefreshSeed = 0;
   int _selectionRefreshSeed = 0;
   bool _isSidebarCollapsed = false;
+  // null = pas encore chargé (= aucune restriction appliquée)
+  Map<String, Map<String, bool>>? _modulePermissions;
   static const List<_QuickAccessItem> _quickAccessItems = [
     _QuickAccessItem(
       label: 'Plan comptable',
@@ -104,10 +107,50 @@ class _HomePageState extends State<HomePage> {
         _activeExerciceId = activeExercice['id'];
       });
       print('DEBUG: State mis à jour avec succès!');
+
+      // Charger les permissions pour les non-admin
+      if (widget.userSession != null && widget.userSession!.isAdmin != true) {
+        final userId = int.tryParse(widget.userSession!.id);
+        if (userId != null) {
+          try {
+            final rawPerms = await AuthService.getUserPermissions(userId);
+            final perms = <String, Map<String, bool>>{};
+            for (final p in rawPerms) {
+              final nom = p['module_nom']?.toString() ?? '';
+              if (nom.isNotEmpty) {
+                perms[nom] = {
+                  'lecture':      p['lecture']      == 1 || p['lecture']      == true,
+                  'ajout':        p['ajout']        == 1 || p['ajout']        == true,
+                  'modification': p['modification'] == 1 || p['modification'] == true,
+                  'suppression':  p['suppression']  == 1 || p['suppression']  == true,
+                };
+              }
+            }
+            if (mounted) setState(() => _modulePermissions = perms);
+          } catch (_) {
+            // En cas d'erreur, on laisse _modulePermissions à null = aucune restriction
+          }
+        }
+      }
     } catch (e) {
       print('DEBUG: Erreur lors du chargement: $e');
       // Ignorer les erreurs de chargement
     }
+  }
+
+  /// Règle : admin → toujours true.
+  /// Pas de permission configurée (null ou module absent) → true (aucune restriction).
+  /// Permission explicite lecture=false → false.
+  bool _canRead(String? moduleNom) {
+    if (widget.userSession?.isAdmin == true) return true;
+    if (moduleNom == null) return true;
+    // Permissions pas encore chargées ou vides = aucune restriction
+    final perms = _modulePermissions;
+    if (perms == null || perms.isEmpty) return true;
+    // Module non configuré = aucune restriction
+    final perm = perms[moduleNom];
+    if (perm == null) return true;
+    return perm['lecture'] == true;
   }
 
   Future<void> _refreshExercices() async {
@@ -129,6 +172,26 @@ class _HomePageState extends State<HomePage> {
   void _showPage(int index) async {
     _saisieCompleter?.complete(false);
     _saisieCompleter = null;
+
+    // Vérifier permission de lecture
+    const pageModules = <int, String>{
+      1: 'identification',   4: 'plan_comptable',    5: 'liste_tiers',
+      6: 'codes_journaux',   7: 'liste_bailleurs',   8: 'liste_projets',
+      9: 'gestion_budgets', 10: 'saisie_comptable', 16: 'journaux_de_saisie',
+     11: 'interrogations',  13: 'balance_comptes',  14: 'grand_livre',
+     15: 'journal',         12: 'exercices',         17: 'exercices',
+    };
+    if (!_canRead(pageModules[index])) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Accès refusé : permission de lecture requise'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
 
     // Rafraîchir la liste si on quitte la page Nouvel Exercice ou Liste exercices
     if ((_currentPageIndex == 12 || _currentPageIndex == 17) && index != _currentPageIndex) {
@@ -597,30 +660,30 @@ class _HomePageState extends State<HomePage> {
                     padding: EdgeInsets.zero,
                     children: [
                       _buildMenuItem('NOTRE ENTITE', Icons.business, [
-                        _SubMenuItem('Identification', 1),
+                        _SubMenuItem('Identification', 1,    moduleNom: 'identification'),
                         _SubMenuItem('Autorisations d\'accès', 2),
                       ]),
                       _buildMenuItem('PARAMETRAGES', Icons.settings, [
-                        _SubMenuItem('Plan comptable', 4),
-                        _SubMenuItem('Liste des tiers', 5),
-                        _SubMenuItem('Codes journaux', 6),
-                        _SubMenuItem('Liste des bailleurs', 7),
-                        _SubMenuItem('Liste des projets', 8),
-                        _SubMenuItem('Gestion des budgets', 9),
+                        _SubMenuItem('Plan comptable', 4,      moduleNom: 'plan_comptable'),
+                        _SubMenuItem('Liste des tiers', 5,     moduleNom: 'liste_tiers'),
+                        _SubMenuItem('Codes journaux', 6,      moduleNom: 'codes_journaux'),
+                        _SubMenuItem('Liste des bailleurs', 7, moduleNom: 'liste_bailleurs'),
+                        _SubMenuItem('Liste des projets', 8,   moduleNom: 'liste_projets'),
+                        _SubMenuItem('Gestion des budgets', 9, moduleNom: 'gestion_budgets'),
                       ]),
                       _buildMenuItem('TRAITEMENTS', Icons.description, [
-                        _SubMenuItem('Saisie comptable', 10),
-                        _SubMenuItem('Journaux de saisie', 16),
-                        _SubMenuItem('Interrogations & Lettrages', 11),
+                        _SubMenuItem('Saisie comptable', 10,           moduleNom: 'saisie_comptable'),
+                        _SubMenuItem('Journaux de saisie', 16,         moduleNom: 'journaux_de_saisie'),
+                        _SubMenuItem('Interrogations & Lettrages', 11, moduleNom: 'interrogations'),
                       ]),
                       _buildMenuItem('EXERCICE', Icons.calendar_today, [
-                        _SubMenuItem('Exercices', 17),
-                        _SubMenuItem('Nouvel exercice', 12),
+                        _SubMenuItem('Exercices', 17,       moduleNom: 'exercices'),
+                        _SubMenuItem('Nouvel exercice', 12, moduleNom: 'exercices'),
                       ]),
                       _buildMenuItem('EDITION', Icons.print, [
-                        _SubMenuItem('Balance des comptes', 13),
-                        _SubMenuItem('Grand livre', 14),
-                        _SubMenuItem('Journal', 15),
+                        _SubMenuItem('Balance des comptes', 13, moduleNom: 'balance_comptes'),
+                        _SubMenuItem('Grand livre', 14,         moduleNom: 'grand_livre'),
+                        _SubMenuItem('Journal', 15,             moduleNom: 'journal'),
                       ]),
                     ],
                   ),
@@ -838,7 +901,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         if (isExpanded)
-          ...subItems.map(
+          ...subItems.where((s) => _canRead(s.moduleNom)).map(
             (subItem) => InkWell(
               onTap: () => _showPage(subItem.index),
               child: Container(
@@ -1326,8 +1389,9 @@ class _HomePageState extends State<HomePage> {
 class _SubMenuItem {
   final String title;
   final int index;
+  final String? moduleNom;
 
-  _SubMenuItem(this.title, this.index);
+  _SubMenuItem(this.title, this.index, {this.moduleNom});
 }
 
 class _QuickAccessItem {
