@@ -405,7 +405,7 @@ class _ExerciceCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color:
-              isActive ? Colors.green.shade400 : Colors.grey.shade200,
+              isActive ? Colors.blue.shade400 : Colors.grey.shade200,
           width: isActive ? 1.5 : 1,
         ),
       ),
@@ -418,7 +418,7 @@ class _ExerciceCard extends StatelessWidget {
             height: 9,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isActive ? Colors.green : Colors.grey.shade400,
+              color: isActive ? Colors.blue : Colors.grey.shade400,
             ),
           ),
           const SizedBox(width: 14),
@@ -456,7 +456,7 @@ class _ExerciceCard extends StatelessWidget {
                       minHeight: 3,
                       backgroundColor: Colors.grey.shade200,
                       valueColor: const AlwaysStoppedAnimation<Color>(
-                          Colors.green),
+                          Colors.blue),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -464,7 +464,7 @@ class _ExerciceCard extends StatelessWidget {
                     '$moisEcoules mois · en cours',
                     style: TextStyle(
                         fontSize: 11,
-                        color: Colors.green.shade700,
+                        color: Colors.blue.shade700,
                         fontWeight: FontWeight.w500),
                   ),
                 ],

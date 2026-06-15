@@ -937,7 +937,7 @@ class _HomePageState extends State<HomePage> {
       case 1:
         return EntiteIdentificationPage(onDataUpdated: _loadDatabaseInfo);
       case 2:
-        return const PermissionsPage(showAppBar: false);
+        return const PermissionsPage();
       case 4:
         return const PlanComptablePage();
       case 5:

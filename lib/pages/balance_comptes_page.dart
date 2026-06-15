@@ -325,7 +325,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
       appBar:
           widget.showAppBar
               ? AppBar(
-                title: const Text('Balance Générale des Comptes'),
+                title: Text('Balance Générale des Comptes', style: TextStyle(color: Colors.blue.shade700)),
                 backgroundColor: Colors.blue.shade700,
                 elevation: 0,
               )
@@ -365,12 +365,12 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                           color: Colors.blue.shade700,
                         ),
                         const SizedBox(width: 12),
-                        const Text(
+                        Text(
                           'Balance Générale des Comptes',
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                            color: Colors.blue.shade700,
                           ),
                         ),
                       ],
@@ -402,9 +402,9 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                               padding: const EdgeInsets.only(bottom: 12),
                               child: Row(
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.event_available,
-                                    color: Colors.green,
+                                    color: Colors.blue.shade700,
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
@@ -943,7 +943,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                             height: 50,
                             child: ElevatedButton.icon(
                               onPressed: _afficherBalance,
-                              icon: const Icon(Icons.assessment, size: 22),
+                              icon: Icon(Icons.assessment, size: 22, color: Colors.white),
                               label: const Text(
                                 'Afficher la balance',
                                 style: TextStyle(

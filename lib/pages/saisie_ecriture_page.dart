@@ -1624,23 +1624,6 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         children: [
           Row(
             children: [
-              // N° d'enregistrement (automatique, non-éditable)
-              _buildLabeledInputCell(
-                label: 'N° ENR',
-                width: 120,
-                child: Container(
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
-                  child: Text(
-                    _currentNumeroEnregistrement?.toString() ?? '—',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue.shade500,
-                    ),
-                  ),
-                ),
-              ),
-
               // Jour
               _buildLabeledInputCell(
                 label: 'JOUR',
@@ -1932,71 +1915,78 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                 ),
               ),
 
-              // Crédit + espace pour VENTIL & ACTIONS
+              // Crédit
               _buildLabeledInputCell(
                 label: 'CRÉDIT',
-                width: 380,
+                width: 110,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
-                  child: SizedBox(
-                    width: 102,
-                    child: TextField(
-                      controller: _creditController,
-                      keyboardType: TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: _inputDeco('0'),
+                  child: TextField(
+                    controller: _creditController,
+                    keyboardType: TextInputType.numberWithOptions(
+                      decimal: true,
                     ),
+                    decoration: _inputDeco('0'),
                   ),
                 ),
               ),
-            ],
-          ),
 
-          // Boutons centrés
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _clearForm,
-                  icon: const Icon(Icons.close, size: 14),
-                  label: Text(
-                    _editingIndex != null ? 'Réinitialiser' : 'Annuler',
-                  ),
+              // Boutons d'action
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 18),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _clearForm,
+                          icon: const Icon(Icons.close, size: 14),
+                          label: Text(
+                            _editingIndex != null ? 'Réinitialiser' : 'Annuler',
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed:
+                              !_isCurrentEnregistrementBalanced
+                                  ? _balanceEnregistrement
+                                  : null,
+                          icon: const Icon(Icons.balance, size: 14),
+                          label: const Text('Équilibrer'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange.shade600,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: _submitForm,
+                          icon: Icon(
+                            _editingIndex != null ? Icons.edit : Icons.add,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                          label: Text(
+                            _editingIndex != null ? 'Modifier' : 'Ajouter',
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade500,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed:
-                      !_isCurrentEnregistrementBalanced
-                          ? _balanceEnregistrement
-                          : null,
-                  icon: const Icon(Icons.balance, size: 14),
-                  label: const Text('Équilibrer'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange.shade600,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: _submitForm,
-                  icon: Icon(
-                    _editingIndex != null ? Icons.edit : Icons.add,
-                    size: 14,
-                    color: Colors.white,
-                  ),
-                  label: Text(_editingIndex != null ? 'Modifier' : 'Ajouter'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade500,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -2082,52 +2072,31 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               _buildCell(
                 width: 150,
                 minHeight: 14,
-                child: PopupMenuButton<String>(
-                  padding: EdgeInsets.zero,
-                  child: SizedBox(
-                    width: 28,
-                    height: 16,
-                    child: Icon(
-                      Icons.more_vert,
-                      size: 14,
-                      color: Colors.grey.shade600,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, size: 16, color: Colors.blue),
+                      tooltip: 'Modifier',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => Future.delayed(
+                        const Duration(milliseconds: 0),
+                        () { if (mounted) _editEcriture(index, ecriture); },
+                      ),
                     ),
-                  ),
-                  itemBuilder:
-                      (context) => [
-                        PopupMenuItem<String>(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit, size: 16, color: Colors.blue),
-                              const SizedBox(width: 8),
-                              const Text('Modifier'),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem<String>(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete, size: 16, color: Colors.red),
-                              const SizedBox(width: 8),
-                              const Text('Supprimer'),
-                            ],
-                          ),
-                        ),
-                      ],
-                  onSelected: (value) {
-                    // Defer actions outside mouse tracking cycle
-                    if (value == 'edit') {
-                      Future.delayed(const Duration(milliseconds: 0), () {
-                        if (mounted) _editEcriture(index, ecriture);
-                      });
-                    } else if (value == 'delete') {
-                      Future.delayed(const Duration(milliseconds: 0), () {
-                        if (mounted) _showDeleteConfirmation(index, ecriture);
-                      });
-                    }
-                  },
+                    const SizedBox(width: 12),
+                    IconButton(
+                      icon: Icon(Icons.delete, size: 16, color: Colors.red.shade600),
+                      tooltip: 'Supprimer',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => Future.delayed(
+                        const Duration(milliseconds: 0),
+                        () { if (mounted) _showDeleteConfirmation(index, ecriture); },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

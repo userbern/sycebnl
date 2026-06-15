@@ -263,15 +263,24 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
           continue;
         }
 
-        final ouvertureDebit =
+        // Comptes 1–5 = bilan (solde reporté), comptes 6–8 = gestion (repart à zéro)
+        final firstDigit = int.tryParse(
+          numeroCompte.trim().isNotEmpty ? numeroCompte.trim()[0] : '0',
+        ) ?? 0;
+        final isBilan = firstDigit >= 1 && firstDigit <= 5;
+
+        final rawOuvertureDebit =
             (row['ouverture_debit'] as num?)?.toDouble() ?? 0.0;
-        final ouvertureCredit =
+        final rawOuvertureCredit =
             (row['ouverture_credit'] as num?)?.toDouble() ?? 0.0;
         final mouvementDebit =
             (row['mouvement_debit'] as num?)?.toDouble() ?? 0.0;
         final mouvementCredit =
             (row['mouvement_credit'] as num?)?.toDouble() ?? 0.0;
-        final ouvertureSolde = ouvertureDebit - ouvertureCredit;
+        // Ouverture nulle pour les comptes de gestion
+        final ouvertureSolde = isBilan
+            ? (rawOuvertureDebit - rawOuvertureCredit)
+            : 0.0;
         final clotureSolde = ouvertureSolde + mouvementDebit - mouvementCredit;
         final soldeOuvertureDebit = ouvertureSolde > 0 ? ouvertureSolde : 0.0;
         final soldeOuvertureCredit = ouvertureSolde < 0 ? -ouvertureSolde : 0.0;
