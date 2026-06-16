@@ -151,9 +151,9 @@ class _WelcomePageState extends State<WelcomePage> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Colors.blue.shade400,
-              Colors.blue.shade400,
-              Colors.blue.shade400,
+              Colors.blue,
+              Colors.blue,
+              Colors.blue,
             ],
           ),
         ),
@@ -180,7 +180,7 @@ class _WelcomePageState extends State<WelcomePage> {
                           Icon(
                             Icons.account_balance,
                             size: 48,
-                            color: Colors.blue.shade900,
+                            color: Colors.blue,
                           ),
                           const SizedBox(width: 16),
                           Text(
@@ -188,7 +188,7 @@ class _WelcomePageState extends State<WelcomePage> {
                             style: TextStyle(
                               fontSize: 32,
                               fontWeight: FontWeight.bold,
-                              color: Colors.blue.shade900,
+                              color: Colors.blue,
                             ),
                           ),
                         ],
@@ -214,12 +214,12 @@ class _WelcomePageState extends State<WelcomePage> {
                                 size: 28,
                                 color: Colors.white,
                               ),
-                              label: const Text(
+                              label: Text(
                                 'Créer un nouveau fichier',
                                 style: TextStyle(fontSize: 16),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue.shade400,
+                                backgroundColor: Colors.blue,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.all(20),
                                 shape: RoundedRectangleBorder(
@@ -240,7 +240,7 @@ class _WelcomePageState extends State<WelcomePage> {
                               style: OutlinedButton.styleFrom(
                                 padding: const EdgeInsets.all(20),
                                 side: BorderSide(
-                                  color: Colors.blue.shade400,
+                                  color: Colors.blue,
                                   width: 2,
                                 ),
                                 shape: RoundedRectangleBorder(
@@ -305,7 +305,7 @@ class _WelcomePageState extends State<WelcomePage> {
                                         leading: Icon(
                                           Icons.description,
                                           size: 36,
-                                          color: Colors.blue.shade400,
+                                          color: Colors.blue,
                                         ),
                                         title: Text(
                                           file['file_name'] as String,
