@@ -151,6 +151,7 @@ class DatabaseService {
         version: 1,
         onOpen: (db) async {
           await _ensureCompteSchema(db);
+          await _ensureUtilisateurSchema(db);
 
           // Migration: Ajouter exercice_id à la table budget
           try {
@@ -451,6 +452,10 @@ class DatabaseService {
         login TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         role TEXT DEFAULT 'utilisateur',
+        nom TEXT,
+        prenom TEXT,
+        email TEXT,
+        is_active INTEGER DEFAULT 1,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now')),
         deleted_at TEXT
@@ -836,6 +841,34 @@ class DatabaseService {
       }
     } catch (e) {
       print('Migration compte échouée: $e');
+    }
+  }
+
+  static Future<void> _ensureUtilisateurSchema(Database db) async {
+    try {
+      final columns = await db.rawQuery("PRAGMA table_info(utilisateur)");
+      final names = columns.map((col) => col['name']).toSet();
+
+      if (!names.contains('nom')) {
+        print('Migration: ajout de nom à la table utilisateur');
+        await db.execute('ALTER TABLE utilisateur ADD COLUMN nom TEXT');
+      }
+      if (!names.contains('prenom')) {
+        print('Migration: ajout de prenom à la table utilisateur');
+        await db.execute('ALTER TABLE utilisateur ADD COLUMN prenom TEXT');
+      }
+      if (!names.contains('email')) {
+        print('Migration: ajout de email à la table utilisateur');
+        await db.execute('ALTER TABLE utilisateur ADD COLUMN email TEXT');
+      }
+      if (!names.contains('is_active')) {
+        print('Migration: ajout de is_active à la table utilisateur');
+        await db.execute(
+          'ALTER TABLE utilisateur ADD COLUMN is_active INTEGER DEFAULT 1',
+        );
+      }
+    } catch (e) {
+      print('Migration utilisateur échouée: $e');
     }
   }
 

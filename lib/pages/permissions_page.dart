@@ -25,6 +25,11 @@ class _PermissionsPageState extends State<PermissionsPage> {
   bool get _isAdmin => widget.userSession?.isAdmin == true;
   int? get _currentUserId => int.tryParse(widget.userSession?.id ?? '');
 
+  /// Base de données vide (aucun utilisateur) : aucune restriction, on doit
+  /// pouvoir créer le premier compte administrateur.
+  bool get _isBootstrap => widget.userSession == null && _users.isEmpty;
+  bool get _canManage => _isAdmin || _isBootstrap;
+
   static const _sections = [
     ('Notre Entité',  ['identification']),
     ('Paramétrages',  ['plan_comptable', 'liste_tiers', 'codes_journaux',
@@ -67,31 +72,107 @@ class _PermissionsPageState extends State<PermissionsPage> {
     }
   }
 
+  /// Convertit les lignes brutes de `AuthService.getUserPermissions` en
+  /// `Map<moduleId, {lecture/ajout/modification/suppression}>`, en
+  /// complétant les modules absents avec des valeurs à false.
+  Map<int, Map<String, bool>> _mapPermissionRows(List<Map<String, dynamic>> rows) {
+    final map = <int, Map<String, bool>>{};
+    for (final row in rows) {
+      final moduleId = row['module_id'] as int;
+      map[moduleId] = {
+        'lecture':      row['lecture']      == 1 || row['lecture']      == true,
+        'ajout':        row['ajout']        == 1 || row['ajout']        == true,
+        'modification': row['modification'] == 1 || row['modification'] == true,
+        'suppression':  row['suppression']  == 1 || row['suppression']  == true,
+      };
+    }
+    for (final m in _modules) {
+      final id = m['id'] as int;
+      map.putIfAbsent(id, () => {
+        'lecture': false, 'ajout': false,
+        'modification': false, 'suppression': false,
+      });
+    }
+    return map;
+  }
+
   Future<void> _selectUser(int userId) async {
     setState(() { _selectedUserId = userId; _permissionsByModule.clear(); });
     try {
       final rows = await AuthService.getUserPermissions(userId);
-      final map  = <int, Map<String, bool>>{};
-      for (final row in rows) {
-        final moduleId = row['module_id'] as int;
-        map[moduleId] = {
-          'lecture':      row['lecture']      == 1 || row['lecture']      == true,
-          'ajout':        row['ajout']        == 1 || row['ajout']        == true,
-          'modification': row['modification'] == 1 || row['modification'] == true,
-          'suppression':  row['suppression']  == 1 || row['suppression']  == true,
-        };
-      }
-      for (final m in _modules) {
-        final id = m['id'] as int;
-        map.putIfAbsent(id, () => {
-          'lecture': false, 'ajout': false,
-          'modification': false, 'suppression': false,
-        });
-      }
+      final map  = _mapPermissionRows(rows);
       if (!mounted) return;
       setState(() => _permissionsByModule.addAll(map));
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
+    }
+  }
+
+  void _setAllPermissions(bool value) {
+    setState(() {
+      for (final m in _modules) {
+        final id = m['id'] as int;
+        _permissionsByModule[id] = {
+          'lecture': value, 'ajout': value,
+          'modification': value, 'suppression': value,
+        };
+      }
+    });
+  }
+
+  Future<void> _showCopyPermissionsDialog() async {
+    final otherUsers = _users.where((u) => u['id'] != _selectedUserId).toList();
+    if (otherUsers.isEmpty) return;
+    int? sourceUserId = otherUsers.first['id'] as int;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Copier les permissions'),
+          content: SizedBox(
+            width: 340,
+            child: DropdownButtonFormField<int>(
+              initialValue: sourceUserId,
+              decoration: const InputDecoration(
+                labelText: 'Copier depuis',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              items: otherUsers
+                  .map((u) => DropdownMenuItem<int>(
+                        value: u['id'] as int,
+                        child: Text(u['login']?.toString() ?? ''),
+                      ))
+                  .toList(),
+              onChanged: (v) => setDialogState(() => sourceUserId = v),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Copier'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || sourceUserId == null) return;
+    try {
+      final rows = await AuthService.getUserPermissions(sourceUserId!);
+      final map  = _mapPermissionRows(rows);
+      if (!mounted) return;
+      setState(() {
+        _permissionsByModule.clear();
+        _permissionsByModule.addAll(map);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -136,29 +217,266 @@ class _PermissionsPageState extends State<PermissionsPage> {
     }
   }
 
+  /// Vérifie l'unicité du login / email parmi les utilisateurs déjà chargés.
+  /// `excludeUserId` permet d'ignorer l'utilisateur en cours de modification.
+  String? _validateLoginAndEmailUniqueness({
+    required String login,
+    String? email,
+    int? excludeUserId,
+  }) {
+    final loginLower = login.trim().toLowerCase();
+    final emailLower = (email ?? '').trim().toLowerCase();
+    for (final u in _users) {
+      if (excludeUserId != null && u['id'] == excludeUserId) continue;
+      final uLogin = (u['login']?.toString() ?? '').toLowerCase();
+      final uEmail = (u['email']?.toString() ?? '').toLowerCase();
+      if (uLogin == loginLower) return 'Ce login existe déjà';
+      if (emailLower.isNotEmpty && uEmail == emailLower) return 'Cet email existe déjà';
+    }
+    return null;
+  }
+
+  /// Enregistre des permissions explicites à false sur tous les modules pour
+  /// un nouvel utilisateur, afin d'éviter un état ambigu "aucune permission".
+  Future<void> _initializeBaselinePermissions(int userId) async {
+    final payload = _modules.map((m) => {
+      'moduleId':     m['id'] as int,
+      'lecture':      false,
+      'ajout':        false,
+      'modification': false,
+      'suppression':  false,
+    }).toList();
+    await AuthService.updatePermissions(userId, payload);
+  }
+
   Future<void> _showCreateUserDialog() async {
-    final loginCtrl  = TextEditingController();
-    final nomCtrl    = TextEditingController();
-    final prenomCtrl = TextEditingController();
-    final passCtrl   = TextEditingController();
+    final wasBootstrap = _isBootstrap;
+    final loginCtrl    = TextEditingController();
+    final nomCtrl      = TextEditingController();
+    final prenomCtrl   = TextEditingController();
+    final emailCtrl    = TextEditingController();
+    final passCtrl     = TextEditingController();
+    final confirmCtrl  = TextEditingController();
+    final formKey      = GlobalKey<FormState>();
+    String role        = wasBootstrap ? 'admin' : 'utilisateur';
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Nouvel utilisateur'),
+          content: SizedBox(
+            width: 360,
+            child: Form(
+              key: formKey,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                _formField(prenomCtrl, 'Prénom'),
+                const SizedBox(height: 12),
+                _formField(nomCtrl, 'Nom'),
+                const SizedBox(height: 12),
+                _formField(loginCtrl, 'Login'),
+                const SizedBox(height: 12),
+                _formField(emailCtrl, 'Email', required: false),
+                const SizedBox(height: 12),
+                _formField(passCtrl, 'Mot de passe', obscure: true),
+                const SizedBox(height: 12),
+                _formField(confirmCtrl, 'Confirmer le mot de passe', obscure: true),
+                if (!wasBootstrap) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: role,
+                    decoration: const InputDecoration(
+                      labelText: 'Rôle',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'utilisateur', child: Text('Utilisateur')),
+                      DropdownMenuItem(value: 'admin', child: Text('Administrateur')),
+                    ],
+                    onChanged: (v) => setDialogState(() => role = v ?? 'utilisateur'),
+                  ),
+                ],
+              ]),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+            FilledButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                if (passCtrl.text != confirmCtrl.text) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(
+                      content: Text('Les mots de passe ne correspondent pas'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                final uniquenessError = _validateLoginAndEmailUniqueness(
+                  login: loginCtrl.text.trim(),
+                  email: emailCtrl.text.trim(),
+                );
+                if (uniquenessError != null) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(content: Text(uniquenessError), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+                try {
+                  final newUserId = await AuthService.createUser(
+                    login:     loginCtrl.text.trim(),
+                    password:  passCtrl.text,
+                    nom:       nomCtrl.text.trim(),
+                    prenom:    prenomCtrl.text.trim(),
+                    email:     emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
+                    role:      role,
+                    createdBy: _currentUserId,
+                  );
+                  if (role != 'admin') {
+                    await _initializeBaselinePermissions(newUserId);
+                  }
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  await _loadData();
+                  if (wasBootstrap && mounted) {
+                    // On vient de créer le premier admin en mode bootstrap.
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Compte administrateur créé. Fermez puis rouvrez ce fichier pour vous connecter.',
+                        ),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              child: const Text('Créer'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showEditUserDialog(Map<String, dynamic> user) async {
+    final uid = user['id'] as int;
+    final isSelf = uid == _currentUserId;
+    final loginCtrl  = TextEditingController(text: user['login']?.toString() ?? '');
+    final nomCtrl    = TextEditingController(text: user['nom']?.toString() ?? '');
+    final prenomCtrl = TextEditingController(text: user['prenom']?.toString() ?? '');
+    final emailCtrl  = TextEditingController(text: user['email']?.toString() ?? '');
     final formKey    = GlobalKey<FormState>();
+    String role = (user['role']?.toString() ?? 'utilisateur');
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Modifier l\'utilisateur'),
+          content: SizedBox(
+            width: 360,
+            child: Form(
+              key: formKey,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                _formField(prenomCtrl, 'Prénom'),
+                const SizedBox(height: 12),
+                _formField(nomCtrl, 'Nom'),
+                const SizedBox(height: 12),
+                _formField(loginCtrl, 'Login'),
+                const SizedBox(height: 12),
+                _formField(emailCtrl, 'Email', required: false),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: role,
+                  decoration: const InputDecoration(
+                    labelText: 'Rôle',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'utilisateur', child: Text('Utilisateur')),
+                    DropdownMenuItem(value: 'admin', child: Text('Administrateur')),
+                  ],
+                  onChanged: isSelf ? null : (v) => setDialogState(() => role = v ?? role),
+                ),
+                if (isSelf) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Vous ne pouvez pas modifier votre propre rôle.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                ],
+              ]),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+            FilledButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                final uniquenessError = _validateLoginAndEmailUniqueness(
+                  login: loginCtrl.text.trim(),
+                  email: emailCtrl.text.trim(),
+                  excludeUserId: uid,
+                );
+                if (uniquenessError != null) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(content: Text(uniquenessError), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+                try {
+                  await AuthService.updateUser(
+                    id:     uid,
+                    login:  loginCtrl.text.trim(),
+                    nom:    nomCtrl.text.trim(),
+                    prenom: prenomCtrl.text.trim(),
+                    email:  emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
+                    role:   isSelf ? null : role,
+                  );
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  await _loadData();
+                } catch (e) {
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showResetPasswordDialog(int userId, String login) async {
+    final passCtrl    = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    final formKey     = GlobalKey<FormState>();
 
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Nouvel utilisateur'),
+        title: Text('Réinitialiser le mot de passe de « $login »'),
         content: SizedBox(
-          width: 360,
+          width: 340,
           child: Form(
             key: formKey,
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              _formField(prenomCtrl, 'Prénom'),
+              _formField(passCtrl, 'Nouveau mot de passe', obscure: true),
               const SizedBox(height: 12),
-              _formField(nomCtrl, 'Nom'),
-              const SizedBox(height: 12),
-              _formField(loginCtrl, 'Login'),
-              const SizedBox(height: 12),
-              _formField(passCtrl, 'Mot de passe', obscure: true),
+              _formField(confirmCtrl, 'Confirmer le mot de passe', obscure: true),
             ]),
           ),
         ),
@@ -167,16 +485,23 @@ class _PermissionsPageState extends State<PermissionsPage> {
           FilledButton(
             onPressed: () async {
               if (!formKey.currentState!.validate()) return;
-              try {
-                await AuthService.createUser(
-                  login:     loginCtrl.text.trim(),
-                  password:  passCtrl.text,
-                  nom:       nomCtrl.text.trim(),
-                  prenom:    prenomCtrl.text.trim(),
-                  createdBy: _currentUserId,
+              if (passCtrl.text != confirmCtrl.text) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(
+                    content: Text('Les mots de passe ne correspondent pas'),
+                    backgroundColor: Colors.red,
+                  ),
                 );
+                return;
+              }
+              try {
+                await AuthService.resetPassword(userId: userId, newPassword: passCtrl.text);
                 if (ctx.mounted) Navigator.pop(ctx);
-                await _loadData();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Mot de passe réinitialisé'), backgroundColor: Colors.green),
+                  );
+                }
               } catch (e) {
                 if (ctx.mounted) {
                   ScaffoldMessenger.of(ctx).showSnackBar(
@@ -185,11 +510,23 @@ class _PermissionsPageState extends State<PermissionsPage> {
                 }
               }
             },
-            child: const Text('Créer'),
+            child: const Text('Réinitialiser'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _toggleUserActive(int userId, bool newIsActive) async {
+    try {
+      await AuthService.updateUser(id: userId, isActive: newIsActive);
+      await _loadData();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   Future<void> _confirmDeleteUser(int userId, String login) async {
@@ -216,7 +553,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
   }
 
   TextFormField _formField(TextEditingController ctrl, String label,
-      {bool obscure = false}) {
+      {bool obscure = false, bool required = true}) {
     return TextFormField(
       controller: ctrl,
       obscureText: obscure,
@@ -225,7 +562,9 @@ class _PermissionsPageState extends State<PermissionsPage> {
         border: const OutlineInputBorder(),
         isDense: true,
       ),
-      validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
+      validator: required
+          ? (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null
+          : null,
     );
   }
 
@@ -274,7 +613,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
                     color: Colors.blue.shade900,
                   ),
                 ),
-                if (_isAdmin)
+                if (_canManage)
                   IconButton(
                     icon: const Icon(Icons.person_add_outlined, size: 20),
                     tooltip: 'Nouvel utilisateur',
@@ -305,6 +644,9 @@ class _PermissionsPageState extends State<PermissionsPage> {
                       final prenom    = user['prenom']?.toString() ?? '';
                       final fullName  = [prenom, nom].where((s) => s.isNotEmpty).join(' ');
                       final isSelected = uid == _selectedUserId;
+                      final isActive  = user['is_active'] == null ||
+                          user['is_active'] == 1 ||
+                          user['is_active'] == true;
 
                       return ListTile(
                         dense: true,
@@ -326,18 +668,57 @@ class _PermissionsPageState extends State<PermissionsPage> {
                             ),
                           ),
                         ),
-                        title: Text(login,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                        subtitle: fullName.isNotEmpty
-                            ? Text(fullName, style: const TextStyle(fontSize: 11))
-                            : null,
+                        title: Text(
+                          login,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isActive ? null : Colors.grey.shade500,
+                          ),
+                        ),
+                        subtitle: Text(
+                          [
+                            if (fullName.isNotEmpty) fullName,
+                            if (!isActive) 'Inactif',
+                          ].join(' · '),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isActive ? null : Colors.red.shade300,
+                          ),
+                        ),
                         onTap: () => _selectUser(uid),
-                        trailing: _isAdmin
-                            ? IconButton(
-                                icon: const Icon(Icons.delete_outline, size: 18),
-                                color: Colors.red.shade300,
-                                tooltip: 'Supprimer',
-                                onPressed: () => _confirmDeleteUser(uid, login),
+                        trailing: _canManage
+                            ? PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert, size: 18),
+                                tooltip: 'Actions',
+                                onSelected: (action) {
+                                  switch (action) {
+                                    case 'edit':
+                                      _showEditUserDialog(user);
+                                      break;
+                                    case 'reset_password':
+                                      _showResetPasswordDialog(uid, login);
+                                      break;
+                                    case 'toggle_active':
+                                      _toggleUserActive(uid, !isActive);
+                                      break;
+                                    case 'delete':
+                                      _confirmDeleteUser(uid, login);
+                                      break;
+                                  }
+                                },
+                                itemBuilder: (ctx) => [
+                                  const PopupMenuItem(value: 'edit', child: Text('Modifier')),
+                                  const PopupMenuItem(
+                                    value: 'reset_password',
+                                    child: Text('Réinitialiser le mot de passe'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'toggle_active',
+                                    child: Text(isActive ? 'Désactiver' : 'Réactiver'),
+                                  ),
+                                  const PopupMenuItem(value: 'delete', child: Text('Supprimer')),
+                                ],
                               )
                             : null,
                       );
@@ -383,7 +764,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
                   ),
                 ),
               ),
-              if (_isAdmin)
+              if (_canManage)
                 FilledButton.icon(
                   onPressed: _isSaving ? null : _save,
                   icon: _isSaving
@@ -397,6 +778,31 @@ class _PermissionsPageState extends State<PermissionsPage> {
             ],
           ),
         ),
+        if (_canManage)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+            child: Wrap(
+              spacing: 8,
+              children: [
+                TextButton.icon(
+                  onPressed: () => _setAllPermissions(true),
+                  icon: const Icon(Icons.select_all, size: 16),
+                  label: const Text('Tout sélectionner'),
+                ),
+                TextButton.icon(
+                  onPressed: () => _setAllPermissions(false),
+                  icon: const Icon(Icons.deselect, size: 16),
+                  label: const Text('Tout désélectionner'),
+                ),
+                if (_users.length > 1)
+                  TextButton.icon(
+                    onPressed: _showCopyPermissionsDialog,
+                    icon: const Icon(Icons.copy_outlined, size: 16),
+                    label: const Text('Copier les permissions...'),
+                  ),
+              ],
+            ),
+          ),
         const Divider(height: 1),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -470,25 +876,25 @@ class _PermissionsPageState extends State<PermissionsPage> {
                 ),
                 _PermToggle(
                   value: perms['lecture'] == true,
-                  onChanged: _isAdmin
+                  onChanged: _canManage
                       ? (v) => _togglePermission(moduleId, 'lecture', v)
                       : null,
                 ),
                 _PermToggle(
                   value: perms['ajout'] == true,
-                  onChanged: _isAdmin
+                  onChanged: _canManage
                       ? (v) => _togglePermission(moduleId, 'ajout', v)
                       : null,
                 ),
                 _PermToggle(
                   value: perms['modification'] == true,
-                  onChanged: _isAdmin
+                  onChanged: _canManage
                       ? (v) => _togglePermission(moduleId, 'modification', v)
                       : null,
                 ),
                 _PermToggle(
                   value: perms['suppression'] == true,
-                  onChanged: _isAdmin
+                  onChanged: _canManage
                       ? (v) => _togglePermission(moduleId, 'suppression', v)
                       : null,
                 ),

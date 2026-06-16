@@ -76,21 +76,20 @@ class AuthService {
     }
   }
 
-  /// Vérifier si l'utilisateur courant est admin (premier utilisateur)
+  /// Vérifier si l'utilisateur courant est admin (rôle = 'admin')
   static Future<bool> isCurrentUserAdmin(int currentUserId) async {
     try {
-      // Récupérer le premier utilisateur (ID = 1 ou le plus petit ID)
-      final firstUser = await _db.query(
+      final rows = await _db.query(
         'utilisateur',
-        where: 'deleted_at IS NULL',
-        orderBy: 'id ASC',
+        columns: ['role'],
+        where: 'id = ? AND deleted_at IS NULL',
+        whereArgs: [currentUserId],
         limit: 1,
       );
 
-      if (firstUser.isEmpty) return false;
+      if (rows.isEmpty) return false;
 
-      // L'utilisateur est admin s'il est le premier utilisateur enregistré
-      return firstUser.first['id'] == currentUserId;
+      return (rows.first['role'] as String?)?.toLowerCase() == 'admin';
     } catch (e) {
       return false;
     }
@@ -103,6 +102,7 @@ class AuthService {
     required String password,
     required String nom,
     required String prenom,
+    String? email,
     String role = 'utilisateur',
     int? createdBy,
   }) async {
@@ -135,7 +135,11 @@ class AuthService {
       final userId = await _db.insert('utilisateur', {
         'login': login,
         'password': hashedPassword,
+        'nom': nom,
+        'prenom': prenom,
+        'email': email,
         'role': role,
+        'is_active': 1,
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
       });
@@ -171,7 +175,9 @@ class AuthService {
     String? password,
     String? nom,
     String? prenom,
+    String? email,
     String? role,
+    bool? isActive,
   }) async {
     try {
       final Map<String, dynamic> data = {
@@ -182,12 +188,26 @@ class AuthService {
       if (password != null) data['password'] = _hashPassword(password);
       if (nom != null) data['nom'] = nom;
       if (prenom != null) data['prenom'] = prenom;
+      if (email != null) data['email'] = email;
       if (role != null) data['role'] = role;
+      if (isActive != null) data['is_active'] = isActive ? 1 : 0;
 
       await _db.update('utilisateur', data, where: 'id = ?', whereArgs: [id]);
     } catch (e) {
       throw Exception('Erreur lors de la mise à jour de l\'utilisateur: $e');
     }
+  }
+
+  /// Réinitialiser le mot de passe d'un utilisateur (action admin, sans ancien mot de passe)
+  static Future<void> resetPassword({
+    required int userId,
+    required String newPassword,
+  }) async {
+    await changePassword(
+      userId: userId,
+      newPassword: newPassword,
+      isAdmin: true,
+    );
   }
 
   /// Supprimer un utilisateur (soft delete)

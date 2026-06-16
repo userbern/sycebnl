@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/database_service.dart';
-import '../services/auth_service_local.dart';
 import '../models/user_session.dart';
 import 'entite_identification_page.dart';
 import 'nouvel_exercice_page.dart';
@@ -48,8 +47,6 @@ class _HomePageState extends State<HomePage> {
   int _journauxRefreshSeed = 0;
   int _selectionRefreshSeed = 0;
   bool _isSidebarCollapsed = false;
-  // null = pas encore chargé (= aucune restriction appliquée)
-  Map<String, Map<String, bool>>? _modulePermissions;
   static const List<_QuickAccessItem> _quickAccessItems = [
     _QuickAccessItem(
       label: 'Plan comptable',
@@ -108,49 +105,19 @@ class _HomePageState extends State<HomePage> {
       });
       print('DEBUG: State mis à jour avec succès!');
 
-      // Charger les permissions pour les non-admin
-      if (widget.userSession != null && widget.userSession!.isAdmin != true) {
-        final userId = int.tryParse(widget.userSession!.id);
-        if (userId != null) {
-          try {
-            final rawPerms = await AuthService.getUserPermissions(userId);
-            final perms = <String, Map<String, bool>>{};
-            for (final p in rawPerms) {
-              final nom = p['module_nom']?.toString() ?? '';
-              if (nom.isNotEmpty) {
-                perms[nom] = {
-                  'lecture':      p['lecture']      == 1 || p['lecture']      == true,
-                  'ajout':        p['ajout']        == 1 || p['ajout']        == true,
-                  'modification': p['modification'] == 1 || p['modification'] == true,
-                  'suppression':  p['suppression']  == 1 || p['suppression']  == true,
-                };
-              }
-            }
-            if (mounted) setState(() => _modulePermissions = perms);
-          } catch (_) {
-            // En cas d'erreur, on laisse _modulePermissions à null = aucune restriction
-          }
-        }
-      }
     } catch (e) {
       print('DEBUG: Erreur lors du chargement: $e');
       // Ignorer les erreurs de chargement
     }
   }
 
-  /// Règle : admin → toujours true.
-  /// Pas de permission configurée (null ou module absent) → true (aucune restriction).
-  /// Permission explicite lecture=false → false.
+  /// Règle : aucun utilisateur dans la base (bootstrap) → toujours true.
+  /// Sinon, délègue à UserSession.canRead (admin → true, refus par défaut
+  /// si aucune permission explicite ne correspond au module).
   bool _canRead(String? moduleNom) {
-    if (widget.userSession?.isAdmin == true) return true;
+    if (widget.userSession == null) return true;
     if (moduleNom == null) return true;
-    // Permissions pas encore chargées ou vides = aucune restriction
-    final perms = _modulePermissions;
-    if (perms == null || perms.isEmpty) return true;
-    // Module non configuré = aucune restriction
-    final perm = perms[moduleNom];
-    if (perm == null) return true;
-    return perm['lecture'] == true;
+    return widget.userSession!.canRead(moduleNom);
   }
 
   Future<void> _refreshExercices() async {
@@ -1000,7 +967,7 @@ class _HomePageState extends State<HomePage> {
       case 1:
         return EntiteIdentificationPage(onDataUpdated: _loadDatabaseInfo);
       case 2:
-        return const PermissionsPage();
+        return PermissionsPage(showAppBar: false, userSession: widget.userSession);
       case 4:
         return const PlanComptablePage();
       case 5:

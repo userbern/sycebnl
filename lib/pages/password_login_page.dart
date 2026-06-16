@@ -35,9 +35,9 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
       await DatabaseService.initializeFfi();
       final db = await databaseFactoryFfi.openDatabase(widget.filePath);
       final users = await db.query(
-        'users',
-        where: 'is_active = 1',
-        orderBy: 'nom ASC',
+        'utilisateur',
+        where: 'is_active = 1 AND deleted_at IS NULL',
+        orderBy: 'login ASC',
       );
       await db.close();
 

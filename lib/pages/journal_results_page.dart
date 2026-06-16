@@ -46,7 +46,8 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
         _errorMessage = null;
       });
 
-      if (!DatabaseService.isConnected) throw Exception('Base de donnees non connectee');
+      if (!DatabaseService.isConnected)
+        throw Exception('Base de donnees non connectee');
 
       final db = DatabaseService.database;
       final entiteRows = await db.query('entite', limit: 1);
@@ -169,8 +170,18 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
 
   String _monthName(int m) {
     const n = [
-      'janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin',
-      'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre',
+      'janvier',
+      'fevrier',
+      'mars',
+      'avril',
+      'mai',
+      'juin',
+      'juillet',
+      'aout',
+      'septembre',
+      'octobre',
+      'novembre',
+      'decembre',
     ];
     return n[m - 1];
   }
@@ -187,77 +198,87 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: widget.showAppBar
-          ? AppBar(
-              title: Text(
-                widget.typeEtat == 'tiers' ? 'Journal - Tiers' : 'Journal',
-              ),
-              backgroundColor: Colors.blue.shade700,
-              foregroundColor: Colors.white,
-              actions: [
-                IconButton(
-                  tooltip: 'Actualiser',
-                  onPressed: _loadData,
-                  icon: const Icon(Icons.refresh),
+      appBar:
+          widget.showAppBar
+              ? AppBar(
+                title: Text(
+                  widget.typeEtat == 'tiers' ? 'Journal - Tiers' : 'Journal',
                 ),
-                TextButton.icon(
-                  onPressed: _isLoading ? null : _exportPdf,
-                  icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
-                  label: const Text('PDF', style: TextStyle(color: Colors.white)),
-                ),
-                TextButton.icon(
-                  onPressed: _isLoading ? null : _exportExcel,
-                  icon: const Icon(Icons.table_view, color: Colors.white),
-                  label: const Text('Excel', style: TextStyle(color: Colors.white)),
-                ),
-                const SizedBox(width: 8),
-              ],
-            )
-          : null,
+                backgroundColor: Colors.blue.shade700,
+                foregroundColor: Colors.white,
+                actions: [
+                  IconButton(
+                    tooltip: 'Actualiser',
+                    onPressed: _loadData,
+                    icon: const Icon(Icons.refresh),
+                  ),
+                  TextButton.icon(
+                    onPressed: _isLoading ? null : _exportPdf,
+                    icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+                    label: const Text(
+                      'PDF',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _isLoading ? null : _exportExcel,
+                    icon: const Icon(Icons.table_view, color: Colors.white),
+                    label: const Text(
+                      'Excel',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              )
+              : null,
       body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _errorMessage != null
+        child:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _errorMessage != null
                 ? _buildError()
                 : ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(
-                          'JOURNAL${_isAll ? '' : ' - ${widget.codeJournal}'}'
-                          ' (${widget.typeEtat == 'tiers' ? 'TIERS' : 'BASE'})',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.blue.shade700,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.8,
-                          ),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'JOURNAL${_isAll ? '' : ' - ${widget.codeJournal}'}'
+                        ' (${widget.typeEtat == 'tiers' ? 'TIERS' : 'BASE'})',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.blue.shade700,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
                         ),
                       ),
-                      LayoutBuilder(
-                        builder: (context, constraints) =>
-                            _buildDocumentHeader(
-                              constraints.maxWidth > 900
-                                  ? constraints.maxWidth
-                                  : 900.0,
-                            ),
-                      ),
-                      const SizedBox(height: 12),
-                      if (_entries.isEmpty)
-                        const Card(
-                          child: Padding(
-                            padding: EdgeInsets.all(24),
-                            child: Text('Aucune ecriture ne correspond aux criteres choisis.'),
+                    ),
+                    LayoutBuilder(
+                      builder:
+                          (context, constraints) => _buildDocumentHeader(
+                            constraints.maxWidth > 900
+                                ? constraints.maxWidth
+                                : 900.0,
                           ),
-                        )
-                      else if (_isAll)
-                        ..._buildGroupedTables()
-                      else
-                        _buildSingleTable(_entries),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (_entries.isEmpty)
+                      const Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            'Aucune ecriture ne correspond aux criteres choisis.',
+                          ),
+                        ),
+                      )
+                    else if (_isAll)
+                      ..._buildGroupedTables()
+                    else
+                      _buildSingleTable(_entries),
+                  ],
+                ),
       ),
     );
   }
@@ -293,9 +314,10 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
   Widget _buildDocumentHeader(double tableWidth) {
     final entite = _entite?['denomination_sociale']?.toString() ?? '-';
     final nif = _entite?['numero_fiscal']?.toString() ?? '-';
-    final adresse = [_entite?['ville'], _entite?['quartier']]
-        .where((v) => v != null && v.toString().isNotEmpty)
-        .join(', ');
+    final adresse = [
+      _entite?['ville'],
+      _entite?['quartier'],
+    ].where((v) => v != null && v.toString().isNotEmpty).join(', ');
     final journal = _isAll ? 'Tous les journaux' : widget.codeJournal!;
     final type = widget.typeEtat == 'tiers' ? 'TIERS' : 'BASE';
 
@@ -378,8 +400,8 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
       g.totalCredit += e.credit;
     }
 
-    final sortedGroups = grouped.values.toList()
-      ..sort((a, b) => a.code.compareTo(b.code));
+    final sortedGroups =
+        grouped.values.toList()..sort((a, b) => a.code.compareTo(b.code));
 
     return sortedGroups.map((g) {
       return Column(
@@ -408,12 +430,13 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
   Widget _buildSingleTable(List<_JournalEntry> entries) {
     final totalDebit = entries.fold<double>(0, (s, e) => s + e.debit);
     final totalCredit = entries.fold<double>(0, (s, e) => s + e.credit);
-    final g = _JournalGroup(
-      code: widget.codeJournal ?? '',
-      libelle: entries.isNotEmpty ? entries.first.journalLibelle : '',
-    )
-      ..totalDebit = totalDebit
-      ..totalCredit = totalCredit;
+    final g =
+        _JournalGroup(
+            code: widget.codeJournal ?? '',
+            libelle: entries.isNotEmpty ? entries.first.journalLibelle : '',
+          )
+          ..totalDebit = totalDebit
+          ..totalCredit = totalCredit;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -449,54 +472,62 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
           child: ConstrainedBox(
             constraints: BoxConstraints(minWidth: minW),
             child: Table(
-          border: TableBorder.all(color: Colors.black, width: 0.8),
-          columnWidths: const {
-            0: FlexColumnWidth(1.2), // Date
-            1: FlexColumnWidth(1.1), // N° Compte
-            2: FlexColumnWidth(2.5), // Intitulé
-            3: FlexColumnWidth(1.2), // N° Enregistrement
-            4: FlexColumnWidth(3.5), // Libellé écriture
-            5: FlexColumnWidth(1.3), // Débit
-            6: FlexColumnWidth(1.3), // Crédit
-          },
-          children: [
-            // En-tête colonnes
-            _tableRow(
-              ['Date', 'N Compte', 'Intitule', 'N Enreg.', 'Libelle', 'Debit', 'Credit'],
-              color: const Color(0xFFD8E7F1),
-              bold: true,
+              border: TableBorder.all(color: Colors.black, width: 0.8),
+              columnWidths: const {
+                0: FlexColumnWidth(1.2), // Date
+                1: FlexColumnWidth(1.1), // N° Compte
+                2: FlexColumnWidth(2.5), // Intitulé
+                3: FlexColumnWidth(1.2), // N° Enregistrement
+                4: FlexColumnWidth(3.5), // Libellé écriture
+                5: FlexColumnWidth(1.3), // Débit
+                6: FlexColumnWidth(1.3), // Crédit
+              },
+              children: [
+                // En-tête colonnes
+                _tableRow(
+                  [
+                    'Date',
+                    'N Compte',
+                    'Intitule',
+                    'N Enreg.',
+                    'Libelle',
+                    'Debit',
+                    'Credit',
+                  ],
+                  color: const Color.fromARGB(255, 0, 7, 12),
+                  bold: true,
+                ),
+                // Lignes
+                ...entries.map(
+                  (e) => _tableRow([
+                    _fmtDate(e.dateComptable),
+                    e.numeroCompte,
+                    e.compteIntitule,
+                    e.numeroEnregistrement > 0
+                        ? e.numeroEnregistrement.toString().padLeft(3, '0')
+                        : '-',
+                    e.libelle,
+                    _fmt(e.debit),
+                    _fmt(e.credit),
+                  ]),
+                ),
+                // Ligne totaux
+                if (showJournalTotals && journalGroup != null)
+                  _tableRow(
+                    [
+                      '',
+                      '',
+                      '',
+                      '',
+                      'TOTAL  (${entries.length} ecritures)',
+                      _fmt(journalGroup.totalDebit),
+                      _fmt(journalGroup.totalCredit),
+                    ],
+                    color: const Color(0xFFD8E7F1),
+                    bold: true,
+                  ),
+              ],
             ),
-            // Lignes
-            ...entries.map(
-              (e) => _tableRow([
-                _fmtDate(e.dateComptable),
-                e.numeroCompte,
-                e.compteIntitule,
-                e.numeroEnregistrement > 0
-                    ? e.numeroEnregistrement.toString().padLeft(3, '0')
-                    : '-',
-                e.libelle,
-                _fmt(e.debit),
-                _fmt(e.credit),
-              ]),
-            ),
-            // Ligne totaux
-            if (showJournalTotals && journalGroup != null)
-              _tableRow(
-                [
-                  '',
-                  '',
-                  '',
-                  '',
-                  'TOTAL  (${entries.length} ecritures)',
-                  _fmt(journalGroup.totalDebit),
-                  _fmt(journalGroup.totalCredit),
-                ],
-                color: const Color(0xFFD8E7F1),
-                bold: true,
-              ),
-          ],
-        ),
           ),
         );
       },
@@ -506,20 +537,21 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
   TableRow _tableRow(List<String> values, {Color? color, bool bold = false}) {
     return TableRow(
       decoration: BoxDecoration(color: color ?? Colors.white),
-      children: values.asMap().entries.map((entry) {
-        final isAmount = entry.key >= 5;
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-          child: Text(
-            entry.value,
-            textAlign: isAmount ? TextAlign.right : TextAlign.left,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: bold ? FontWeight.w800 : FontWeight.normal,
-            ),
-          ),
-        );
-      }).toList(),
+      children:
+          values.asMap().entries.map((entry) {
+            final isAmount = entry.key >= 5;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+              child: Text(
+                entry.value,
+                textAlign: isAmount ? TextAlign.right : TextAlign.left,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: bold ? FontWeight.w800 : FontWeight.normal,
+                ),
+              ),
+            );
+          }).toList(),
     );
   }
 
@@ -580,10 +612,12 @@ class _JournalEntry {
     return _JournalEntry(
       id: (map['id'] as num?)?.toInt() ?? 0,
       codeJournal: map['code_journal']?.toString() ?? '',
-      journalLibelle: (map['journal_libelle'] ?? map['code_journal'] ?? '').toString(),
+      journalLibelle:
+          (map['journal_libelle'] ?? map['code_journal'] ?? '').toString(),
       annee: (map['annee'] as num?)?.toInt() ?? 0,
       mois: (map['mois'] as num?)?.toInt() ?? 0,
-      numeroEnregistrement: (map['numero_enregistrement'] as num?)?.toInt() ?? 0,
+      numeroEnregistrement:
+          (map['numero_enregistrement'] as num?)?.toInt() ?? 0,
       dateComptable: parseDate(map['date_comptable']),
       numeroCompte: map['numero_compte']?.toString() ?? '',
       compteIntitule: map['compte_intitule']?.toString() ?? '',
