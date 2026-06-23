@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../models/compte.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
+import '../services/import_service.dart';
 
 class PlanComptablePage extends StatefulWidget {
   const PlanComptablePage({super.key});
@@ -747,6 +748,20 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                     ),
                   ),
                   const Spacer(),
+                  ElevatedButton.icon(
+                    onPressed: () => ImportService.importPlanComptable(
+                      context: context,
+                      onSuccess: _loadComptes,
+                    ),
+                    icon: const Icon(Icons.upload_file, color: Colors.white),
+                    label: const Text('Importer Excel'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple.shade400,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   // Boutons d'export
                   ElevatedButton.icon(
                     onPressed: () {

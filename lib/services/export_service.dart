@@ -2774,6 +2774,182 @@ class ExportService {
     );
   }
 
+  // ==================== EXPORT CODES JOURNAUX ====================
+
+  /// Exporte la liste des codes journaux en PDF
+  static Future<void> exportJournauxPDF({
+    required List<Map<String, dynamic>> journaux,
+    required BuildContext context,
+  }) async {
+    try {
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(12),
+          build: (context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Center(
+                  child: pw.Text(
+                    'CODES JOURNAUX',
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.blue800,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Center(
+                  child: pw.Text(
+                    'Date d\'export: ${DateTime.now().toString().split(' ')[0]}',
+                    style: const pw.TextStyle(fontSize: 10),
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.black),
+                  columnWidths: const {
+                    0: pw.FlexColumnWidth(1),
+                    1: pw.FlexColumnWidth(2.5),
+                    2: pw.FlexColumnWidth(1.2),
+                    3: pw.FlexColumnWidth(1.5),
+                    4: pw.FlexColumnWidth(1),
+                  },
+                  children: [
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(color: PdfColors.blue100),
+                      children: [
+                        _pdfCell('Code', bold: true),
+                        _pdfCell('Intitulé', bold: true),
+                        _pdfCell('Type', bold: true),
+                        _pdfCell('Compte Trésorerie', bold: true),
+                        _pdfCell('Saisie Analytique', bold: true),
+                      ],
+                    ),
+                    ...journaux.map((j) => pw.TableRow(
+                      children: [
+                        _pdfCell(j['code']?.toString() ?? '-'),
+                        _pdfCell(j['intitule']?.toString() ?? '-'),
+                        _pdfCell(j['type']?.toString() ?? '-'),
+                        _pdfCell(j['compteTresorerie']?.toString() ?? '-'),
+                        _pdfCell(j['saisieAnalytique'] == true ? 'Oui' : 'Non'),
+                      ],
+                    )),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      final directory = await _getExportDirectory();
+      final fileName = 'codes_journaux_${DateTime.now().toString().split(' ')[0]}.pdf';
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsBytes(await pdf.save());
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF généré sur votre bureau : $fileName'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Erreur PDF journaux: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: ${e.toString()}'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  /// Exporte la liste des codes journaux en Excel
+  static Future<void> exportJournauxExcel({
+    required List<Map<String, dynamic>> journaux,
+    required BuildContext context,
+  }) async {
+    try {
+      final excel = Excel.createExcel();
+      const sheetName = 'Codes Journaux';
+      final defaultSheet = excel.getDefaultSheet();
+      if (defaultSheet != null && defaultSheet != sheetName) {
+        excel.rename(defaultSheet, sheetName);
+      }
+      final sheet = excel[sheetName];
+
+      final headerStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Center,
+        backgroundColorHex: ExcelColor.fromHexString('#DCE6F1'),
+      );
+      final dataStyle = CellStyle(horizontalAlign: HorizontalAlign.Left);
+
+      int row = 0;
+      final headers = ['Code', 'Intitulé', 'Type', 'Compte Trésorerie', 'Saisie Analytique'];
+
+      for (int col = 0; col < headers.length; col++) {
+        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+        cell.value = TextCellValue(headers[col]);
+        cell.cellStyle = headerStyle;
+      }
+      row++;
+
+      for (final j in journaux) {
+        final values = [
+          j['code']?.toString() ?? '',
+          j['intitule']?.toString() ?? '',
+          j['type']?.toString() ?? '',
+          j['compteTresorerie']?.toString() ?? '',
+          (j['saisieAnalytique'] == true) ? 'Oui' : 'Non',
+        ];
+        for (int col = 0; col < values.length; col++) {
+          final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+          cell.value = TextCellValue(values[col]);
+          cell.cellStyle = dataStyle;
+        }
+        row++;
+      }
+
+      sheet.setColumnWidth(0, 12);
+      sheet.setColumnWidth(1, 35);
+      sheet.setColumnWidth(2, 18);
+      sheet.setColumnWidth(3, 22);
+      sheet.setColumnWidth(4, 18);
+
+      final directory = await _getExportDirectory();
+      final fileName = 'codes_journaux_${DateTime.now().toString().split(' ')[0]}.xlsx';
+      final file = File('${directory.path}/$fileName');
+      final bytes = excel.encode();
+      if (bytes != null) {
+        await file.writeAsBytes(bytes);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Excel généré sur votre bureau : $fileName'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Erreur Excel journaux: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: ${e.toString()}'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   static String _formatNumber(dynamic value) {
     if (value == null || value == 0) return '-';
     final numValue = (value as num).toInt();

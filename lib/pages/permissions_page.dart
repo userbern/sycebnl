@@ -133,8 +133,8 @@ class _PermissionsPageState extends State<PermissionsPage> {
           content: SizedBox(
             width: 340,
             child: DropdownButtonFormField<int>(
-              initialValue: sourceUserId,
-              decoration: const InputDecoration(
+              value: sourceUserId,
+               decoration: const InputDecoration(
                 labelText: 'Copier depuis',
                 border: OutlineInputBorder(),
                 isDense: true,
@@ -284,7 +284,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
                 if (!wasBootstrap) ...[
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    initialValue: role,
+                    value: role,
                     decoration: const InputDecoration(
                       labelText: 'Rôle',
                       border: OutlineInputBorder(),
@@ -395,7 +395,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
                 _formField(emailCtrl, 'Email', required: false),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  initialValue: role,
+                  value: role,
                   decoration: const InputDecoration(
                     labelText: 'Rôle',
                     border: OutlineInputBorder(),
@@ -456,6 +456,150 @@ class _PermissionsPageState extends State<PermissionsPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _showSelfProfileDialog() async {
+    if (_currentUserId == null) return;
+
+    // Cherche d'abord dans la liste visible, sinon recharge depuis la BDD
+    Map<String, dynamic>? selfUser = _users.firstWhere(
+      (u) => u['id'] == _currentUserId,
+      orElse: () => <String, dynamic>{},
+    );
+    if (selfUser.isEmpty) {
+      final all = await AuthService.getAllUsers();
+      selfUser = all.firstWhere(
+        (u) => u['id'] == _currentUserId,
+        orElse: () => <String, dynamic>{},
+      );
+    }
+    if (selfUser.isEmpty || !mounted) return;
+
+    final nomCtrl    = TextEditingController(text: selfUser['nom']?.toString() ?? '');
+    final prenomCtrl = TextEditingController(text: selfUser['prenom']?.toString() ?? '');
+    final emailCtrl  = TextEditingController(text: selfUser['email']?.toString() ?? '');
+    final oldPassCtrl  = TextEditingController();
+    final newPassCtrl  = TextEditingController();
+    final confPassCtrl = TextEditingController();
+    final formKey      = GlobalKey<FormState>();
+    final login        = selfUser['login']?.toString() ?? '';
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Mon profil'),
+        content: SizedBox(
+          width: 360,
+          child: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                _formField(prenomCtrl, 'Prénom'),
+                const SizedBox(height: 12),
+                _formField(nomCtrl, 'Nom'),
+                const SizedBox(height: 12),
+                // Login en lecture seule
+                TextFormField(
+                  initialValue: login,
+                  readOnly: true,
+                  decoration: InputDecoration(
+                    labelText: 'Login',
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                    filled: true,
+                    fillColor: Colors.grey.shade100,
+                    suffixIcon: const Tooltip(
+                      message: 'Le login ne peut pas être modifié',
+                      child: Icon(Icons.lock_outline, size: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _formField(emailCtrl, 'Email', required: false),
+                const Divider(height: 28),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Changer le mot de passe (facultatif)',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _formField(oldPassCtrl, 'Mot de passe actuel', obscure: true, required: false),
+                const SizedBox(height: 12),
+                _formField(newPassCtrl, 'Nouveau mot de passe', obscure: true, required: false),
+                const SizedBox(height: 12),
+                _formField(confPassCtrl, 'Confirmer le nouveau mot de passe', obscure: true, required: false),
+              ]),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          FilledButton(
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+
+              final wantsPasswordChange = newPassCtrl.text.isNotEmpty;
+              if (wantsPasswordChange) {
+                if (oldPassCtrl.text.isEmpty) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(
+                      content: Text('Veuillez saisir votre mot de passe actuel'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                if (newPassCtrl.text != confPassCtrl.text) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(
+                      content: Text('Les nouveaux mots de passe ne correspondent pas'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+              }
+
+              try {
+                await AuthService.updateUser(
+                  id:     _currentUserId!,
+                  nom:    nomCtrl.text.trim(),
+                  prenom: prenomCtrl.text.trim(),
+                  email:  emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
+                );
+                if (wantsPasswordChange) {
+                  await AuthService.changePassword(
+                    userId:      _currentUserId!,
+                    oldPassword: oldPassCtrl.text,
+                    newPassword: newPassCtrl.text,
+                    isAdmin:     _isAdmin,
+                  );
+                }
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Profil mis à jour'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+                await _loadData();
+              } catch (e) {
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+            child: const Text('Enregistrer'),
+          ),
+        ],
       ),
     );
   }
@@ -613,7 +757,17 @@ class _PermissionsPageState extends State<PermissionsPage> {
                     color: Colors.blue.shade900,
                   ),
                 ),
-                if (_canManage)
+                if (_currentUserId != null)
+                  IconButton(
+                    icon: const Icon(Icons.manage_accounts_outlined, size: 20),
+                    tooltip: 'Mon profil',
+                    onPressed: _showSelfProfileDialog,
+                    color: Colors.blue.shade700,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                if (_canManage) ...[
+                  const SizedBox(width: 8),
                   IconButton(
                     icon: const Icon(Icons.person_add_outlined, size: 20),
                     tooltip: 'Nouvel utilisateur',
@@ -622,6 +776,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
+                ],
               ],
             ),
           ),

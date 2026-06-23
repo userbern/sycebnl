@@ -8,6 +8,8 @@ import '../models/journal.dart';
 import '../models/compte.dart';
 import '../models/user_session.dart';
 import '../utils/form_enter_shortcut.dart';
+import '../services/export_service.dart';
+import '../services/import_service.dart';
 
 class JournauxPage extends StatefulWidget {
   final UserSession userSession;
@@ -241,6 +243,66 @@ class _JournauxPageState extends State<JournauxPage> {
                                 ),
                               ),
                               const Spacer(),
+                              ElevatedButton.icon(
+                                onPressed: () => ImportService.importJournaux(
+                                  context: context,
+                                  onSuccess: _loadData,
+                                ),
+                                icon: const Icon(Icons.upload_file, color: Colors.white),
+                                label: const Text('Importer Excel'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple.shade400,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  final data = _filteredJournaux.map((j) => {
+                                    'code': j.code,
+                                    'intitule': j.intitule,
+                                    'type': j.type.toLabel(),
+                                    'compteTresorerie': j.compteTresorerie ?? '',
+                                    'saisieAnalytique': j.saisieAnalytique,
+                                  }).toList();
+                                  ExportService.exportJournauxPDF(
+                                    journaux: data,
+                                    context: context,
+                                  );
+                                },
+                                icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+                                label: const Text('PDF'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red.shade400,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  final data = _filteredJournaux.map((j) => {
+                                    'code': j.code,
+                                    'intitule': j.intitule,
+                                    'type': j.type.toLabel(),
+                                    'compteTresorerie': j.compteTresorerie ?? '',
+                                    'saisieAnalytique': j.saisieAnalytique,
+                                  }).toList();
+                                  ExportService.exportJournauxExcel(
+                                    journaux: data,
+                                    context: context,
+                                  );
+                                },
+                                icon: const Icon(Icons.table_chart, color: Colors.white),
+                                label: const Text('Excel'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green.shade400,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               ElevatedButton.icon(
                                 onPressed: () => _showJournalDialog(null),
                                 icon: const Icon(
