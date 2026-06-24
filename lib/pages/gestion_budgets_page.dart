@@ -21,16 +21,30 @@ class GestionBudgetsPage extends StatefulWidget {
 }
 
 class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
+  // ── Données ──────────────────────────────────────────────────────────────
   List<Map<String, dynamic>> _budgets = [];
   List<Map<String, dynamic>> _projets = [];
+  List<Map<String, dynamic>> _filteredBudgets = [];
   bool _isLoading = false;
   final FocusNode _focusNode = FocusNode();
   final TextEditingController _searchController = TextEditingController();
-  List<Map<String, dynamic>> _filteredBudgets = [];
 
-  int _itemsPerPage = 15;
+  // Montants chargés en arrière-plan
+  final Map<int, double> _montantsTotaux = {};
+
+  // Filtres
+  String? _filterBailleur;
+  String? _filterStatut;
+  List<String> _bailleurs = [];
+
+  // Sélection / panneau de détail
+  Map<String, dynamic>? _selectedBudget;
+
+  // Pagination
+  int _itemsPerPage = 10;
   int _currentPage = 1;
 
+  // ── Pagination ────────────────────────────────────────────────────────────
   List<Map<String, dynamic>> get _paginatedBudgets {
     final start = (_currentPage - 1) * _itemsPerPage;
     final end = math.min(start + _itemsPerPage, _filteredBudgets.length);
@@ -40,10 +54,8 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
 
   int get _totalPages => math.max(1, (_filteredBudgets.length / _itemsPerPage).ceil());
 
-  void _resetPagination() => setState(() => _currentPage = 1);
-
+  // ── Permissions ───────────────────────────────────────────────────────────
   bool get _canCreate => _hasPermission('creation');
-  bool get _canUpdate => _hasPermission('modification');
   bool get _canDelete => _hasPermission('suppression');
 
   bool _hasPermission(String type) {
@@ -56,16 +68,15 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
     return permission[type] == true;
   }
 
+  // ── Cycle de vie ──────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
     _loadData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _focusNode.requestFocus();
-      }
+      if (mounted) _focusNode.requestFocus();
     });
-    _searchController.addListener(_filterBudgets);
+    _searchController.addListener(_applyFilters);
   }
 
   @override
@@ -75,266 +86,421 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
     super.dispose();
   }
 
-  void _filterBudgets() {
-    final query = _searchController.text.toLowerCase();
-    if (query.isEmpty) {
-      setState(() => _filteredBudgets = _budgets);
-    } else {
-      setState(() {
-        _filteredBudgets =
-            _budgets.where((budget) {
-              final projetCode =
-                  (budget['projet_code'] ?? '').toString().toLowerCase();
-              final projetDesignation =
-                  (budget['projet_designation'] ?? '').toString().toLowerCase();
-              final bailleurSigle =
-                  (budget['bailleur_sigle'] ?? '').toString().toLowerCase();
-              return projetCode.contains(query) ||
-                  projetDesignation.contains(query) ||
-                  bailleurSigle.contains(query);
-            }).toList();
-      });
-    }
-    _resetPagination();
+  // ── Helpers financiers ────────────────────────────────────────────────────
+  double _getMontantTotal(Map<String, dynamic> b) =>
+      _montantsTotaux[b['id'] as int? ?? -1] ?? 0.0;
+
+  bool _hasMontant(Map<String, dynamic> b) =>
+      _montantsTotaux.containsKey(b['id'] as int? ?? -1);
+
+  // Pas d'API de dépenses sur la liste → placeholder 0 (rempli si disponible)
+  double _getMontantRealise(Map<String, dynamic> b) => 0.0;
+
+  double _getSolde(Map<String, dynamic> b) =>
+      _getMontantTotal(b) - _getMontantRealise(b);
+
+  double _getTaux(Map<String, dynamic> b) {
+    final total = _getMontantTotal(b);
+    if (total <= 0) return 0.0;
+    return math.min(150, _getMontantRealise(b) / total * 100);
   }
 
+  String _getStatut(Map<String, dynamic> b) {
+    if (!_hasMontant(b)) return 'Chargement';
+    final total = _getMontantTotal(b);
+    if (total <= 0) return 'Non budgété';
+    final taux = _getTaux(b);
+    if (taux >= 100) return 'Exécuté';
+    if (taux > 0) return 'En cours';
+    return 'Non démarré';
+  }
+
+  Color _getStatutColor(String statut) {
+    switch (statut) {
+      case 'Exécuté': return const Color(0xFF2E7D32);
+      case 'En cours': return const Color(0xFF1565C0);
+      case 'Non démarré': return const Color(0xFFE65100);
+      case 'Non budgété': return Colors.grey.shade500;
+      default: return Colors.grey.shade400;
+    }
+  }
+
+  Color _getTauxColor(double taux) {
+    if (taux > 100) return const Color(0xFFB71C1C);
+    if (taux >= 80) return const Color(0xFF2E7D32);
+    if (taux >= 40) return const Color(0xFF1565C0);
+    if (taux > 0) return const Color(0xFFE65100);
+    return Colors.grey.shade400;
+  }
+
+  // ── Formatage ─────────────────────────────────────────────────────────────
+  String _fmt(double v) {
+    if (v == 0) return '0 XOF';
+    final abs = v.abs();
+    final sign = v < 0 ? '-' : '';
+    if (abs >= 1000000) {
+      final s = abs.toStringAsFixed(0).replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
+      return '$sign$s XOF';
+    }
+    final s = abs.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
+    return '$sign$s XOF';
+  }
+
+  String _fmtShort(double v) {
+    final abs = v.abs();
+    final sign = v < 0 ? '-' : '';
+    if (abs >= 1000000000) return '$sign${(abs / 1000000000).toStringAsFixed(1)} Md';
+    if (abs >= 1000000) return '$sign${(abs / 1000000).toStringAsFixed(1)} M';
+    if (abs >= 1000) return '$sign${(abs / 1000).toStringAsFixed(0)} K';
+    return '$sign${abs.toStringAsFixed(0)}';
+  }
+
+  // ── Stats globales ────────────────────────────────────────────────────────
+  double get _grandTotalBudget =>
+      _filteredBudgets.fold(0.0, (s, b) => s + _getMontantTotal(b));
+  double get _grandTotalRealise =>
+      _filteredBudgets.fold(0.0, (s, b) => s + _getMontantRealise(b));
+  double get _grandSolde => _grandTotalBudget - _grandTotalRealise;
+  double get _tauxGlobal => _grandTotalBudget > 0
+      ? math.min(100, _grandTotalRealise / _grandTotalBudget * 100)
+      : 0.0;
+
+  // ── Chargement données ────────────────────────────────────────────────────
   Future<void> _loadData() async {
     if (!mounted) return;
     if (widget.exerciceId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Aucun exercice sélectionné'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Aucun exercice sélectionné'), backgroundColor: Colors.red),
       );
       return;
     }
-
     setState(() => _isLoading = true);
-
     try {
-      final budgets = await AuthService.getBudgetsWithDetails(
-        exerciceId: widget.exerciceId!,
-      );
+      final budgets = await AuthService.getBudgetsWithDetails(exerciceId: widget.exerciceId!);
       final projets = await AuthService.getProjetsWithBailleur();
-
       if (!mounted) return;
+
+      // Extraire les bailleurs uniques
+      final bailleurSet = <String>{};
+      for (final b in budgets) {
+        final d = b['bailleur_designation'] as String?;
+        if (d != null && d.isNotEmpty) bailleurSet.add(d);
+      }
+
       setState(() {
         _budgets = budgets;
         _projets = projets;
         _filteredBudgets = budgets;
+        _bailleurs = bailleurSet.toList()..sort();
         _isLoading = false;
       });
+
+      _loadFinancialData(budgets);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
       );
     }
   }
 
+  Future<void> _loadFinancialData(List<Map<String, dynamic>> budgets) async {
+    for (final budget in budgets) {
+      final id = budget['id'] as int?;
+      if (id == null) continue;
+      try {
+        final montant = await AuthService.getMontantBudget(id);
+        if (mounted) setState(() => _montantsTotaux[id] = montant);
+      } catch (_) {
+        if (mounted) setState(() => _montantsTotaux[id] = 0.0);
+      }
+    }
+  }
+
+  // ── Filtrage ──────────────────────────────────────────────────────────────
+  void _applyFilters() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredBudgets = _budgets.where((b) {
+        final matchSearch = query.isEmpty ||
+            (b['projet_code'] ?? '').toString().toLowerCase().contains(query) ||
+            (b['projet_designation'] ?? '').toString().toLowerCase().contains(query) ||
+            (b['bailleur_sigle'] ?? '').toString().toLowerCase().contains(query) ||
+            (b['bailleur_designation'] ?? '').toString().toLowerCase().contains(query);
+        final matchBailleur = _filterBailleur == null ||
+            b['bailleur_designation'] == _filterBailleur;
+        final matchStatut = _filterStatut == null ||
+            _getStatut(b) == _filterStatut;
+        return matchSearch && matchBailleur && matchStatut;
+      }).toList();
+      _currentPage = 1;
+    });
+  }
+
+  void _resetFilters() {
+    _searchController.clear();
+    setState(() {
+      _filterBailleur = null;
+      _filterStatut = null;
+      _filteredBudgets = _budgets;
+      _currentPage = 1;
+      _selectedBudget = null;
+    });
+  }
+
+  // ── Suppression ───────────────────────────────────────────────────────────
   Future<void> _deleteBudget(int budgetId, String projetDesignation) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            title: Row(
-              children: [
-                const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
-                const SizedBox(width: 8),
-                const Text('Confirmer la suppression'),
-              ],
-            ),
-            content: RichText(
-              text: TextSpan(
-                style: const TextStyle(fontSize: 14, color: Colors.black87),
-                children: [
-                  const TextSpan(text: 'Voulez-vous vraiment supprimer le budget '),
-                  TextSpan(
-                    text: '"$projetDesignation"',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const TextSpan(text: ' ?'),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Annuler'),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => Navigator.pop(context, true),
-                icon: const Icon(Icons.delete_forever, size: 18, color: Colors.white),
-                label: const Text('Supprimer'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+          const SizedBox(width: 8),
+          const Text('Confirmer la suppression'),
+        ]),
+        content: RichText(
+          text: TextSpan(
+            style: const TextStyle(fontSize: 14, color: Colors.black87),
+            children: [
+              const TextSpan(text: 'Voulez-vous vraiment supprimer le budget '),
+              TextSpan(text: '"$projetDesignation"', style: const TextStyle(fontWeight: FontWeight.bold)),
+              const TextSpan(text: ' ?\n\nCette action supprimera également tous les postes et lignes budgétaires associés.'),
             ],
           ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.delete_forever, size: 18, color: Colors.white),
+            label: const Text('Supprimer'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ],
+      ),
     );
-
     if (confirm == true) {
       try {
         await AuthService.deleteBudget(budgetId);
         if (!mounted) return;
         _loadData();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Budget supprimé'),
-            backgroundColor: Colors.green,
-          ),
+          const SnackBar(content: Text('Budget supprimé'), backgroundColor: Colors.green),
         );
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
         );
       }
     }
   }
 
   void _showCreateBudgetDialog() {
-    if (widget.exerciceId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Aucun exercice sélectionné'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
+    if (widget.exerciceId == null) return;
     showDialog(
       context: context,
-      builder:
-          (context) => _CreateBudgetDialog(
-            projets: _projets,
-            exerciceId: widget.exerciceId!,
-            onBudgetCreated: () {
-              _loadData();
-            },
-          ),
+      builder: (context) => _CreateBudgetDialog(
+        projets: _projets,
+        exerciceId: widget.exerciceId!,
+        onBudgetCreated: _loadData,
+      ),
     );
   }
 
-  Widget _buildPageTitle() {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade700,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Icon(Icons.account_balance_wallet, color: Colors.white, size: 22),
+  void _openBudgetDetails(Map<String, dynamic> budget) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BudgetDetailsPage(
+          budget: budget,
+          userSession: widget.userSession,
+          onRefresh: _loadData,
         ),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Budgets',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.black87),
-            ),
-            Text(
-              '${_filteredBudgets.length} budget${_filteredBudgets.length != 1 ? 's' : ''}',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildHeaderActions() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      alignment: WrapAlignment.end,
-      children: [
-        if (_canCreate)
-          ElevatedButton.icon(
-            onPressed: _showCreateBudgetDialog,
-            icon: const Icon(Icons.add, size: 18, color: Colors.white),
-            label: const Text('Nouveau budget'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade700,
-              foregroundColor: Colors.white,
-              textStyle: const TextStyle(fontWeight: FontWeight.bold),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              elevation: 3,
-              shadowColor: Colors.blue.shade200,
+  // ── Widgets UI ────────────────────────────────────────────────────────────
+
+  Widget _buildStatsCards() {
+    return LayoutBuilder(builder: (context, constraints) {
+      final w = (constraints.maxWidth - 36) / 4;
+      return Row(
+        children: [
+          _statCard(icon: Icons.account_balance_wallet, label: 'Budgets', value: '${_filteredBudgets.length}', sub: 'actifs', color: Colors.blue.shade700, width: w),
+          const SizedBox(width: 12),
+          _statCard(icon: Icons.payments_outlined, label: 'Budget Total', value: _fmtShort(_grandTotalBudget), sub: 'XOF', color: Colors.green.shade700, width: w),
+          const SizedBox(width: 12),
+          _statCard(icon: Icons.trending_up, label: 'Exécuté', value: _fmtShort(_grandTotalRealise), sub: '${_tauxGlobal.toStringAsFixed(0)}% du total', color: Colors.orange.shade700, width: w),
+          const SizedBox(width: 12),
+          _statCard(icon: Icons.account_balance, label: 'Solde', value: _fmtShort(_grandSolde), sub: 'disponible', color: _grandSolde >= 0 ? Colors.purple.shade700 : Colors.red.shade700, width: w),
+        ],
+      );
+    });
+  }
+
+  Widget _statCard({required IconData icon, required String label, required String value, required String sub, required Color color, required double width}) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, size: 20, color: color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+                Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color), overflow: TextOverflow.ellipsis),
+                Text(sub, style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
+              ],
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildFilterBar() {
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
+    final hasActiveFilters = _filterBailleur != null || _filterStatut != null || _searchController.text.isNotEmpty;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.grey.shade200),
+        border: Border.all(color: Colors.grey.shade200),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: 36,
-                child: TextField(
-                  controller: _searchController,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: InputDecoration(
-                    hintText: 'Rechercher par projet, bailleur...',
-                    hintStyle: const TextStyle(fontSize: 13),
-                    prefixIcon: const Icon(Icons.search, size: 18),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                  ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          // Recherche
+          SizedBox(
+            width: 220,
+            height: 36,
+            child: TextField(
+              controller: _searchController,
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'Rechercher projet, bailleur…',
+                hintStyle: const TextStyle(fontSize: 12),
+                prefixIcon: const Icon(Icons.search, size: 16),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+              ),
+            ),
+          ),
+          // Bailleur
+          SizedBox(
+            height: 36,
+            child: DropdownButtonHideUnderline(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: _filterBailleur != null ? Colors.blue.shade50 : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _filterBailleur != null ? Colors.blue.shade300 : Colors.grey.shade300),
+                ),
+                child: DropdownButton<String?>(
+                  value: _filterBailleur,
+                  hint: Text('Bailleur', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  isDense: true,
+                  style: const TextStyle(fontSize: 12, color: Colors.black87),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Tous les bailleurs')),
+                    ..._bailleurs.map((b) => DropdownMenuItem(value: b, child: Text(b, overflow: TextOverflow.ellipsis))),
+                  ],
+                  onChanged: (v) { setState(() => _filterBailleur = v); _applyFilters(); },
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            Tooltip(
-              message: 'Réinitialiser',
-              child: IconButton(
-                onPressed: () {
-                  _searchController.clear();
-                  _resetPagination();
-                },
-                icon: const Icon(Icons.refresh, size: 18),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.grey.shade100,
+          ),
+          // Statut
+          SizedBox(
+            height: 36,
+            child: DropdownButtonHideUnderline(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: _filterStatut != null ? Colors.blue.shade50 : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _filterStatut != null ? Colors.blue.shade300 : Colors.grey.shade300),
+                ),
+                child: DropdownButton<String?>(
+                  value: _filterStatut,
+                  hint: Text('Statut', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  isDense: true,
+                  style: const TextStyle(fontSize: 12, color: Colors.black87),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Tous les statuts')),
+                    DropdownMenuItem(value: 'Non démarré', child: Text('Non démarré')),
+                    DropdownMenuItem(value: 'En cours', child: Text('En cours')),
+                    DropdownMenuItem(value: 'Exécuté', child: Text('Exécuté')),
+                    DropdownMenuItem(value: 'Non budgété', child: Text('Non budgété')),
+                  ],
+                  onChanged: (v) { setState(() => _filterStatut = v); _applyFilters(); },
+                ),
+              ),
+            ),
+          ),
+          // Reset
+          if (hasActiveFilters)
+            SizedBox(
+              height: 36,
+              child: TextButton.icon(
+                onPressed: _resetFilters,
+                icon: const Icon(Icons.close, size: 14),
+                label: const Text('Réinitialiser', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red.shade600,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                ),
+              ),
+            ),
+          const Spacer(),
+          // Nouveau budget
+          if (_canCreate)
+            SizedBox(
+              height: 36,
+              child: ElevatedButton.icon(
+                onPressed: _showCreateBudgetDialog,
+                icon: const Icon(Icons.add, size: 16, color: Colors.white),
+                label: const Text('Nouveau budget'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade700,
+                  foregroundColor: Colors.white,
+                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 2,
                 ),
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                padding: EdgeInsets.zero,
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -346,11 +512,13 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.account_balance_wallet, size: 56, color: Colors.grey.shade300),
+              Icon(Icons.search_off, size: 52, color: Colors.grey.shade300),
               const SizedBox(height: 12),
               Text(
-                _searchController.text.isNotEmpty ? 'Aucun résultat' : 'Aucun budget',
-                style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+                _searchController.text.isNotEmpty || _filterBailleur != null || _filterStatut != null
+                    ? 'Aucun résultat pour ces filtres'
+                    : 'Aucun budget enregistré',
+                style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
               ),
             ],
           ),
@@ -362,165 +530,387 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
       child: Column(
         children: [
           Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                if (constraints.maxWidth >= 650) {
-                  return Card(
-                    elevation: 0,
-                    color: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      side: BorderSide(color: Colors.grey.shade200),
-                    ),
-                    child: SingleChildScrollView(
-                      child: DataTable(
-                        headingRowColor: WidgetStateProperty.all(Colors.blue.shade700),
-                        headingRowHeight: 40,
-                        headingTextStyle: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                        dataRowMinHeight: 36,
-                        dataRowMaxHeight: 48,
-                        columnSpacing: 20,
-                        horizontalMargin: 16,
-                        columns: const [
-                          DataColumn(label: Text('Projet')),
-                          DataColumn(label: Text('Bailleur')),
-                          DataColumn(label: Text('Actions')),
-                        ],
-                        rows: _paginatedBudgets.map((budget) {
-                          return DataRow(
-                            color: WidgetStateProperty.resolveWith<Color?>((states) {
-                              if (states.contains(WidgetState.hovered)) return Colors.blue.shade50;
-                              return Colors.white;
-                            }),
-                            cells: [
-                              DataCell(
-                                Text(
-                                  budget['projet_designation'] ?? 'N/A',
-                                  style: const TextStyle(fontSize: 13),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                onTap: () => _showBudgetDetails(budget),
-                              ),
-                              DataCell(
-                                Text(
-                                  budget['bailleur_designation'] ?? 'N/A',
-                                  style: const TextStyle(fontSize: 13),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                onTap: () => _showBudgetDetails(budget),
-                              ),
-                              DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (_canUpdate)
-                                      IconButton(
-                                        icon: Icon(Icons.add, size: 20, color: Colors.blue.shade600),
-                                        onPressed: () => _showBudgetDetails(budget),
-                                        tooltip: 'Ajouter poste',
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                      ),
-                                    if (_canDelete)
-                                      IconButton(
-                                        icon: const Icon(Icons.delete, size: 20, color: Colors.red),
-                                        onPressed: () => _deleteBudget(budget['id'] as int, budget['projet_designation'] ?? ''),
-                                        tooltip: 'Supprimer',
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  );
-                } else {
-                  return ListView.separated(
-                    itemCount: _paginatedBudgets.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 6),
-                    itemBuilder: (context, index) => _buildMobileCard(_paginatedBudgets[index]),
-                  );
-                }
-              },
-            ),
+            child: LayoutBuilder(builder: (context, constraints) {
+              if (constraints.maxWidth >= 700) {
+                return _buildDesktopTable(constraints);
+              } else {
+                return ListView.separated(
+                  itemCount: _paginatedBudgets.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  itemBuilder: (_, i) => _buildMobileCard(_paginatedBudgets[i]),
+                );
+              }
+            }),
           ),
+          _buildDetailPanel(),
           _buildPaginationControls(),
         ],
       ),
     );
   }
 
-  Widget _buildMobileCard(Map<String, dynamic> budget) {
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
+  Widget _buildDesktopTable(BoxConstraints constraints) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.grey.shade200),
+        border: Border.all(color: Colors.grey.shade200),
       ),
-      child: IntrinsicHeight(
-        child: Row(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: constraints.maxWidth),
+          child: DataTable(
+            headingRowColor: WidgetStateProperty.all(Colors.blue.shade700),
+            headingRowHeight: 42,
+            headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12, letterSpacing: 0.3),
+            dataRowMinHeight: 52,
+            border: TableBorder(
+              horizontalInside: BorderSide(color: Colors.grey.shade200, width: 1),
+              verticalInside: BorderSide(color: Colors.grey.shade200, width: 1),
+              bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+            ),
+            dataRowMaxHeight: 64,
+            columnSpacing: 16,
+            horizontalMargin: 16,
+            showCheckboxColumn: false,
+            columns: const [
+              DataColumn(label: Text('PROJET')),
+              DataColumn(label: Text('BAILLEUR')),
+              DataColumn(label: Text('BUDGET TOTAL'), numeric: true),
+              DataColumn(label: Text('DÉPENSES'), numeric: true),
+              DataColumn(label: Text('SOLDE'), numeric: true),
+              DataColumn(label: Text('TAUX D\'EXÉCUTION')),
+              DataColumn(label: Text('STATUT')),
+              DataColumn(label: Text('ACTIONS')),
+            ],
+            rows: _paginatedBudgets.map((budget) {
+              final isSelected = _selectedBudget?['id'] == budget['id'];
+              final montantTotal = _getMontantTotal(budget);
+              final realise = _getMontantRealise(budget);
+              final solde = _getSolde(budget);
+              final taux = _getTaux(budget);
+              final statut = _getStatut(budget);
+              final tauxColor = _getTauxColor(taux);
+              final hasMontant = _hasMontant(budget);
+
+              return DataRow(
+                selected: isSelected,
+                color: WidgetStateProperty.resolveWith<Color?>((states) {
+                  if (isSelected) return Colors.blue.shade50;
+                  if (states.contains(WidgetState.hovered)) return const Color(0xFFF0F6FF);
+                  return Colors.white;
+                }),
+                onSelectChanged: (_) {
+                  setState(() => _selectedBudget = isSelected ? null : budget);
+                },
+                cells: [
+                  // Projet
+                  DataCell(
+                    SizedBox(
+                      width: 160,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(budget['projet_designation'] ?? 'N/A',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade900),
+                            overflow: TextOverflow.ellipsis, maxLines: 2),
+                          if ((budget['projet_code'] ?? '').toString().isNotEmpty)
+                            Text(budget['projet_code'].toString(),
+                              style: TextStyle(fontSize: 10, color: Colors.blue.shade500)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Bailleur
+                  DataCell(
+                    SizedBox(
+                      width: 130,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if ((budget['bailleur_sigle'] ?? '').toString().isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                              margin: const EdgeInsets.only(bottom: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade700,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(budget['bailleur_sigle'].toString(),
+                                style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w700)),
+                            ),
+                          Text(budget['bailleur_designation'] ?? 'N/A',
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                            overflow: TextOverflow.ellipsis, maxLines: 2),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Budget total
+                  DataCell(
+                    hasMontant
+                        ? Text(_fmt(montantTotal),
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade800))
+                        : SizedBox(width: 60, child: LinearProgressIndicator(minHeight: 3, color: Colors.blue.shade200, backgroundColor: Colors.grey.shade100)),
+                  ),
+                  // Dépenses
+                  DataCell(
+                    Text(_fmt(realise),
+                      style: TextStyle(fontSize: 12, color: Colors.orange.shade700, fontWeight: FontWeight.w500)),
+                  ),
+                  // Solde
+                  DataCell(
+                    Text(_fmt(solde),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                        color: solde >= 0 ? Colors.green.shade700 : Colors.red.shade700)),
+                  ),
+                  // Taux
+                  DataCell(
+                    SizedBox(
+                      width: 130,
+                      child: hasMontant
+                          ? Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text('${taux.toStringAsFixed(1)}%',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: tauxColor)),
+                                    if (taux > 100) ...[
+                                      const SizedBox(width: 4),
+                                      Icon(Icons.warning_amber, size: 13, color: Colors.red.shade700),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: math.min(1.0, taux / 100),
+                                    backgroundColor: Colors.grey.shade100,
+                                    color: tauxColor,
+                                    minHeight: 6,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ),
+                  // Statut
+                  DataCell(
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _getStatutColor(statut).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _getStatutColor(statut).withValues(alpha: 0.3)),
+                      ),
+                      child: Text(statut,
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _getStatutColor(statut))),
+                    ),
+                  ),
+                  // Actions
+                  DataCell(
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () => _openBudgetDetails(budget),
+                          icon: Icon(Icons.open_in_new, size: 13, color: Colors.blue.shade600),
+                          label: Text('Détails', style: TextStyle(fontSize: 11, color: Colors.blue.shade600)),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                        if (_canDelete)
+                          IconButton(
+                            icon: Icon(Icons.delete_outline, size: 18, color: Colors.red.shade400),
+                            onPressed: () => _deleteBudget(budget['id'] as int, budget['projet_designation'] ?? ''),
+                            tooltip: 'Supprimer',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailPanel() {
+    if (_selectedBudget == null) return const SizedBox.shrink();
+    final b = _selectedBudget!;
+    final montant = _getMontantTotal(b);
+    final realise = _getMontantRealise(b);
+    final solde = _getSolde(b);
+    final taux = _getTaux(b);
+    final tauxColor = _getTauxColor(taux);
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      child: Container(
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.blue.shade200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: Colors.blue.shade700, borderRadius: BorderRadius.circular(6)),
+                child: Text(b['bailleur_sigle'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Text(b['projet_designation'] ?? '', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700))),
+              TextButton.icon(
+                onPressed: () => _openBudgetDetails(b),
+                icon: const Icon(Icons.open_in_new, size: 14),
+                label: const Text('Ouvrir'),
+                style: TextButton.styleFrom(foregroundColor: Colors.blue.shade700),
+              ),
+              if (_canDelete)
+                TextButton.icon(
+                  onPressed: () => _deleteBudget(b['id'] as int, b['projet_designation'] ?? ''),
+                  icon: const Icon(Icons.delete_outline, size: 14),
+                  label: const Text('Supprimer'),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red.shade600),
+                ),
+              IconButton(
+                icon: Icon(Icons.close, size: 16, color: Colors.grey.shade500),
+                onPressed: () => setState(() => _selectedBudget = null),
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                padding: EdgeInsets.zero,
+              ),
+            ]),
+            const SizedBox(height: 10),
+            Row(children: [
+              _detailStatItem('Budget', _fmt(montant), Colors.blue.shade700),
+              const SizedBox(width: 24),
+              _detailStatItem('Dépenses', _fmt(realise), Colors.orange.shade700),
+              const SizedBox(width: 24),
+              _detailStatItem('Solde', _fmt(solde), solde >= 0 ? Colors.green.shade700 : Colors.red.shade700),
+              const SizedBox(width: 24),
+              _detailStatItem('Taux', '${taux.toStringAsFixed(1)}%', tauxColor),
+              const Spacer(),
+            ]),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: math.min(1.0, taux / 100),
+                backgroundColor: Colors.grey.shade100,
+                color: tauxColor,
+                minHeight: 8,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _detailStatItem(String label, String value, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+        Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+      ],
+    );
+  }
+
+  Widget _buildMobileCard(Map<String, dynamic> budget) {
+    final montant = _getMontantTotal(budget);
+    final taux = _getTaux(budget);
+    final tauxColor = _getTauxColor(taux);
+    final statut = _getStatut(budget);
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedBudget = _selectedBudget?['id'] == budget['id'] ? null : budget),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _selectedBudget?['id'] == budget['id'] ? Colors.blue.shade300 : Colors.grey.shade200),
+        ),
+        child: IntrinsicHeight(
+          child: Row(children: [
             Container(
               width: 4,
               decoration: BoxDecoration(
                 color: Colors.blue.shade700,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(10),
-                  bottomLeft: Radius.circular(10),
-                ),
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(10), bottomLeft: Radius.circular(10)),
               ),
             ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      budget['projet_designation'] ?? 'N/A',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(budget['projet_designation'] ?? 'N/A',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(budget['bailleur_designation'] ?? 'N/A',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    Text(_fmt(montant), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.green.shade700)),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _getStatutColor(statut).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(statut, style: TextStyle(fontSize: 10, color: _getStatutColor(statut), fontWeight: FontWeight.w600)),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      budget['bailleur_designation'] ?? 'N/A',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                    ),
-                  ],
-                ),
+                  ]),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(value: math.min(1.0, taux / 100), backgroundColor: Colors.grey.shade100, color: tauxColor, minHeight: 4),
+                  ),
+                ]),
               ),
             ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_canUpdate)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
                   IconButton(
-                    icon: Icon(Icons.add, size: 18, color: Colors.blue.shade600),
-                    onPressed: () => _showBudgetDetails(budget),
-                    tooltip: 'Ajouter poste',
+                    icon: Icon(Icons.open_in_new, size: 16, color: Colors.blue.shade600),
+                    onPressed: () => _openBudgetDetails(budget),
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                   ),
-                if (_canDelete)
-                  IconButton(
-                    icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-                    onPressed: () => _deleteBudget(budget['id'] as int, budget['projet_designation'] ?? ''),
-                    tooltip: 'Supprimer',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  ),
-                const SizedBox(width: 8),
-              ],
+                  if (_canDelete)
+                    IconButton(
+                      icon: Icon(Icons.delete_outline, size: 16, color: Colors.red.shade400),
+                      onPressed: () => _deleteBudget(budget['id'] as int, budget['projet_designation'] ?? ''),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    ),
+                ],
+              ),
             ),
-          ],
+          ]),
         ),
       ),
     );
@@ -530,33 +920,29 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
     if (_totalPages <= 1 && _filteredBudgets.length <= _itemsPerPage) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Text('Lignes/page:', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-          const SizedBox(width: 6),
-          DropdownButton<int>(
-            value: _itemsPerPage,
-            isDense: true,
-            items: [10, 15, 25, 50].map((n) => DropdownMenuItem(value: n, child: Text('$n', style: const TextStyle(fontSize: 12)))).toList(),
-            onChanged: (v) { if (v != null) setState(() { _itemsPerPage = v; _currentPage = 1; }); },
-            underline: const SizedBox.shrink(),
-          ),
-          const SizedBox(width: 16),
-          Text('$_currentPage / $_totalPages', style: const TextStyle(fontSize: 12)),
-          const SizedBox(width: 8),
-          _pagBtn(Icons.chevron_left, _currentPage > 1, () => setState(() => _currentPage--)),
-          const SizedBox(width: 4),
-          _pagBtn(Icons.chevron_right, _currentPage < _totalPages, () => setState(() => _currentPage++)),
-        ],
-      ),
+      child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+        Text('Lignes/page:', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+        const SizedBox(width: 6),
+        DropdownButton<int>(
+          value: _itemsPerPage,
+          isDense: true,
+          items: [10, 15, 25, 50].map((n) => DropdownMenuItem(value: n, child: Text('$n', style: const TextStyle(fontSize: 12)))).toList(),
+          onChanged: (v) { if (v != null) setState(() { _itemsPerPage = v; _currentPage = 1; }); },
+          underline: const SizedBox.shrink(),
+        ),
+        const SizedBox(width: 16),
+        Text('$_currentPage / $_totalPages', style: const TextStyle(fontSize: 12)),
+        const SizedBox(width: 8),
+        _pagBtn(Icons.chevron_left, _currentPage > 1, () => setState(() => _currentPage--)),
+        const SizedBox(width: 4),
+        _pagBtn(Icons.chevron_right, _currentPage < _totalPages, () => setState(() => _currentPage++)),
+      ]),
     );
   }
 
   Widget _pagBtn(IconData icon, bool enabled, VoidCallback onTap) {
     return SizedBox(
-      width: 28,
-      height: 28,
+      width: 28, height: 28,
       child: ElevatedButton(
         onPressed: enabled ? onTap : null,
         style: ElevatedButton.styleFrom(
@@ -571,18 +957,18 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
     );
   }
 
+  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return KeyboardListener(
       focusNode: _focusNode,
       autofocus: true,
-      onKeyEvent: (KeyEvent event) {
-        if (event is KeyDownEvent) {
-          if (HardwareKeyboard.instance.isControlPressed &&
-              event.logicalKey == LogicalKeyboardKey.keyN &&
-              _canCreate) {
-            _showCreateBudgetDialog();
-          }
+      onKeyEvent: (event) {
+        if (event is KeyDownEvent &&
+            HardwareKeyboard.instance.isControlPressed &&
+            event.logicalKey == LogicalKeyboardKey.keyN &&
+            _canCreate) {
+          _showCreateBudgetDialog();
         }
       },
       child: Scaffold(
@@ -595,47 +981,39 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                 elevation: 0,
                 leading: IconButton(
                   icon: const Icon(Icons.arrow_back),
-                  onPressed: () {
-                    if (Navigator.canPop(context)) Navigator.pop(context);
-                  },
+                  onPressed: () { if (Navigator.canPop(context)) Navigator.pop(context); },
                 ),
               )
             : null,
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _buildPageTitle(),
-                        _buildHeaderActions(),
-                      ],
-                    ),
+                    _buildStatsCards(),
                     const SizedBox(height: 12),
                     _buildFilterBar(),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
+                    // Titre + compteur
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(children: [
+                        Text(
+                          '${_filteredBudgets.length} budget${_filteredBudgets.length != 1 ? 's' : ''}',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                        ),
+                        if (_filteredBudgets.length < _budgets.length) ...[
+                          const SizedBox(width: 6),
+                          Text('(${_budgets.length} au total)', style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+                        ],
+                      ]),
+                    ),
                     _buildMainContent(),
                   ],
                 ),
               ),
-      ),
-    );
-  }
-
-  void _showBudgetDetails(Map<String, dynamic> budget) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => BudgetDetailsPage(
-              budget: budget,
-              userSession: widget.userSession,
-              onRefresh: _loadData,
-            ),
       ),
     );
   }

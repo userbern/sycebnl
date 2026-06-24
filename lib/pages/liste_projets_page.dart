@@ -567,6 +567,11 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                       columnSpacing: 8,
                       horizontalMargin: 12,
                       dividerThickness: 0.5,
+                      border: TableBorder(
+                        horizontalInside: BorderSide(color: Colors.grey.shade200, width: 1),
+                        verticalInside: BorderSide(color: Colors.grey.shade200, width: 1),
+                        bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+                      ),
                       columns: const [
                         DataColumn(label: Text('Code')),
                         DataColumn(label: Text('Désignation')),

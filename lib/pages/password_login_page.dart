@@ -121,6 +121,16 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
     );
   }
 
+  Widget _label(String text, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.blue.shade600),
+        const SizedBox(width: 6),
+        Text(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final fileName = widget.filePath.split(RegExp(r'[/\\]')).last;
@@ -129,7 +139,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Connexion', style: TextStyle(color: Colors.white)),
-          backgroundColor: Colors.blue,
+          backgroundColor: Colors.blue.shade700,
           foregroundColor: Colors.white,
         ),
         body: const Center(child: CircularProgressIndicator()),
@@ -137,176 +147,216 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Connexion', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.blue,
+        title: const Text('Connexion'),
+        backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body: Center(
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 400),
-          padding: const EdgeInsets.all(32),
-          child: Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Icon(
-                    Icons.lock_outline,
-                    size: 64,
-                    color: Colors.blue.shade400,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Fichier protégé',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
+          constraints: const BoxConstraints(maxWidth: 480),
+          margin: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 16, offset: const Offset(0, 4)),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // En-tête
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 28),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade700,
+                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(14), topRight: Radius.circular(14)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                      child: const Icon(Icons.lock_outline, color: Colors.white, size: 24),
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    fileName,
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 32),
+                    const SizedBox(width: 14),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Fichier protégé', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white)),
+                        Text(fileName, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.75)), overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
 
-                  // Champ Login avec liste déroulante et saisie manuelle
-                  if (_users.isNotEmpty)
-                    DropdownButtonFormField<String>(
-                      value: _selectedLogin,
-                      decoration: const InputDecoration(
-                        labelText: 'Login',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.person),
+              // Tableau de saisie
+              Padding(
+                padding: const EdgeInsets.all(28),
+                child: Table(
+                  columnWidths: const {
+                    0: IntrinsicColumnWidth(),
+                    1: FlexColumnWidth(),
+                  },
+                  defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                  children: [
+                    // Ligne Login
+                    TableRow(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      isExpanded: true,
-                      items: [
-                        ..._users.map((user) {
-                          return DropdownMenuItem<String>(
-                            value: user['login'] as String,
-                            child: Text(
-                              user['login'] as String,
-                              overflow: TextOverflow.ellipsis,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          child: _label('Utilisateur', Icons.person_outline),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 16, top: 10, bottom: 10),
+                          child: _users.isNotEmpty
+                              ? DropdownButtonHideUnderline(
+                                  child: DropdownButtonFormField<String>(
+                                    value: _selectedLogin,
+                                    isExpanded: true,
+                                    decoration: InputDecoration(
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+                                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      isDense: true,
+                                    ),
+                                    items: [
+                                      ..._users.map((u) => DropdownMenuItem(value: u['login'] as String, child: Text(u['login'] as String, style: const TextStyle(fontSize: 13)))),
+                                      const DropdownMenuItem(value: '__manual__', child: Text('Saisir manuellement…', style: TextStyle(fontSize: 13, color: Colors.grey))),
+                                    ],
+                                    onChanged: _isLoading ? null : (v) {
+                                      setState(() {
+                                        if (v == '__manual__') { _selectedLogin = null; _loginController.clear(); }
+                                        else { _selectedLogin = v; _loginController.text = v!; }
+                                      });
+                                    },
+                                  ),
+                                )
+                              : TextField(
+                                  controller: _loginController,
+                                  focusNode: _loginFocusNode,
+                                  autofocus: true,
+                                  style: const TextStyle(fontSize: 13),
+                                  decoration: InputDecoration(
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    filled: true, fillColor: Colors.white, isDense: true,
+                                  ),
+                                  enabled: !_isLoading,
+                                ),
+                        ),
+                      ],
+                    ),
+
+                    // Séparateur
+                    TableRow(children: [
+                      Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
+                      Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
+                    ]),
+
+                    // Ligne saisie manuelle (si sélectionné)
+                    if (_selectedLogin == null && _users.isNotEmpty) ...[
+                      TableRow(
+                        decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(8)),
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            child: _label('Login', Icons.edit_outlined),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(right: 16, top: 10, bottom: 10),
+                            child: TextField(
+                              controller: _loginController,
+                              autofocus: true,
+                              style: const TextStyle(fontSize: 13),
+                              decoration: InputDecoration(
+                                hintText: 'Entrez votre login',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.orange.shade300)),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.orange.shade300)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                filled: true, fillColor: Colors.white, isDense: true,
+                              ),
+                              enabled: !_isLoading,
                             ),
-                          );
-                        }),
-                        const DropdownMenuItem<String>(
-                          value: '__manual__',
-                          child: Text(
-                            '✏️ Saisir manuellement...',
-                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                      TableRow(children: [
+                        Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
+                        Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
+                      ]),
+                    ],
+
+                    // Ligne Mot de passe
+                    TableRow(
+                      decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(8)),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          child: _label('Mot de passe', Icons.key_outlined),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 16, top: 10, bottom: 10),
+                          child: TextField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            onSubmitted: (_) => _login(),
+                            enabled: !_isLoading,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              filled: true, fillColor: Colors.white, isDense: true,
+                              suffixIcon: IconButton(
+                                icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 18),
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                              ),
+                            ),
                           ),
                         ),
                       ],
-                      onChanged:
-                          _isLoading
-                              ? null
-                              : (value) {
-                                setState(() {
-                                  if (value == '__manual__') {
-                                    _selectedLogin = null;
-                                    _loginController.clear();
-                                  } else {
-                                    _selectedLogin = value;
-                                    _loginController.text = value!;
-                                  }
-                                });
-                              },
-                    )
-                  else
-                    TextField(
-                      controller: _loginController,
-                      focusNode: _loginFocusNode,
-                      autofocus: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Login',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.person),
-                      ),
-                      enabled: !_isLoading,
-                    ),
-
-                  // Champ de saisie manuelle si "Saisir manuellement" sélectionné
-                  if (_selectedLogin == null && _users.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _loginController,
-                      autofocus: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Entrez votre login',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.edit),
-                      ),
-                      enabled: !_isLoading,
                     ),
                   ],
-
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _passwordController,
-                    decoration: InputDecoration(
-                      labelText: 'Mot de passe',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.key),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                      ),
-                    ),
-                    obscureText: _obscurePassword,
-                    onSubmitted: (_) => _login(),
-                    enabled: !_isLoading,
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _login,
-                    icon:
-                        _isLoading
-                            ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            )
-                            : const Icon(Icons.login, color: Colors.white),
-                    label: const Text(
-                      'Se connecter',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade400,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.all(16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+
+              // Bouton connexion
+              Padding(
+                padding: const EdgeInsets.only(left: 28, right: 28, bottom: 28),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _login,
+                    icon: _isLoading
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.login, color: Colors.white, size: 18),
+                    label: Text(_isLoading ? 'Connexion…' : 'Se connecter', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade700,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      elevation: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
