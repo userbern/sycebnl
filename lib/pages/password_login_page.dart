@@ -128,8 +128,9 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
     if (_isLoadingUsers) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Connexion'),
-          backgroundColor: Colors.blue.shade900,
+          title: const Text('Connexion', style: TextStyle(color: Colors.white)),
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -137,8 +138,9 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Connexion'),
-        backgroundColor: Colors.blue.shade900,
+        title: const Text('Connexion', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
       ),
       body: Center(
         child: Container(
@@ -160,13 +162,13 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                     size: 64,
                     color: Colors.blue.shade400,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   Text(
                     'Fichier protégé',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue.shade900,
+                      color: Colors.blue,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -288,7 +290,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                                 ),
                               ),
                             )
-                            : const Icon(Icons.login),
+                            : const Icon(Icons.login, color: Colors.white),
                     label: const Text(
                       'Se connecter',
                       style: TextStyle(fontSize: 16),

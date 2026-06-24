@@ -362,7 +362,7 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
                               ButtonSegment(
                                 value: true,
                                 label: Text(
-                                  'Créer un nouveau fichier comptable',
+                                  'Créer un nouveau fichier comptable', style: TextStyle(color: Colors.white),
                                 ),
                                 icon: Icon(Icons.add_circle),
                               ),
@@ -370,6 +370,7 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
                                 value: false,
                                 label: Text(
                                   'Ouvrir un fichier comptable existant',
+                                  style: TextStyle(color: Colors.white),
                                 ),
                                 icon: Icon(Icons.folder_open),
                               ),
@@ -560,6 +561,7 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
                         _isCreatingDatabase
                             ? Icons.create_new_folder
                             : Icons.folder_open,
+                          color: Colors.white,
                       ),
                       label: Text(
                         _databasePath == null
@@ -604,7 +606,7 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
                                   Icon(
                                     Icons.info_outline,
                                     size: 20,
-                                    color: Colors.blue.shade400,
+                                    color: Colors.blue,
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
@@ -617,7 +619,7 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
                                           style: TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.bold,
-                                            color: Colors.blue.shade900,
+                                            color: Colors.blue,
                                           ),
                                         ),
                                         const SizedBox(height: 4),

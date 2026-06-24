@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/user_session.dart';
@@ -22,6 +23,9 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
   String _sortBy = 'code';
   String _filterStatus = 'actifs';
   late FocusNode _focusNode;
+
+  int _itemsPerPage = 15;
+  int _currentPage = 1;
 
   bool get _canCreate => _hasPermission('creation');
   bool get _canUpdate => _hasPermission('modification');
@@ -127,6 +131,18 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
     return filtered;
   }
 
+  List<Map<String, dynamic>> get _paginatedProjets {
+    final filtered = _filteredProjets;
+    final start = (_currentPage - 1) * _itemsPerPage;
+    final end = (start + _itemsPerPage).clamp(0, filtered.length);
+    if (start >= filtered.length) return [];
+    return filtered.sublist(start, end);
+  }
+
+  int get _totalPages => math.max(1, (_filteredProjets.length / _itemsPerPage).ceil());
+
+  void _resetPagination() => setState(() => _currentPage = 1);
+
   String _getBailleursString(Map<String, dynamic> projet) {
     final bailleurs = projet['bailleurs'];
     if (bailleurs == null || bailleurs.isEmpty) return 'Aucun';
@@ -134,49 +150,62 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
   }
 
   Future<void> _deleteProjet(Map<String, dynamic> projet) async {
+    final code = projet['code']?.toString() ?? '';
+    final designation = projet['designation']?.toString() ?? '';
     final confirm = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Confirmer la suppression'),
-            content: Text(
-              'Voulez-vous vraiment supprimer le projet "${projet['code']}" ?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Annuler'),
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Confirmer la suppression'),
+          ],
+        ),
+        content: RichText(
+          text: TextSpan(
+            style: DefaultTextStyle.of(context).style,
+            children: [
+              const TextSpan(text: 'Voulez-vous vraiment supprimer le projet '),
+              TextSpan(
+                text: designation.isNotEmpty ? '"$designation"' : '"$code"',
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child: const Text('Supprimer'),
-              ),
+              const TextSpan(text: ' ?'),
             ],
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.delete_forever),
+            label: const Text('Supprimer'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
     );
 
     if (confirm == true) {
       try {
         await AuthService.deleteProjet(int.parse(projet['id'].toString()));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Projet supprimé avec succès'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          _loadData();
-        }
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Projet supprimé'), backgroundColor: Colors.green),
+        );
+        _loadData();
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erreur: ${e.toString()}'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: ${e.toString()}'), backgroundColor: Colors.red),
+        );
       }
     }
   }
@@ -196,124 +225,6 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
     );
   }
 
-  Widget _buildProjetCard(Map<String, dynamic> projet) {
-    return Container(
-      margin: EdgeInsets.zero,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Row(
-          children: [
-            // Code
-            Expanded(
-              flex: 2,
-              child: GestureDetector(
-                onTap: () => _showProjetDialog(projet),
-                child: Text(
-                  projet['code'] ?? 'N/A',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.blue.shade400,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-            // Désignation
-            Expanded(
-              flex: 3,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: GestureDetector(
-                  onTap: () => _showProjetDialog(projet),
-                  child: Text(
-                    projet['designation'] ?? 'N/A',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-              ),
-            ),
-            // Bailleurs
-            Expanded(
-              flex: 3,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: GestureDetector(
-                  onTap: () => _showProjetDialog(projet),
-                  child: Text(
-                    _getBailleursString(projet),
-                    style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-              ),
-            ),
-            // Actions
-            SizedBox(
-              width: 96,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (_canUpdate)
-                      IconButton(
-                        icon: Icon(
-                          Icons.edit,
-                          size: 14,
-                          color: Colors.blue.shade400,
-                        ),
-                        onPressed: () => _showProjetDialog(projet),
-                        tooltip: 'Modifier',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 18,
-                          minHeight: 18,
-                        ),
-                      ),
-                    if (_canDelete)
-                      IconButton(
-                        icon: const Icon(
-                          Icons.delete,
-                          size: 14,
-                          color: Colors.red,
-                        ),
-                        onPressed: () => _deleteProjet(projet),
-                        tooltip: 'Supprimer',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 18,
-                          minHeight: 18,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return KeyboardListener(
@@ -326,462 +237,489 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
         }
       },
       child: Scaffold(
-        appBar:
-            widget.showAppBar
-                ? AppBar(
-                  title: const Text('Projets'),
-                  backgroundColor: Colors.blue.shade400,
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () {
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      }
-                    },
-                  ),
-                )
-                : null,
-        body:
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header avec statistiques
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Row(
+        backgroundColor: const Color(0xFFF5F7FA),
+        appBar: widget.showAppBar
+            ? AppBar(
+                title: const Text('Projets'),
+                backgroundColor: Colors.blue.shade700,
+                foregroundColor: Colors.white,
+                elevation: 0,
+              )
+            : null,
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // En-tête
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isMobile = constraints.maxWidth < 650;
+                        if (isMobile) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildPageTitle(),
+                              const SizedBox(height: 12),
+                              _buildHeaderActions(),
+                            ],
+                          );
+                        }
+                        return Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade100,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                Icons.folder_open,
-                                size: 28,
-                                color: Colors.black,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
+                            _buildPageTitle(),
+                            const Spacer(),
+                            _buildHeaderActions(),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    _buildFilterBar(),
+                    const SizedBox(height: 12),
+                    // Compteur
+                    Text(
+                      '${_filteredProjets.length} projet${_filteredProjets.length > 1 ? 's' : ''}',
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+                    ),
+                    const SizedBox(height: 12),
+                    // Contenu
+                    Expanded(
+                      child: _filteredProjets.isEmpty
+                          ? Center(
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
+                                  Icon(Icons.folder_outlined, size: 80, color: Colors.grey.shade300),
+                                  const SizedBox(height: 16),
                                   Text(
-                                    'Projets',
-                                    style: TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.blue.shade400,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${_filteredProjets.length} projet${_filteredProjets.length > 1 ? 's' : ''} disponible${_filteredProjets.length > 1 ? 's' : ''}',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey.shade600,
-                                    ),
+                                    _searchQuery.isEmpty ? 'Aucun projet. Cliquez sur "Nouveau projet"' : 'Aucun projet trouvé',
+                                    style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
                                   ),
                                 ],
                               ),
-                            ),
-                            Row(
+                            )
+                          : Column(
                               children: [
-                                ElevatedButton.icon(
-                                  onPressed: () {
-                                    final projets =
-                                        _filteredProjets.map((p) {
-                                          return {
-                                            'code': p['code']?.toString() ?? '',
-                                            'designation':
-                                                p['designation']?.toString() ??
-                                                '',
-                                            'bailleur':
-                                                p['bailleur']?.toString() ?? '',
-                                          };
-                                        }).toList();
-                                    ExportService.exportProjetsPDF(
-                                      projets: projets,
-                                      context: context,
-                                    );
-                                  },
-                                  icon: const Icon(
-                                    Icons.picture_as_pdf,
-                                    size: 20,
-                                    color: Colors.white,
-                                  ),
-                                  label: const Text('PDF'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red.shade400,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    elevation: 2,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                ElevatedButton.icon(
-                                  onPressed: () {
-                                    final projets =
-                                        _filteredProjets.map((p) {
-                                          return {
-                                            'code': p['code']?.toString() ?? '',
-                                            'designation':
-                                                p['designation']?.toString() ??
-                                                '',
-                                            'bailleur':
-                                                p['bailleur']?.toString() ?? '',
-                                          };
-                                        }).toList();
-                                    ExportService.exportProjetsExcel(
-                                      projets: projets,
-                                      context: context,
-                                    );
-                                  },
-                                  icon: const Icon(
-                                    Icons.table_chart,
-                                    size: 20,
-                                    color: Colors.white,
-                                  ),
-                                  label: const Text('Excel'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green.shade400,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    elevation: 2,
-                                  ),
-                                ),
-                                if (_canCreate) ...[
-                                  const SizedBox(width: 8),
-                                  ElevatedButton.icon(
-                                    onPressed: () => _showProjetDialog(null),
-                                    icon: const Icon(
-                                      Icons.add,
-                                      size: 20,
-                                      color: Colors.white,
-                                    ),
-                                    label: const Text('Nouveau projet'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue.shade400,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 20,
-                                        vertical: 12,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      elevation: 2,
-                                    ),
-                                  ),
-                                ],
+                                Expanded(child: _buildMainContent()),
+                                const SizedBox(height: 12),
+                                _buildPaginationControls(),
                               ],
                             ),
+                    ),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildPageTitle() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade700,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(Icons.folder_open, size: 28, color: Colors.white),
+        ),
+        const SizedBox(width: 14),
+        const Text(
+          'Projets',
+          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeaderActions() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.end,
+      children: [
+        ElevatedButton.icon(
+          onPressed: () {
+            final data = _filteredProjets.map((p) => {
+              'code': p['code']?.toString() ?? '',
+              'designation': p['designation']?.toString() ?? '',
+              'bailleur': p['bailleur']?.toString() ?? '',
+            }).toList();
+            ExportService.exportProjetsPDF(projets: data, context: context);
+          },
+          icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
+          label: const Text('PDF'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red.shade600,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            textStyle: const TextStyle(fontSize: 13),
+          ),
+        ),
+        ElevatedButton.icon(
+          onPressed: () {
+            final data = _filteredProjets.map((p) => {
+              'code': p['code']?.toString() ?? '',
+              'designation': p['designation']?.toString() ?? '',
+              'bailleur': p['bailleur']?.toString() ?? '',
+            }).toList();
+            ExportService.exportProjetsExcel(projets: data, context: context);
+          },
+          icon: const Icon(Icons.table_chart, size: 16, color: Colors.white),
+          label: const Text('Excel'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green.shade700,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            textStyle: const TextStyle(fontSize: 13),
+          ),
+        ),
+        if (_canCreate)
+          ElevatedButton.icon(
+            onPressed: () => _showProjetDialog(null),
+            icon: const Icon(Icons.add, size: 18, color: Colors.white),
+            label: const Text('Nouveau projet'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              elevation: 3,
+              shadowColor: Colors.blue.shade200,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildFilterBar() {
+    final hasActiveFilter = _searchQuery.isNotEmpty || _sortBy != 'code' || _filterStatus != 'actifs';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: hasActiveFilter ? Colors.blue.shade200 : Colors.grey.shade200,
+          width: hasActiveFilter ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 500;
+          if (isMobile) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSearchField(),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: _buildSortDropdown()),
+                    const SizedBox(width: 8),
+                    Expanded(child: _buildStatusDropdown()),
+                    const SizedBox(width: 4),
+                    _buildResetButton(hasActiveFilter),
+                  ],
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(flex: 3, child: _buildSearchField()),
+              const SizedBox(width: 12),
+              Expanded(flex: 2, child: _buildSortDropdown()),
+              const SizedBox(width: 10),
+              Expanded(flex: 2, child: _buildStatusDropdown()),
+              const SizedBox(width: 8),
+              _buildResetButton(hasActiveFilter),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSearchField() {
+    return TextField(
+      onChanged: (value) { setState(() => _searchQuery = value); _resetPagination(); },
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: 'Rechercher un projet…',
+        prefixIcon: Icon(Icons.search, color: Colors.grey.shade500, size: 18),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.blue.shade400, width: 1.5)),
+        filled: true, fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      ),
+    );
+  }
+
+  Widget _buildSortDropdown() {
+    return DropdownButtonFormField<String>(
+      isExpanded: true, isDense: true, value: _sortBy,
+      decoration: InputDecoration(
+        labelText: 'Trier par', labelStyle: const TextStyle(fontSize: 12),
+        prefixIcon: Icon(Icons.sort, size: 18, color: Colors.grey.shade500),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.blue.shade400, width: 1.5)),
+        filled: true, fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      ),
+      items: const [
+        DropdownMenuItem(value: 'code', child: Text('Code', style: TextStyle(fontSize: 12))),
+        DropdownMenuItem(value: 'designation', child: Text('Désignation', style: TextStyle(fontSize: 12))),
+      ],
+      onChanged: (value) { setState(() => _sortBy = value ?? 'code'); _resetPagination(); },
+    );
+  }
+
+  Widget _buildStatusDropdown() {
+    return DropdownButtonFormField<String>(
+      isExpanded: true, isDense: true, value: _filterStatus,
+      decoration: InputDecoration(
+        labelText: 'Statut', labelStyle: const TextStyle(fontSize: 12),
+        prefixIcon: Icon(Icons.filter_alt, size: 18, color: Colors.grey.shade500),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.blue.shade400, width: 1.5)),
+        filled: true, fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      ),
+      items: const [
+        DropdownMenuItem(value: 'actifs', child: Text('Actifs', style: TextStyle(fontSize: 12))),
+        DropdownMenuItem(value: 'inactifs', child: Text('Inactifs', style: TextStyle(fontSize: 12))),
+        DropdownMenuItem(value: 'tous', child: Text('Tous', style: TextStyle(fontSize: 12))),
+      ],
+      onChanged: (value) { setState(() => _filterStatus = value ?? 'actifs'); _resetPagination(); },
+    );
+  }
+
+  Widget _buildResetButton(bool hasActiveFilter) {
+    return Tooltip(
+      message: 'Réinitialiser',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          setState(() { _searchQuery = ''; _sortBy = 'code'; _filterStatus = 'actifs'; });
+          _resetPagination();
+        },
+        child: Container(
+          width: 38, height: 38,
+          decoration: BoxDecoration(
+            color: hasActiveFilter ? Colors.blue.shade50 : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: hasActiveFilter ? Colors.blue.shade300 : Colors.grey.shade300),
+          ),
+          child: Icon(Icons.clear, size: 18, color: hasActiveFilter ? Colors.blue.shade600 : Colors.grey.shade500),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainContent() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 650) {
+          return ListView.builder(
+            itemCount: _paginatedProjets.length,
+            itemBuilder: (context, index) => _buildMobileCard(_paginatedProjets[index]),
+          );
+        }
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SingleChildScrollView(
+              child: LayoutBuilder(
+                builder: (context, inner) {
+                  final tw = inner.maxWidth.isFinite ? inner.maxWidth : (MediaQuery.of(context).size.width - 48);
+                  double cw(double v, double mn, double mxf) => v.clamp(mn, math.max(mn, tw * mxf));
+                  final codeW   = cw(tw * 0.13, 80,  0.16);
+                  final desigW  = cw(tw * 0.30, 150, 0.38);
+                  final bailW   = cw(tw * 0.25, 120, 0.30);
+                  final dateW   = cw(tw * 0.12, 80,  0.15);
+                  final actW    = cw(tw * 0.08, 60,  0.12);
+                  return SizedBox(
+                    width: tw,
+                    child: DataTable(
+                      headingRowColor: WidgetStateProperty.all(Colors.blue.shade700),
+                      headingRowHeight: 22,
+                      headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.3),
+                      dataRowMinHeight: 20,
+                      dataRowMaxHeight: 24,
+                      columnSpacing: 8,
+                      horizontalMargin: 12,
+                      dividerThickness: 0.5,
+                      columns: const [
+                        DataColumn(label: Text('Code')),
+                        DataColumn(label: Text('Désignation')),
+                        DataColumn(label: Text('Bailleurs')),
+                        DataColumn(label: Text('Début')),
+                        DataColumn(label: Text('Fin')),
+                        DataColumn(label: Text('Actions')),
+                      ],
+                      rows: _paginatedProjets.map((p) {
+                        return DataRow(
+                          color: WidgetStateProperty.resolveWith<Color?>((states) {
+                            if (states.contains(WidgetState.hovered)) return Colors.blue.shade50;
+                            return Colors.white;
+                          }),
+                          cells: [
+                            DataCell(SizedBox(width: codeW, child: Text(p['code']?.toString() ?? '—', overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'monospace', fontSize: 11)))),
+                            DataCell(SizedBox(width: desigW, child: Text(p['designation']?.toString() ?? '—', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: Colors.grey.shade800)))),
+                            DataCell(SizedBox(width: bailW, child: Text(_getBailleursString(p), overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)))),
+                            DataCell(SizedBox(width: dateW, child: Text(_formatDate(p['date_debut']), overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)))),
+                            DataCell(SizedBox(width: dateW, child: Text(_formatDate(p['date_fin']), overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)))),
+                            DataCell(SizedBox(
+                              width: actW,
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                if (_canUpdate) IconButton(icon: const Icon(Icons.edit, size: 15), color: Colors.blue.shade700, onPressed: () => _showProjetDialog(p), tooltip: 'Modifier', padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 24, minHeight: 24)),
+                                if (_canDelete) IconButton(icon: const Icon(Icons.delete, size: 15), color: Colors.red.shade700, onPressed: () => _deleteProjet(p), tooltip: 'Supprimer', padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 24, minHeight: 24)),
+                              ]),
+                            )),
                           ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
+                        );
+                      }).toList(),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
-                      // Barre de recherche et filtres responsive
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.03),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            final double maxWidth = constraints.maxWidth;
-                            const double spacing = 12;
-                            const double resetWidth = 44;
+  String _formatDate(dynamic date) {
+    if (date == null) return '—';
+    final s = date.toString();
+    if (s.length >= 10) return s.substring(0, 10);
+    return s;
+  }
 
-                            final double dropdownWidth =
-                                maxWidth >= 1080
-                                    ? 240
-                                    : maxWidth >= 900
-                                    ? 220
-                                    : maxWidth >= 720
-                                    ? 200
-                                    : maxWidth >= 520
-                                    ? 180
-                                    : maxWidth;
+  Widget _buildMobileCard(Map<String, dynamic> p) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: Colors.grey.shade200)),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Container(width: 4, height: 54, decoration: BoxDecoration(color: Colors.blue.shade700, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(p['code']?.toString() ?? '—', style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 3),
+                  Text(p['designation']?.toString() ?? '—', style: TextStyle(fontSize: 12, color: Colors.grey.shade800)),
+                  if (_getBailleursString(p) != 'Aucun') ...[
+                    const SizedBox(height: 2),
+                    Text(_getBailleursString(p), style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                  ],
+                ],
+              ),
+            ),
+            Column(mainAxisSize: MainAxisSize.min, children: [
+              if (_canUpdate) IconButton(icon: Icon(Icons.edit, size: 16, color: Colors.blue.shade700), onPressed: () => _showProjetDialog(p), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 32, minHeight: 32)),
+              if (_canDelete) IconButton(icon: Icon(Icons.delete, size: 16, color: Colors.red.shade700), onPressed: () => _deleteProjet(p), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 32, minHeight: 32)),
+            ]),
+          ],
+        ),
+      ),
+    );
+  }
 
-                            double searchWidth;
-                            if (maxWidth >= 720) {
-                              searchWidth =
-                                  maxWidth -
-                                  (dropdownWidth * 2 +
-                                      resetWidth +
-                                      spacing * 3);
-                              searchWidth =
-                                  searchWidth.clamp(320, maxWidth).toDouble();
-                            } else {
-                              searchWidth = maxWidth;
-                            }
-
-                            return Wrap(
-                              spacing: spacing,
-                              runSpacing: spacing,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                SizedBox(
-                                  width: searchWidth,
-                                  child: TextField(
-                                    onChanged: (value) {
-                                      setState(() => _searchQuery = value);
-                                    },
-                                    decoration: InputDecoration(
-                                      hintText: 'Rechercher un projet...',
-                                      prefixIcon: const Icon(Icons.search),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 12,
-                                          ),
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: dropdownWidth,
-                                  child: DropdownButtonFormField<String>(
-                                    value: _sortBy,
-                                    decoration: InputDecoration(
-                                      labelText: 'Trier par',
-                                      prefixIcon: const Icon(Icons.sort),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 8,
-                                          ),
-                                    ),
-                                    items: const [
-                                      DropdownMenuItem(
-                                        value: 'code',
-                                        child: Text('Code'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'designation',
-                                        child: Text('Désignation'),
-                                      ),
-                                    ],
-                                    onChanged: (value) {
-                                      setState(() => _sortBy = value ?? 'code');
-                                    },
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: dropdownWidth,
-                                  child: DropdownButtonFormField<String>(
-                                    value: _filterStatus,
-                                    decoration: InputDecoration(
-                                      labelText: 'Statut',
-                                      prefixIcon: const Icon(Icons.filter_alt),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 8,
-                                          ),
-                                    ),
-                                    items: const [
-                                      DropdownMenuItem(
-                                        value: 'actifs',
-                                        child: Text('Actifs'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'inactifs',
-                                        child: Text('Inactifs'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: 'tous',
-                                        child: Text('Tous'),
-                                      ),
-                                    ],
-                                    onChanged: (value) {
-                                      setState(
-                                        () => _filterStatus = value ?? 'actifs',
-                                      );
-                                    },
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: resetWidth,
-                                  child: IconButton(
-                                    tooltip: 'Réinitialiser',
-                                    onPressed: () {
-                                      setState(() {
-                                        _searchQuery = '';
-                                        _sortBy = 'code';
-                                        _filterStatus = 'actifs';
-                                      });
-                                    },
-                                    icon: const Icon(Icons.clear),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // En-tête des colonnes
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade400,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(10),
-                            topRight: Radius.circular(10),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            // Code header
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                'Code',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                            // Désignation header
-                            Expanded(
-                              flex: 3,
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 8),
-                                child: Text(
-                                  'Désignation',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // Bailleurs header
-                            Expanded(
-                              flex: 3,
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 8),
-                                child: Text(
-                                  'Bailleurs',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // Actions header
-                            SizedBox(
-                              width: 96,
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  'Actions',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Liste des projets
-                      Expanded(
-                        child:
-                            _filteredProjets.isEmpty
-                                ? Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.folder,
-                                        size: 80,
-                                        color: Colors.grey.shade300,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        _searchQuery.isEmpty
-                                            ? 'Aucun projet'
-                                            : 'Aucun projet trouvé',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          color: Colors.grey.shade500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                                : ListView.builder(
-                                  itemCount: _filteredProjets.length,
-                                  itemBuilder: (context, index) {
-                                    final projet = _filteredProjets[index];
-                                    return _buildProjetCard(projet);
-                                  },
-                                ),
-                      ),
-                    ],
+  Widget _buildPaginationControls() {
+    final totalPages = _totalPages;
+    final total = _filteredProjets.length;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade200)),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 500;
+          if (isMobile) {
+            return Column(children: [
+              Text('Page $_currentPage / $totalPages  •  $total projet${total > 1 ? 's' : ''}', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+              const SizedBox(height: 8),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                _pagBtn(Icons.arrow_back, '', _currentPage > 1, () => setState(() => _currentPage--)),
+                const SizedBox(width: 8),
+                _pagBtn(Icons.arrow_forward, '', _currentPage < totalPages, () => setState(() => _currentPage++)),
+              ]),
+            ]);
+          }
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Page $_currentPage sur $totalPages  •  $total projet${total > 1 ? 's' : ''}',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade700, fontWeight: FontWeight.w500)),
+              Row(children: [
+                _pagBtn(Icons.arrow_back, 'Précédent', _currentPage > 1, () => setState(() => _currentPage--)),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 90,
+                  child: DropdownButtonFormField<int>(
+                    isDense: true, value: _currentPage,
+                    decoration: InputDecoration(labelText: 'Page', labelStyle: const TextStyle(fontSize: 12), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), filled: true, fillColor: Colors.white, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                    items: List.generate(totalPages, (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}', style: const TextStyle(fontSize: 13)))),
+                    onChanged: (v) { if (v != null) setState(() => _currentPage = v); },
                   ),
                 ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 110,
+                  child: DropdownButtonFormField<int>(
+                    isDense: true, value: _itemsPerPage,
+                    decoration: InputDecoration(labelText: 'Par page', labelStyle: const TextStyle(fontSize: 12), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), filled: true, fillColor: Colors.white, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                    items: [5, 10, 15, 20, 50].map((v) => DropdownMenuItem(value: v, child: Text('$v', style: const TextStyle(fontSize: 13)))).toList(),
+                    onChanged: (v) { if (v != null) setState(() { _itemsPerPage = v; _currentPage = 1; }); },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _pagBtn(Icons.arrow_forward, 'Suivant', _currentPage < totalPages, () => setState(() => _currentPage++)),
+              ]),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _pagBtn(IconData icon, String label, bool enabled, VoidCallback onPressed) {
+    return ElevatedButton.icon(
+      onPressed: enabled ? onPressed : null,
+      icon: Icon(icon, size: 16),
+      label: label.isNotEmpty ? Text(label) : const SizedBox.shrink(),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.blue.shade700,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: Colors.grey.shade200,
+        disabledForegroundColor: Colors.grey.shade500,
+        padding: EdgeInsets.symmetric(horizontal: label.isNotEmpty ? 14 : 10, vertical: 10),
+        textStyle: const TextStyle(fontSize: 13),
       ),
     );
   }

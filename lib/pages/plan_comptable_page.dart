@@ -16,9 +16,9 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
   List<Compte> _comptes = [];
   bool _isLoading = false;
   String _searchQuery = '';
-  NatureCompte? _selectedNature; // Filtre par nature
-  TypeCompte? _selectedType; // Filtre par type
-  int _longueurCompteGeneral = 7; // Valeur par défaut
+  NatureCompte? _selectedNature;
+  TypeCompte? _selectedType;
+  int _longueurCompteGeneral = 7;
 
   // Pagination
   int _itemsPerPage = 15;
@@ -51,7 +51,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
       setState(() {
         _comptes = comptes;
         _isLoading = false;
-        _currentPage = 1; // Réinitialiser la pagination
+        _currentPage = 1;
       });
     } catch (e) {
       setState(() => _isLoading = false);
@@ -75,30 +75,20 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
   List<Compte> get _filteredComptes {
     var filtered = List<Compte>.from(_comptes);
 
-    // Filtrer par texte de recherche
     if (_searchQuery.isNotEmpty) {
       final query = _searchQuery.toLowerCase();
-      filtered =
-          filtered.where((compte) {
-            return compte.numeroCompte.toLowerCase().contains(query) ||
-                compte.intitule.toLowerCase().contains(query);
-          }).toList();
+      filtered = filtered.where((compte) {
+        return compte.numeroCompte.toLowerCase().contains(query) ||
+            compte.intitule.toLowerCase().contains(query);
+      }).toList();
     }
 
-    // Filtrer par nature
     if (_selectedNature != null) {
-      filtered =
-          filtered.where((compte) {
-            return compte.nature == _selectedNature;
-          }).toList();
+      filtered = filtered.where((compte) => compte.nature == _selectedNature).toList();
     }
 
-    // Filtrer par type
     if (_selectedType != null) {
-      filtered =
-          filtered.where((compte) {
-            return compte.type == _selectedType;
-          }).toList();
+      filtered = filtered.where((compte) => compte.type == _selectedType).toList();
     }
 
     return filtered;
@@ -109,10 +99,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
     final startIndex = (_currentPage - 1) * _itemsPerPage;
     final endIndex = startIndex + _itemsPerPage;
 
-    if (startIndex >= filtered.length) {
-      return [];
-    }
-
+    if (startIndex >= filtered.length) return [];
     return filtered.sublist(
       startIndex,
       endIndex > filtered.length ? filtered.length : endIndex,
@@ -124,15 +111,64 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
   }
 
   String _padNumeroCompte(String numero, TypeCompte type) {
-    // Ne compléter avec des zéros que pour les comptes de type "detail"
-    if (type == TypeCompte.total) {
-      return numero;
-    }
-
-    if (numero.length >= _longueurCompteGeneral) {
-      return numero;
-    }
+    if (type == TypeCompte.total) return numero;
+    if (numero.length >= _longueurCompteGeneral) return numero;
     return numero.padRight(_longueurCompteGeneral, '0');
+  }
+
+  // 4 couleurs uniformes selon la catégorie comptable
+  Color _getNatureColor(NatureCompte nature) {
+    switch (nature) {
+      case NatureCompte.bilanActifImmobilise:
+      case NatureCompte.bilanStocks:
+      case NatureCompte.bilanAdherentsClientsUsagers:
+      case NatureCompte.bilanBanque:
+      case NatureCompte.bilanCaisse:
+      case NatureCompte.bilanAutresTresoreries:
+        return const Color(0xFF1565C0); // Bleu – Actif
+      case NatureCompte.bilanRessourcesDurables:
+      case NatureCompte.bilanFournisseurs:
+      case NatureCompte.bilanPersonnel:
+      case NatureCompte.bilanOrganismesSociaux:
+      case NatureCompte.bilanEtatCollectivitesPubliques:
+      case NatureCompte.bilanAutresTiers:
+        return const Color(0xFFC62828); // Rouge – Passif
+      case NatureCompte.chargesAO:
+      case NatureCompte.chargesHAO:
+        return const Color(0xFFE65100); // Orange – Charges
+      case NatureCompte.produitsAO:
+      case NatureCompte.produitsHAO:
+        return const Color(0xFF2E7D32); // Vert – Produits
+      case NatureCompte.engagementsHorsBilan:
+        return const Color(0xFF546E7A); // Gris bleuté – Hors Bilan
+    }
+  }
+
+  String _getNatureCategoryShort(NatureCompte nature) {
+    switch (nature) {
+      case NatureCompte.bilanActifImmobilise:
+      case NatureCompte.bilanStocks:
+      case NatureCompte.bilanAdherentsClientsUsagers:
+      case NatureCompte.bilanBanque:
+      case NatureCompte.bilanCaisse:
+      case NatureCompte.bilanAutresTresoreries:
+        return 'Actif';
+      case NatureCompte.bilanRessourcesDurables:
+      case NatureCompte.bilanFournisseurs:
+      case NatureCompte.bilanPersonnel:
+      case NatureCompte.bilanOrganismesSociaux:
+      case NatureCompte.bilanEtatCollectivitesPubliques:
+      case NatureCompte.bilanAutresTiers:
+        return 'Passif';
+      case NatureCompte.chargesAO:
+      case NatureCompte.chargesHAO:
+        return 'Charges';
+      case NatureCompte.produitsAO:
+      case NatureCompte.produitsHAO:
+        return 'Produits';
+      case NatureCompte.engagementsHorsBilan:
+        return 'Hors Bilan';
+    }
   }
 
   void _showCompteDialog({Compte? compte}) {
@@ -181,11 +217,10 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                     : descriptionController.text.trim(),
           );
 
-          // Réinitialiser le formulaire pour saisir un autre compte
           numeroController.clear();
           intituleController.clear();
           descriptionController.clear();
-          if (context.mounted) {
+          if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Compte créé avec succès'),
@@ -193,13 +228,12 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                 duration: Duration(seconds: 1),
               ),
             );
-            // Focus sur le champ numéro pour continuer la saisie
             FocusScope.of(context).requestFocus(FocusNode());
           }
 
           await _loadComptes();
         } catch (e) {
-          if (context.mounted) {
+          if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Erreur: $e'),
@@ -271,9 +305,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                   onChanged: (value) {
                                     setDialogState(() {
                                       calculatedNature =
-                                          calculateNatureFromNumeroCompte(
-                                            value,
-                                          );
+                                          calculateNatureFromNumeroCompte(value);
                                     });
                                   },
                                 ),
@@ -338,13 +370,12 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                     Icons.arrow_drop_down_circle,
                                     color: Colors.blue.shade400,
                                   ),
-                                  items:
-                                      TypeCompte.values.map((type) {
-                                        return DropdownMenuItem(
-                                          value: type,
-                                          child: Text(type.toLabel()),
-                                        );
-                                      }).toList(),
+                                  items: TypeCompte.values.map((type) {
+                                    return DropdownMenuItem(
+                                      value: type,
+                                      child: Text(type.toLabel()),
+                                    );
+                                  }).toList(),
                                   onChanged: (value) {
                                     if (value != null) {
                                       setDialogState(() {
@@ -393,13 +424,12 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                               Icons.arrow_drop_down_circle,
                               color: Colors.blue.shade400,
                             ),
-                            items:
-                                NatureCompte.values.map((nature) {
-                                  return DropdownMenuItem(
-                                    value: nature,
-                                    child: Text(nature.toLabel()),
-                                  );
-                                }).toList(),
+                            items: NatureCompte.values.map((nature) {
+                              return DropdownMenuItem(
+                                value: nature,
+                                child: Text(nature.toLabel()),
+                              );
+                            }).toList(),
                             onChanged: (value) {
                               if (value != null) {
                                 setDialogState(() {
@@ -408,9 +438,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                               }
                             },
                             validator: (value) {
-                              if (value == null) {
-                                return 'Sélectionnez une nature';
-                              }
+                              if (value == null) return 'Sélectionnez une nature';
                               return null;
                             },
                           ),
@@ -584,54 +612,71 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
   }
 
   Future<bool> _isCompteUtilise(String numeroCompte) async {
-    // Vérifie si le compte est utilisé dans d'autres tables (journaux, écritures, etc.)
-    // À adapter selon la structure réelle de la base !
     final usedInJournaux = await DatabaseService.isCompteUsedInJournaux(
       numeroCompte,
     );
-    // Ajoute d'autres vérifications si besoin (écritures, budgets, etc.)
     return usedInJournaux;
   }
 
   Future<void> _deleteCompte(Compte compte) async {
     final isUsed = await _isCompteUtilise(compte.numeroCompte);
+    if (!mounted) return;
     if (isUsed) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Ce compte est utilisé dans une autre table et ne peut pas être supprimé.',
-            ),
-            backgroundColor: Colors.orange,
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Ce compte est utilisé dans une autre table et ne peut pas être supprimé.',
           ),
-        );
-      }
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Confirmer la suppression'),
-            content: Text(
-              'Voulez-vous vraiment supprimer le compte ${compte.numeroCompte} - ${compte.intitule} ?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Annuler'),
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Confirmer la suppression'),
+          ],
+        ),
+        content: RichText(
+          text: TextSpan(
+            style: DefaultTextStyle.of(context).style,
+            children: [
+              const TextSpan(text: 'Êtes-vous sûr de vouloir supprimer le compte '),
+              TextSpan(
+                text: "'${compte.intitule}'",
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Supprimer'),
+              const TextSpan(text: ' ('),
+              TextSpan(
+                text: compte.numeroCompte,
+                style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold),
               ),
+              const TextSpan(text: ') ?'),
             ],
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.delete_forever),
+            label: const Text('Supprimer'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
     );
 
     if (confirm == true) {
@@ -691,15 +736,137 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
         ),
         filled: true,
         fillColor: enabled ? Colors.grey.shade50 : Colors.grey.shade200,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
       keyboardType: keyboardType,
       maxLines: maxLines,
       validator: validator,
       onChanged: onChanged,
+    );
+  }
+
+  // Carte mobile pour un compte
+  Widget _buildMobileCard(Compte compte) {
+    final isTotal = compte.type == TypeCompte.total;
+    final color = _getNatureColor(compte.nature);
+    final category = _getNatureCategoryShort(compte.nature);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      elevation: isTotal ? 2 : 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: isTotal ? Colors.blueGrey.shade300 : Colors.grey.shade200,
+          width: isTotal ? 1.5 : 1,
+        ),
+      ),
+      color: isTotal ? Colors.blueGrey.shade50 : Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            // Barre d'accentuation colorée
+            Container(
+              width: 4,
+              height: 54,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        compte.numeroCompte,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
+                          fontSize: 13,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: color.withValues(alpha: 0.35)),
+                        ),
+                        child: Text(
+                          category,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                          ),
+                        ),
+                      ),
+                      if (isTotal) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: Colors.blueGrey.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Total',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blueGrey.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    compte.intitule,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    compte.nature.toLabel(),
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.edit, size: 16, color: Colors.blue.shade700),
+                  onPressed: () => _showCompteDialog(compte: compte),
+                  tooltip: 'Modifier',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete, size: 16, color: Colors.red.shade700),
+                  onPressed: () => _deleteCompte(compte),
+                  tooltip: 'Supprimer',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -717,506 +884,123 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
         return KeyEventResult.ignored;
       },
       child: Scaffold(
-        backgroundColor: Colors.grey.shade50,
+        backgroundColor: const Color(0xFFF5F7FA),
         body: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // En-tête
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.account_balance_wallet,
-                      size: 32,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Plan Comptable',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const Spacer(),
-                  ElevatedButton.icon(
-                    onPressed: () => ImportService.importPlanComptable(
-                      context: context,
-                      onSuccess: _loadComptes,
-                    ),
-                    icon: const Icon(Icons.upload_file, color: Colors.white),
-                    label: const Text('Importer Excel'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purple.shade400,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Boutons d'export
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      final comptes =
-                          _filteredComptes.map((c) {
-                            return {
-                              'numeroCompte': c.numeroCompte,
-                              'intitule': c.intitule,
-                              'nature': c.nature.toLabel(),
-                              'type': c.type.toLabel(),
-                            };
-                          }).toList();
-                      ExportService.exportPlanComptablePDF(
-                        comptes: comptes,
-                        context: context,
-                      );
-                    },
-                    icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
-                    label: const Text('PDF'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade400,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      final comptes =
-                          _filteredComptes.map((c) {
-                            return {
-                              'numeroCompte': c.numeroCompte,
-                              'intitule': c.intitule,
-                              'nature': c.nature.toLabel(),
-                              'type': c.type.toLabel(),
-                            };
-                          }).toList();
-                      ExportService.exportPlanComptableExcel(
-                        comptes: comptes,
-                        context: context,
-                      );
-                    },
-                    icon: const Icon(Icons.table_chart, color: Colors.white),
-                    label: const Text('Excel'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green.shade400,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () => _showCompteDialog(),
-                    icon: const Icon(Icons.add, color: Colors.white),
-                    label: const Text('Nouveau compte (Ctrl+N)'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade400,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 16,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Barre de recherche et filtres (sur une seule ligne)
-              Row(
-                children: [
-                  Expanded(
-                    flex: 1,
-                    child: TextField(
-                      onChanged: (value) {
-                        setState(() => _searchQuery = value);
-                        _resetPagination();
-                      },
-                      decoration: InputDecoration(
-                        isDense: true,
-                        labelText: 'Rechercher',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 180,
-                    child: DropdownButtonFormField<NatureCompte?>(
-                      isExpanded: true,
-                      isDense: true,
-                      value: _selectedNature,
-                      decoration: InputDecoration(
-                        labelText: 'Nature',
-                        prefixIcon: const Icon(Icons.category),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('-- Toutes --'),
-                        ),
-                        for (final nature in NatureCompte.values)
-                          DropdownMenuItem(
-                            value: nature,
-                            child: Text(nature.toLabel()),
-                          ),
-                      ],
-                      onChanged: (value) {
-                        setState(() => _selectedNature = value);
-                        _resetPagination();
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 130,
-                    child: DropdownButtonFormField<TypeCompte?>(
-                      isExpanded: true,
-                      isDense: true,
-                      value: _selectedType,
-                      decoration: InputDecoration(
-                        labelText: 'Type',
-                        prefixIcon: const Icon(Icons.type_specimen),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('-- Tous --'),
-                        ),
-                        for (final type in TypeCompte.values)
-                          DropdownMenuItem(
-                            value: type,
-                            child: Text(type.toLabel()),
-                          ),
-                      ],
-                      onChanged: (value) {
-                        setState(() => _selectedType = value);
-                        _resetPagination();
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 44,
-                    child: IconButton(
-                      tooltip: 'Réinitialiser',
-                      onPressed: () {
-                        setState(() {
-                          _searchQuery = '';
-                          _selectedNature = null;
-                          _selectedType = null;
-                        });
-                        _resetPagination();
-                      },
-                      icon: const Icon(Icons.clear),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Tableau
-              Expanded(
-                child:
-                    _isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : _filteredComptes.isEmpty
-                        ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.account_balance_wallet_outlined,
-                                size: 80,
-                                color: Colors.grey.shade300,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                _searchQuery.isEmpty
-                                    ? 'Aucun compte dans le plan comptable'
-                                    : 'Aucun compte trouvé',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                        : Column(
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isMobile = constraints.maxWidth < 650;
+                  if (isMobile) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            Expanded(
-                              child: Container(
-                                constraints: const BoxConstraints.expand(),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(1),
-                                  border: Border.all(
-                                    color: Colors.grey.shade200,
-                                  ),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.vertical,
-                                    child: LayoutBuilder(
-                                      builder: (context, constraints) {
-                                        final double screenWidth =
-                                            MediaQuery.of(context).size.width;
-                                        final double availableWidth =
-                                            constraints.maxWidth.isFinite
-                                                ? constraints.maxWidth
-                                                : (screenWidth -
-                                                    48); // fallback when unconstrained
-                                        final double colSpacing =
-                                            (availableWidth * 0.02)
-                                                .clamp(8, 48)
-                                                .toDouble();
-
-                                        // proportional column widths (sum + margins should fit availableWidth)
-                                        final double numWidth =
-                                            availableWidth * 0.12;
-                                        final double actionsWidth =
-                                            availableWidth * 0.08;
-                                        final double typeWidth =
-                                            availableWidth * 0.08;
-                                        final double natureWidth =
-                                            availableWidth * 0.22;
-                                        final double intituleWidth =
-                                            (availableWidth -
-                                                    (numWidth +
-                                                        actionsWidth +
-                                                        typeWidth +
-                                                        natureWidth +
-                                                        3 * colSpacing))
-                                                .clamp(
-                                                  80,
-                                                  availableWidth * 0.40,
-                                                );
-
-                                        return SizedBox(
-                                          width: availableWidth,
-                                          child: DataTable(
-                                            headingRowColor:
-                                                WidgetStateProperty.all(
-                                                  Colors.blue.shade400,
-                                                ),
-                                            headingRowHeight: 26,
-                                            headingTextStyle: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 11,
-                                            ),
-                                            dataRowMinHeight: 14,
-                                            dataRowMaxHeight: 18,
-                                            columnSpacing: colSpacing * 0.5,
-                                            horizontalMargin: 8,
-                                            columns: const [
-                                              DataColumn(
-                                                label: Text('N° Compte'),
-                                              ),
-                                              DataColumn(
-                                                label: Text('Intitulé'),
-                                              ),
-                                              DataColumn(label: Text('Type')),
-                                              DataColumn(label: Text('Nature')),
-                                              DataColumn(
-                                                label: Text('Actions'),
-                                              ),
-                                            ],
-                                            rows:
-                                                _paginatedComptes.map((compte) {
-                                                  return DataRow(
-                                                    cells: [
-                                                      DataCell(
-                                                        SizedBox(
-                                                          width: numWidth,
-                                                          child: Text(
-                                                            compte.numeroCompte,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold,
-                                                                  fontFamily:
-                                                                      'monospace',
-                                                                  fontSize: 10,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      DataCell(
-                                                        SizedBox(
-                                                          width: intituleWidth,
-                                                          child: Text(
-                                                            compte.intitule,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontSize: 10,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      DataCell(
-                                                        SizedBox(
-                                                          width: typeWidth,
-                                                          child: Text(
-                                                            compte.type
-                                                                .toLabel(),
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontSize: 10,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      DataCell(
-                                                        SizedBox(
-                                                          width: natureWidth,
-                                                          child: Text(
-                                                            compte.nature
-                                                                .toLabel(),
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                            style: TextStyle(
-                                                              fontSize: 10,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                              color:
-                                                                  _getNatureColor(
-                                                                    compte
-                                                                        .nature,
-                                                                  ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      DataCell(
-                                                        SizedBox(
-                                                          width: actionsWidth,
-                                                          child: Row(
-                                                            mainAxisSize:
-                                                                MainAxisSize
-                                                                    .min,
-                                                            children: [
-                                                              Flexible(
-                                                                child: IconButton(
-                                                                  icon: const Icon(
-                                                                    Icons.edit,
-                                                                    size: 14,
-                                                                  ),
-                                                                  color:
-                                                                      Colors
-                                                                          .blue
-                                                                          .shade700,
-                                                                  onPressed:
-                                                                      () => _showCompteDialog(
-                                                                        compte:
-                                                                            compte,
-                                                                      ),
-                                                                  tooltip:
-                                                                      'Modifier',
-                                                                  padding:
-                                                                      EdgeInsets
-                                                                          .zero,
-                                                                  constraints:
-                                                                      const BoxConstraints(
-                                                                        minWidth:
-                                                                            18,
-                                                                        minHeight:
-                                                                            18,
-                                                                      ),
-                                                                ),
-                                                              ),
-                                                              Flexible(
-                                                                child: IconButton(
-                                                                  icon: const Icon(
-                                                                    Icons
-                                                                        .delete,
-                                                                    size: 14,
-                                                                  ),
-                                                                  color:
-                                                                      Colors
-                                                                          .red
-                                                                          .shade700,
-                                                                  onPressed:
-                                                                      () => _deleteCompte(
-                                                                        compte,
-                                                                      ),
-                                                                  tooltip:
-                                                                      'Supprimer',
-                                                                  padding:
-                                                                      EdgeInsets
-                                                                          .zero,
-                                                                  constraints:
-                                                                      const BoxConstraints(
-                                                                        minWidth:
-                                                                            18,
-                                                                        minHeight:
-                                                                            18,
-                                                                      ),
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  );
-                                                }).toList(),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ),
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade700,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.account_balance_wallet,
+                                size: 26,
+                                color: Colors.white,
                               ),
                             ),
-                            const SizedBox(height: 32),
-                            // Contrôles de pagination
-                            _buildPaginationControls(),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Plan Comptable',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
                           ],
                         ),
+                        const SizedBox(height: 12),
+                        _buildHeaderActions(),
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade700,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.account_balance_wallet,
+                          size: 28,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      const Text(
+                        'Plan Comptable',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const Spacer(),
+                      _buildHeaderActions(),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+
+              // Barre de recherche et filtres
+              _buildFilterBar(),
+              const SizedBox(height: 16),
+
+              // Légende des couleurs
+              _buildColorLegend(),
+              const SizedBox(height: 16),
+
+              // Contenu principal
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _filteredComptes.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.account_balance_wallet_outlined,
+                                  size: 80,
+                                  color: Colors.grey.shade300,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  _searchQuery.isEmpty
+                                      ? 'Aucun compte dans le plan comptable'
+                                      : 'Aucun compte trouvé',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : Column(
+                            children: [
+                              Expanded(child: _buildMainContent()),
+                              const SizedBox(height: 12),
+                              _buildPaginationControls(),
+                            ],
+                          ),
               ),
             ],
           ),
@@ -1225,167 +1009,780 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
     );
   }
 
+  Widget _buildHeaderActions() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.end,
+      children: [
+        ElevatedButton.icon(
+          onPressed: () => ImportService.importPlanComptable(
+            context: context,
+            onSuccess: _loadComptes,
+          ),
+          icon: const Icon(Icons.upload_file, size: 16, color: Colors.white),
+          label: const Text('Importer'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.purple.shade600,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            textStyle: const TextStyle(fontSize: 13),
+          ),
+        ),
+        ElevatedButton.icon(
+          onPressed: () {
+            final comptes = _filteredComptes.map((c) => {
+              'numeroCompte': c.numeroCompte,
+              'intitule': c.intitule,
+              'nature': c.nature.toLabel(),
+              'type': c.type.toLabel(),
+            }).toList();
+            ExportService.exportPlanComptablePDF(comptes: comptes, context: context);
+          },
+          icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
+          label: const Text('PDF'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red.shade600,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            textStyle: const TextStyle(fontSize: 13),
+          ),
+        ),
+        ElevatedButton.icon(
+          onPressed: () {
+            final comptes = _filteredComptes.map((c) => {
+              'numeroCompte': c.numeroCompte,
+              'intitule': c.intitule,
+              'nature': c.nature.toLabel(),
+              'type': c.type.toLabel(),
+            }).toList();
+            ExportService.exportPlanComptableExcel(comptes: comptes, context: context);
+          },
+          icon: const Icon(Icons.table_chart, size: 16, color: Colors.white),
+          label: const Text('Excel'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green.shade700,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            textStyle: const TextStyle(fontSize: 13),
+          ),
+        ),
+        // Bouton "Nouveau compte" mis en valeur
+        ElevatedButton.icon(
+          onPressed: () => _showCompteDialog(),
+          icon: const Icon(Icons.add, size: 18, color: Colors.white),
+          label: const Text('Nouveau compte'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue.shade700,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            elevation: 3,
+            shadowColor: Colors.blue.shade200,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterBar() {
+    final hasActiveFilter = _searchQuery.isNotEmpty ||
+        _selectedNature != null ||
+        _selectedType != null;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: hasActiveFilter ? Colors.blue.shade200 : Colors.grey.shade200,
+          width: hasActiveFilter ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 500;
+          if (isMobile) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSearchField(),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: _buildNatureFilter()),
+                    const SizedBox(width: 8),
+                    Expanded(child: _buildTypeFilter()),
+                    const SizedBox(width: 4),
+                    _buildResetButton(hasActiveFilter),
+                  ],
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(flex: 3, child: _buildSearchField()),
+              const SizedBox(width: 12),
+              Expanded(flex: 2, child: _buildNatureFilter()),
+              const SizedBox(width: 10),
+              Expanded(flex: 2, child: _buildTypeFilter()),
+              const SizedBox(width: 8),
+              _buildResetButton(hasActiveFilter),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSearchField() {
+    return TextField(
+      onChanged: (value) {
+        setState(() => _searchQuery = value);
+        _resetPagination();
+      },
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: 'Rechercher un compte…',
+        prefixIcon: Icon(Icons.search, color: Colors.grey.shade500, size: 18),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.blue.shade400, width: 1.5),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      ),
+    );
+  }
+
+  Widget _buildNatureFilter() {
+    return DropdownButtonFormField<NatureCompte?>(
+      isExpanded: true,
+      isDense: true,
+      value: _selectedNature,
+      decoration: InputDecoration(
+        labelText: 'Nature',
+        labelStyle: const TextStyle(fontSize: 12),
+        prefixIcon: Icon(
+          Icons.circle,
+          size: 10,
+          color: _selectedNature != null
+              ? _getNatureColor(_selectedNature!)
+              : Colors.grey.shade400,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.blue.shade400, width: 1.5),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      ),
+      items: [
+        const DropdownMenuItem(value: null, child: Text('— Toutes —', style: TextStyle(fontSize: 12))),
+        for (final nature in NatureCompte.values)
+          DropdownMenuItem(
+            value: nature,
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _getNatureColor(nature),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    nature.toLabel(),
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+      onChanged: (value) {
+        setState(() => _selectedNature = value);
+        _resetPagination();
+      },
+    );
+  }
+
+  Widget _buildTypeFilter() {
+    return DropdownButtonFormField<TypeCompte?>(
+      isExpanded: true,
+      isDense: true,
+      value: _selectedType,
+      decoration: InputDecoration(
+        labelText: 'Type',
+        labelStyle: const TextStyle(fontSize: 12),
+        prefixIcon: Icon(Icons.type_specimen, size: 18, color: Colors.grey.shade500),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.blue.shade400, width: 1.5),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      ),
+      items: [
+        const DropdownMenuItem(value: null, child: Text('— Tous —', style: TextStyle(fontSize: 12))),
+        for (final type in TypeCompte.values)
+          DropdownMenuItem(
+            value: type,
+            child: Text(type.toLabel(), style: const TextStyle(fontSize: 12)),
+          ),
+      ],
+      onChanged: (value) {
+        setState(() => _selectedType = value);
+        _resetPagination();
+      },
+    );
+  }
+
+  Widget _buildResetButton(bool hasActiveFilter) {
+    return Tooltip(
+      message: 'Réinitialiser les filtres',
+      child: Material(
+        color: hasActiveFilter ? Colors.blue.shade50 : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () {
+            setState(() {
+              _searchQuery = '';
+              _selectedNature = null;
+              _selectedType = null;
+            });
+            _resetPagination();
+          },
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: hasActiveFilter ? Colors.blue.shade300 : Colors.grey.shade300,
+              ),
+            ),
+            child: Icon(
+              Icons.clear,
+              size: 18,
+              color: hasActiveFilter ? Colors.blue.shade600 : Colors.grey.shade500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Légende rapide des 4 catégories de couleurs
+  Widget _buildColorLegend() {
+    final items = [
+      ('Actif', const Color(0xFF1565C0)),
+      ('Passif', const Color(0xFFC62828)),
+      ('Charges', const Color(0xFFE65100)),
+      ('Produits', const Color(0xFF2E7D32)),
+    ];
+    return Row(
+      children: [
+        for (final item in items) ...[
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: item.$2,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                item.$1,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 16),
+        ],
+        Text(
+          '${_filteredComptes.length} compte${_filteredComptes.length > 1 ? 's' : ''}',
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade500,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMainContent() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 650;
+
+        if (isMobile) {
+          // Vue mobile : cartes
+          return ListView.builder(
+            itemCount: _paginatedComptes.length,
+            itemBuilder: (context, index) {
+              return _buildMobileCard(_paginatedComptes[index]);
+            },
+          );
+        }
+
+        // Vue desktop : tableau
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              child: LayoutBuilder(
+                builder: (context, innerConstraints) {
+                  final double screenWidth = MediaQuery.of(context).size.width;
+                  final double availableWidth =
+                      innerConstraints.maxWidth.isFinite
+                          ? innerConstraints.maxWidth
+                          : (screenWidth - 48);
+                  final double colSpacing =
+                      (availableWidth * 0.015).clamp(6, 32).toDouble();
+
+                  final double numWidth = availableWidth * 0.12;
+                  final double actionsWidth = availableWidth * 0.09;
+                  final double typeWidth = availableWidth * 0.09;
+                  final double natureWidth = availableWidth * 0.14;
+                  final double intituleWidth = (availableWidth -
+                          (numWidth +
+                              actionsWidth +
+                              typeWidth +
+                              natureWidth +
+                              3 * colSpacing))
+                      .clamp(80, availableWidth * 0.45);
+
+                  return SizedBox(
+                    width: availableWidth,
+                    child: DataTable(
+                      headingRowColor: WidgetStateProperty.all(
+                        Colors.blue.shade700,
+                      ),
+                      headingRowHeight: 22,
+                      headingTextStyle: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        letterSpacing: 0.3,
+                      ),
+                      dataRowMinHeight: 20,
+                      dataRowMaxHeight: 24,
+                      columnSpacing: colSpacing * 0.5,
+                      horizontalMargin: 12,
+                      dividerThickness: 0.5,
+                      columns: const [
+                        DataColumn(label: Text('N° Compte')),
+                        DataColumn(label: Text('Intitulé')),
+                        DataColumn(label: Text('Type')),
+                        DataColumn(label: Text('Nature')),
+                        DataColumn(label: Text('Actions')),
+                      ],
+                      rows: _paginatedComptes.map((compte) {
+                        final isTotal = compte.type == TypeCompte.total;
+                        final color = _getNatureColor(compte.nature);
+                        final category = _getNatureCategoryShort(compte.nature);
+
+                        return DataRow(
+                          color: WidgetStateProperty.resolveWith<Color?>(
+                            (states) {
+                              if (states.contains(WidgetState.hovered)) {
+                                return Colors.blue.shade50;
+                              }
+                              return isTotal
+                                  ? const Color(0xFFF0F4F8)
+                                  : Colors.white;
+                            },
+                          ),
+                          cells: [
+                            // N° Compte
+                            DataCell(
+                              SizedBox(
+                                width: numWidth,
+                                child: Text(
+                                  compte.numeroCompte,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontWeight: isTotal
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    fontFamily: 'monospace',
+                                    fontSize: 11,
+                                    color: Colors.grey.shade800,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Intitulé avec indentation pour les comptes détail
+                            DataCell(
+                              SizedBox(
+                                width: intituleWidth,
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    left: isTotal ? 0.0 : 14.0,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (!isTotal) ...[
+                                        Icon(
+                                          Icons.subdirectory_arrow_right,
+                                          size: 11,
+                                          color: Colors.grey.shade400,
+                                        ),
+                                        const SizedBox(width: 3),
+                                      ],
+                                      Flexible(
+                                        child: Text(
+                                          compte.intitule,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: isTotal
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                            color: Colors.grey.shade800,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Type
+                            DataCell(
+                              SizedBox(
+                                width: typeWidth,
+                                child: Text(
+                                  compte.type.toLabel(),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: isTotal
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isTotal
+                                        ? Colors.blueGrey.shade800
+                                        : Colors.grey.shade700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Nature avec point coloré et catégorie courte
+                            DataCell(
+                              Tooltip(
+                                message: compte.nature.toLabel(),
+                                child: SizedBox(
+                                  width: natureWidth,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: color,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Flexible(
+                                        child: Text(
+                                          category,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: color,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Actions
+                            DataCell(
+                              SizedBox(
+                                width: actionsWidth,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: IconButton(
+                                        icon: const Icon(Icons.edit, size: 15),
+                                        color: Colors.blue.shade700,
+                                        onPressed: () =>
+                                            _showCompteDialog(compte: compte),
+                                        tooltip: 'Modifier',
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(
+                                          minWidth: 24,
+                                          minHeight: 24,
+                                        ),
+                                      ),
+                                    ),
+                                    Flexible(
+                                      child: IconButton(
+                                        icon: const Icon(Icons.delete, size: 15),
+                                        color: Colors.red.shade700,
+                                        onPressed: () => _deleteCompte(compte),
+                                        tooltip: 'Supprimer',
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(
+                                          minWidth: 24,
+                                          minHeight: 24,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildPaginationControls() {
     final totalPages = _totalPages;
     final totalItems = _filteredComptes.length;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(0),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.grey.shade200),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Informations
-          Text(
-            'Page $_currentPage sur $totalPages • Total: $totalItems compte${totalItems > 1 ? 's' : ''}',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade700,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          // Boutons de pagination
-          Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 500;
+          if (isMobile) {
+            return Column(
+              children: [
+                Text(
+                  'Page $_currentPage / $totalPages  •  $totalItems compte${totalItems > 1 ? 's' : ''}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _paginationButton(
+                      icon: Icons.arrow_back,
+                      label: '',
+                      enabled: _currentPage > 1,
+                      onPressed: () => setState(() => _currentPage--),
+                    ),
+                    const SizedBox(width: 8),
+                    _paginationButton(
+                      icon: Icons.arrow_forward,
+                      label: '',
+                      enabled: _currentPage < totalPages,
+                      onPressed: () => setState(() => _currentPage++),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          }
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              ElevatedButton.icon(
-                onPressed:
-                    _currentPage > 1
-                        ? () => setState(() => _currentPage--)
-                        : null,
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('Précédent'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue.shade400,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.grey.shade300,
-                  disabledForegroundColor: Colors.grey.shade600,
+              Text(
+                'Page $_currentPage sur $totalPages  •  $totalItems compte${totalItems > 1 ? 's' : ''}',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade700,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(width: 12),
-              // Sélection de page
-              SizedBox(
-                width: 100,
-                child: DropdownButtonFormField<int>(
-                  isDense: true,
-                  value: _currentPage,
-                  decoration: InputDecoration(
-                    labelText: 'Page',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
+              Row(
+                children: [
+                  _paginationButton(
+                    icon: Icons.arrow_back,
+                    label: 'Précédent',
+                    enabled: _currentPage > 1,
+                    onPressed: () => setState(() => _currentPage--),
                   ),
-                  items: List.generate(
-                    totalPages,
-                    (index) => DropdownMenuItem(
-                      value: index + 1,
-                      child: Text('${index + 1}'),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 90,
+                    child: DropdownButtonFormField<int>(
+                      isDense: true,
+                      value: _currentPage,
+                      decoration: InputDecoration(
+                        labelText: 'Page',
+                        labelStyle: const TextStyle(fontSize: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                      ),
+                      items: List.generate(
+                        totalPages,
+                        (index) => DropdownMenuItem(
+                          value: index + 1,
+                          child: Text('${index + 1}', style: const TextStyle(fontSize: 13)),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        if (value != null) setState(() => _currentPage = value);
+                      },
                     ),
                   ),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _currentPage = value);
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Sélection d'items par page
-              SizedBox(
-                width: 120,
-                child: DropdownButtonFormField<int>(
-                  isDense: true,
-                  value: _itemsPerPage,
-                  decoration: InputDecoration(
-                    labelText: 'Par page',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
-                  items:
-                      [5, 10, 15, 20, 50]
-                          .map(
-                            (value) => DropdownMenuItem(
-                              value: value,
-                              child: Text('$value'),
-                            ),
-                          )
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 110,
+                    child: DropdownButtonFormField<int>(
+                      isDense: true,
+                      value: _itemsPerPage,
+                      decoration: InputDecoration(
+                        labelText: 'Par page',
+                        labelStyle: const TextStyle(fontSize: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                      ),
+                      items: [5, 10, 15, 20, 50]
+                          .map((value) => DropdownMenuItem(
+                                value: value,
+                                child: Text('$value', style: const TextStyle(fontSize: 13)),
+                              ))
                           .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        _itemsPerPage = value;
-                        _currentPage = 1; // Retour à la première page
-                      });
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                onPressed:
-                    _currentPage < totalPages
-                        ? () => setState(() => _currentPage++)
-                        : null,
-                icon: const Icon(Icons.arrow_forward),
-                label: const Text('Suivant'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue.shade400,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.grey.shade300,
-                  disabledForegroundColor: Colors.grey.shade600,
-                ),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() {
+                            _itemsPerPage = value;
+                            _currentPage = 1;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _paginationButton(
+                    icon: Icons.arrow_forward,
+                    label: 'Suivant',
+                    enabled: _currentPage < totalPages,
+                    onPressed: () => setState(() => _currentPage++),
+                  ),
+                ],
               ),
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  Color _getNatureColor(NatureCompte nature) {
-    switch (nature) {
-      case NatureCompte.bilanRessourcesDurables:
-        return Colors.blue.shade400;
-      case NatureCompte.bilanActifImmobilise:
-        return Colors.blue.shade600;
-      case NatureCompte.bilanStocks:
-        return Colors.blue.shade500;
-      case NatureCompte.bilanFournisseurs:
-        return Colors.orange.shade700;
-      case NatureCompte.bilanAdherentsClientsUsagers:
-        return Colors.green.shade700;
-      case NatureCompte.bilanPersonnel:
-        return Colors.purple.shade700;
-      case NatureCompte.bilanOrganismesSociaux:
-        return Colors.pink.shade700;
-      case NatureCompte.bilanEtatCollectivitesPubliques:
-        return Colors.red.shade700;
-      case NatureCompte.bilanAutresTiers:
-        return Colors.amber.shade700;
-      case NatureCompte.bilanBanque:
-        return Colors.teal.shade700;
-      case NatureCompte.bilanCaisse:
-        return Colors.cyan.shade700;
-      case NatureCompte.bilanAutresTresoreries:
-        return Colors.indigo.shade700;
-      case NatureCompte.engagementsHorsBilan:
-        return Colors.grey.shade700;
-      case NatureCompte.chargesAO:
-        return Colors.red.shade500;
-      case NatureCompte.chargesHAO:
-        return Colors.red.shade400;
-      case NatureCompte.produitsAO:
-        return Colors.green.shade500;
-      case NatureCompte.produitsHAO:
-        return Colors.green.shade400;
-    }
+  Widget _paginationButton({
+    required IconData icon,
+    required String label,
+    required bool enabled,
+    required VoidCallback onPressed,
+  }) {
+    return ElevatedButton.icon(
+      onPressed: enabled ? onPressed : null,
+      icon: Icon(icon, size: 16),
+      label: label.isNotEmpty ? Text(label) : const SizedBox.shrink(),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.blue.shade700,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: Colors.grey.shade200,
+        disabledForegroundColor: Colors.grey.shade500,
+        padding: EdgeInsets.symmetric(
+          horizontal: label.isNotEmpty ? 14 : 10,
+          vertical: 10,
+        ),
+        textStyle: const TextStyle(fontSize: 13),
+      ),
+    );
   }
 }

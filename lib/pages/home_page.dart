@@ -457,7 +457,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 if (dbPath != null)
                   Text(
-                    '📂 $fileName',
+                    ' $fileName',
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w300,

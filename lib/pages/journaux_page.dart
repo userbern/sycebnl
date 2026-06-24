@@ -34,6 +34,10 @@ class _JournauxPageState extends State<JournauxPage> {
   String? _selectedType;
   String _filterStatus = 'actifs';
 
+  // Pagination
+  int _itemsPerPage = 15;
+  int _currentPage = 1;
+
   @override
   void initState() {
     super.initState();
@@ -97,27 +101,58 @@ class _JournauxPageState extends State<JournauxPage> {
     return filtered;
   }
 
+  List<Journal> get _paginatedJournaux {
+    final filtered = _filteredJournaux;
+    final startIndex = (_currentPage - 1) * _itemsPerPage;
+    final endIndex = startIndex + _itemsPerPage;
+    if (startIndex >= filtered.length) return [];
+    return filtered.sublist(startIndex, endIndex > filtered.length ? filtered.length : endIndex);
+  }
+
+  int get _totalPages => (_filteredJournaux.length / _itemsPerPage).ceil();
+
+  void _resetPagination() => setState(() => _currentPage = 1);
+
   Future<void> _deleteJournal(String id, String intitule) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Confirmer la suppression'),
-            content: Text('Êtes-vous sûr de supprimer "$intitule"?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Annuler'),
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Confirmer la suppression'),
+          ],
+        ),
+        content: RichText(
+          text: TextSpan(
+            style: DefaultTextStyle.of(context).style,
+            children: [
+              const TextSpan(text: 'Êtes-vous sûr de vouloir supprimer le journal '),
+              TextSpan(
+                text: "'$intitule'",
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text(
-                  'Supprimer',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
+              const TextSpan(text: ' ?'),
             ],
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.delete_forever),
+            label: const Text('Supprimer'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
     );
 
     if (confirm == true) {
@@ -125,22 +160,16 @@ class _JournauxPageState extends State<JournauxPage> {
         await AuthService.deleteJournal(int.parse(id));
         if (!mounted) return;
         _loadData();
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Journal supprimé')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Journal supprimé'), backgroundColor: Colors.green),
+        );
       } catch (e) {
         if (!mounted) return;
         final errorMessage = e.toString();
-        String displayMessage = 'Erreur: ${e.toString()}';
-
-        if (errorMessage.contains('ne peut pas être supprimé')) {
-          displayMessage =
-              'Ce journal contient des écritures et ne peut pas être supprimé';
-        }
-
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(displayMessage)));
+        final displayMessage = errorMessage.contains('ne peut pas être supprimé')
+            ? 'Ce journal contient des écritures et ne peut pas être supprimé'
+            : 'Erreur: $errorMessage';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(displayMessage)));
       }
     }
   }
@@ -148,9 +177,9 @@ class _JournauxPageState extends State<JournauxPage> {
   Color _getTypeColor(TypeJournal type) {
     switch (type) {
       case TypeJournal.financier:
-        return Colors.green;
+        return const Color(0xFF00695C); // Teal
       case TypeJournal.nonFinancier:
-        return Colors.orange;
+        return const Color(0xFFE65100); // Orange
     }
   }
 
@@ -181,9 +210,7 @@ class _JournauxPageState extends State<JournauxPage> {
           _showJournalDialog(null);
         } else if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.escape) {
-          if (searchQuery.isNotEmpty ||
-              _selectedType != null ||
-              _filterStatus != 'actifs') {
+          if (searchQuery.isNotEmpty || _selectedType != null || _filterStatus != 'actifs') {
             setState(() {
               searchQuery = '';
               _selectedType = null;
@@ -195,543 +222,745 @@ class _JournauxPageState extends State<JournauxPage> {
         }
       },
       child: Scaffold(
-        appBar:
-            widget.showAppBar
-                ? AppBar(
-                  title: const Text('Journaux comptables'),
-                  backgroundColor: Colors.blue.shade400,
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () {
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      }
-                    },
-                  ),
-                )
-                : null,
-        body:
-            isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : Column(
+        backgroundColor: const Color(0xFFF5F7FA),
+        appBar: widget.showAppBar
+            ? AppBar(
+                title: const Text('Codes Journaux'),
+                backgroundColor: Colors.blue.shade700,
+                foregroundColor: Colors.white,
+                elevation: 0,
+              )
+            : null,
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          Row(
+                    // En-tête
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isMobile = constraints.maxWidth < 650;
+                        if (isMobile) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade100,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(
-                                  Icons.account_balance_wallet,
-                                  size: 32,
-                                  color: Colors.black,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              const Text(
-                                'Codes Journaux',
-                                style: TextStyle(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              const Spacer(),
-                              ElevatedButton.icon(
-                                onPressed: () => ImportService.importJournaux(
-                                  context: context,
-                                  onSuccess: _loadData,
-                                ),
-                                icon: const Icon(Icons.upload_file, color: Colors.white),
-                                label: const Text('Importer Excel'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.purple.shade400,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  final data = _filteredJournaux.map((j) => {
-                                    'code': j.code,
-                                    'intitule': j.intitule,
-                                    'type': j.type.toLabel(),
-                                    'compteTresorerie': j.compteTresorerie ?? '',
-                                    'saisieAnalytique': j.saisieAnalytique,
-                                  }).toList();
-                                  ExportService.exportJournauxPDF(
-                                    journaux: data,
-                                    context: context,
-                                  );
-                                },
-                                icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
-                                label: const Text('PDF'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red.shade400,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  final data = _filteredJournaux.map((j) => {
-                                    'code': j.code,
-                                    'intitule': j.intitule,
-                                    'type': j.type.toLabel(),
-                                    'compteTresorerie': j.compteTresorerie ?? '',
-                                    'saisieAnalytique': j.saisieAnalytique,
-                                  }).toList();
-                                  ExportService.exportJournauxExcel(
-                                    journaux: data,
-                                    context: context,
-                                  );
-                                },
-                                icon: const Icon(Icons.table_chart, color: Colors.white),
-                                label: const Text('Excel'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green.shade400,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              ElevatedButton.icon(
-                                onPressed: () => _showJournalDialog(null),
-                                icon: const Icon(
-                                  Icons.add,
-                                  color: Colors.white,
-                                ),
-                                label: const Text('Nouveau (Ctrl+N)'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue.shade400,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 12,
-                                  ),
-                                ),
-                              ),
+                              _buildPageTitle(),
+                              const SizedBox(height: 12),
+                              _buildHeaderActions(),
                             ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: TextField(
-                                  onChanged: (value) {
-                                    setState(() => searchQuery = value);
-                                  },
-                                  decoration: InputDecoration(
-                                    labelText:
-                                        'Rechercher par code ou intitulé',
-                                    isDense: true,
-                                    prefixIcon: const Icon(Icons.search),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: DropdownButtonFormField<String?>(
-                                  value: _selectedType,
-                                  decoration: InputDecoration(
-                                    labelText: 'Type de journal',
-                                    prefixIcon: const Icon(Icons.category),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                  ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: null,
-                                      child: Text('Tous les types'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'financier',
-                                      child: Text('Financier'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'non_financier',
-                                      child: Text('Non Financier'),
-                                    ),
-                                  ],
-                                  onChanged: (value) {
-                                    setState(() => _selectedType = value);
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  value: _filterStatus,
-                                  decoration: InputDecoration(
-                                    labelText: 'Statut',
-                                    prefixIcon: const Icon(Icons.filter_alt),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                  ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'actifs',
-                                      child: Text('Journaux actifs'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'inactifs',
-                                      child: Text('Journaux inactifs'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'tous',
-                                      child: Text('Tous'),
-                                    ),
-                                  ],
-                                  onChanged: (value) {
-                                    setState(
-                                      () => _filterStatus = value ?? 'actifs',
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              SizedBox(
-                                width: 44,
-                                child: IconButton(
-                                  tooltip: 'Réinitialiser',
-                                  onPressed: () {
-                                    setState(() {
-                                      searchQuery = '';
-                                      _selectedType = null;
-                                      _filterStatus = 'actifs';
-                                    });
-                                  },
-                                  icon: const Icon(Icons.restart_alt),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                          );
+                        }
+                        return Row(
+                          children: [
+                            _buildPageTitle(),
+                            const Spacer(),
+                            _buildHeaderActions(),
+                          ],
+                        );
+                      },
                     ),
+                    const SizedBox(height: 20),
+
+                    // Filtres
+                    _buildFilterBar(),
+                    const SizedBox(height: 16),
+
+                    // Légende
+                    _buildTypeLegend(),
+                    const SizedBox(height: 16),
+
+                    // Contenu
                     Expanded(
-                      child:
-                          _filteredJournaux.isEmpty
-                              ? Center(
-                                child: Text(
-                                  searchQuery.isEmpty
-                                      ? 'Aucun journal. Cliquez sur "Nouveau" ou Ctrl+N'
-                                      : 'Aucun journal trouvé',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.grey,
+                      child: _filteredJournaux.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.book_outlined, size: 80, color: Colors.grey.shade300),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    searchQuery.isEmpty
+                                        ? 'Aucun journal. Appuyez sur "Nouveau journal" ou Ctrl+N'
+                                        : 'Aucun journal trouvé',
+                                    style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
                                   ),
-                                ),
-                              )
-                              : LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final double availableWidth =
-                                      constraints.maxWidth;
-                                  final double horizontalPadding =
-                                      (availableWidth * 0.02)
-                                          .clamp(12, 64)
-                                          .toDouble();
-                                  final double tableWidth =
-                                      availableWidth - (horizontalPadding * 2);
-                                  final double columnSpacing =
-                                      (tableWidth * 0.02)
-                                          .clamp(6, 20)
-                                          .toDouble();
-
-                                  double clampWidth(
-                                    double value,
-                                    double min,
-                                    double preferredMaxFactor,
-                                  ) {
-                                    final double preferredMax =
-                                        tableWidth * preferredMaxFactor;
-                                    final double upper = math.max(
-                                      min,
-                                      preferredMax,
-                                    );
-                                    return value.clamp(min, upper).toDouble();
-                                  }
-
-                                  final double codeWidth = clampWidth(
-                                    tableWidth * 0.18,
-                                    120,
-                                    0.24,
-                                  );
-                                  final double intituleWidth = clampWidth(
-                                    tableWidth * 0.32,
-                                    200,
-                                    0.38,
-                                  );
-                                  final double typeWidth = clampWidth(
-                                    tableWidth * 0.18,
-                                    140,
-                                    0.24,
-                                  );
-                                  final double saisieWidth = clampWidth(
-                                    tableWidth * 0.16,
-                                    120,
-                                    0.22,
-                                  );
-                                  final double actionsWidth = clampWidth(
-                                    tableWidth * 0.16,
-                                    120,
-                                    0.20,
-                                  );
-
-                                  return Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: horizontalPadding,
-                                    ),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: Colors.grey.shade200,
-                                        ),
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(12),
-                                        child: SingleChildScrollView(
-                                          scrollDirection: Axis.vertical,
-                                          child: SizedBox(
-                                            width: tableWidth,
-                                            child: DataTable(
-                                              columnSpacing: columnSpacing,
-                                              horizontalMargin: 6,
-                                              dataRowMinHeight: 14,
-                                              dataRowMaxHeight: 18,
-                                              headingRowColor:
-                                                  WidgetStateProperty.all(
-                                                    Colors.blue.shade400,
-                                                  ),
-                                              headingRowHeight: 22,
-                                              headingTextStyle: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 10,
-                                              ),
-                                              columns: const [
-                                                DataColumn(label: Text('Code')),
-                                                DataColumn(
-                                                  label: Text('Intitulé'),
-                                                ),
-                                                DataColumn(label: Text('Type')),
-                                                DataColumn(
-                                                  label: Text(
-                                                    'Saisie Analytique',
-                                                  ),
-                                                ),
-                                                DataColumn(
-                                                  label: Text('Actions'),
-                                                ),
-                                              ],
-                                              rows:
-                                                  _filteredJournaux
-                                                      .map(
-                                                        (j) => DataRow(
-                                                          cells: [
-                                                            DataCell(
-                                                              SizedBox(
-                                                                width:
-                                                                    codeWidth,
-                                                                child: Text(
-                                                                  j.code,
-                                                                  overflow:
-                                                                      TextOverflow
-                                                                          .ellipsis,
-                                                                  style: const TextStyle(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600,
-                                                                    fontSize:
-                                                                        10,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            DataCell(
-                                                              SizedBox(
-                                                                width:
-                                                                    intituleWidth,
-                                                                child: Text(
-                                                                  j.intitule,
-                                                                  overflow:
-                                                                      TextOverflow
-                                                                          .ellipsis,
-                                                                  style:
-                                                                      const TextStyle(
-                                                                        fontSize:
-                                                                            10,
-                                                                      ),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            DataCell(
-                                                              SizedBox(
-                                                                width:
-                                                                    typeWidth,
-                                                                child: Text(
-                                                                  j.type
-                                                                      .toLabel(),
-                                                                  overflow:
-                                                                      TextOverflow
-                                                                          .ellipsis,
-                                                                  style: TextStyle(
-                                                                    color:
-                                                                        _getTypeColor(
-                                                                          j.type,
-                                                                        ),
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600,
-                                                                    fontSize:
-                                                                        10,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            DataCell(
-                                                              SizedBox(
-                                                                width:
-                                                                    saisieWidth,
-                                                                child: Center(
-                                                                  child:
-                                                                      j.saisieAnalytique
-                                                                          ? const Icon(
-                                                                            Icons.check_circle,
-                                                                            color:
-                                                                                Colors.green,
-                                                                            size:
-                                                                                14,
-                                                                          )
-                                                                          : const Icon(
-                                                                            Icons.cancel,
-                                                                            color:
-                                                                                Colors.red,
-                                                                            size:
-                                                                                14,
-                                                                          ),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            DataCell(
-                                                              SizedBox(
-                                                                width:
-                                                                    actionsWidth,
-                                                                child: Align(
-                                                                  alignment:
-                                                                      Alignment
-                                                                          .centerLeft,
-                                                                  child: PopupMenuButton(
-                                                                    padding:
-                                                                        EdgeInsets
-                                                                            .zero,
-                                                                    constraints: const BoxConstraints(
-                                                                      minWidth:
-                                                                          18,
-                                                                      minHeight:
-                                                                          18,
-                                                                    ),
-                                                                    itemBuilder:
-                                                                        (
-                                                                          context,
-                                                                        ) => [
-                                                                          PopupMenuItem(
-                                                                            onTap:
-                                                                                () => _showJournalDialog(j),
-                                                                            child: const Row(
-                                                                              children: [
-                                                                                Icon(
-                                                                                  Icons.edit,
-                                                                                  size:
-                                                                                      16,
-                                                                                ),
-                                                                                SizedBox(
-                                                                                  width:
-                                                                                      8,
-                                                                                ),
-                                                                                Text(
-                                                                                  'Modifier',
-                                                                                ),
-                                                                              ],
-                                                                            ),
-                                                                          ),
-                                                                          PopupMenuItem(
-                                                                            onTap:
-                                                                                () => _deleteJournal(
-                                                                                  j.id,
-                                                                                  j.intitule,
-                                                                                ),
-                                                                            child: const Row(
-                                                                              children: [
-                                                                                Icon(
-                                                                                  Icons.delete,
-                                                                                  size:
-                                                                                      16,
-                                                                                  color:
-                                                                                      Colors.red,
-                                                                                ),
-                                                                                SizedBox(
-                                                                                  width:
-                                                                                      8,
-                                                                                ),
-                                                                                Text(
-                                                                                  'Supprimer',
-                                                                                  style: TextStyle(
-                                                                                    color:
-                                                                                        Colors.red,
-                                                                                  ),
-                                                                                ),
-                                                                              ],
-                                                                            ),
-                                                                          ),
-                                                                        ],
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      )
-                                                      .toList(),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
+                                ],
                               ),
+                            )
+                          : Column(
+                              children: [
+                                Expanded(child: _buildMainContent()),
+                                const SizedBox(height: 12),
+                                _buildPaginationControls(),
+                              ],
+                            ),
                     ),
                   ],
                 ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildPageTitle() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade700,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(Icons.book, size: 28, color: Colors.white),
+        ),
+        const SizedBox(width: 14),
+        const Text(
+          'Codes Journaux',
+          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeaderActions() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.end,
+      children: [
+        ElevatedButton.icon(
+          onPressed: () => ImportService.importJournaux(context: context, onSuccess: _loadData),
+          icon: const Icon(Icons.upload_file, size: 16, color: Colors.white),
+          label: const Text('Importer'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.purple.shade600,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            textStyle: const TextStyle(fontSize: 13),
+          ),
+        ),
+        ElevatedButton.icon(
+          onPressed: () {
+            final data = _filteredJournaux.map((j) => {
+              'code': j.code,
+              'intitule': j.intitule,
+              'type': j.type.toLabel(),
+              'compteTresorerie': j.compteTresorerie ?? '',
+              'saisieAnalytique': j.saisieAnalytique,
+            }).toList();
+            ExportService.exportJournauxPDF(journaux: data, context: context);
+          },
+          icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
+          label: const Text('PDF'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red.shade600,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            textStyle: const TextStyle(fontSize: 13),
+          ),
+        ),
+        ElevatedButton.icon(
+          onPressed: () {
+            final data = _filteredJournaux.map((j) => {
+              'code': j.code,
+              'intitule': j.intitule,
+              'type': j.type.toLabel(),
+              'compteTresorerie': j.compteTresorerie ?? '',
+              'saisieAnalytique': j.saisieAnalytique,
+            }).toList();
+            ExportService.exportJournauxExcel(journaux: data, context: context);
+          },
+          icon: const Icon(Icons.table_chart, size: 16, color: Colors.white),
+          label: const Text('Excel'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green.shade700,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            textStyle: const TextStyle(fontSize: 13),
+          ),
+        ),
+        ElevatedButton.icon(
+          onPressed: () => _showJournalDialog(null),
+          icon: const Icon(Icons.add, size: 18, color: Colors.white),
+          label: const Text('Nouveau journal'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue.shade700,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            elevation: 3,
+            shadowColor: Colors.blue.shade200,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterBar() {
+    final hasActiveFilter =
+        searchQuery.isNotEmpty || _selectedType != null || _filterStatus != 'actifs';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: hasActiveFilter ? Colors.blue.shade200 : Colors.grey.shade200,
+          width: hasActiveFilter ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 500;
+          if (isMobile) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSearchField(),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: _buildTypeDropdown()),
+                    const SizedBox(width: 8),
+                    Expanded(child: _buildStatusDropdown()),
+                    const SizedBox(width: 4),
+                    _buildResetButton(hasActiveFilter),
+                  ],
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(flex: 3, child: _buildSearchField()),
+              const SizedBox(width: 12),
+              Expanded(flex: 2, child: _buildTypeDropdown()),
+              const SizedBox(width: 10),
+              Expanded(flex: 2, child: _buildStatusDropdown()),
+              const SizedBox(width: 8),
+              _buildResetButton(hasActiveFilter),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSearchField() {
+    return TextField(
+      onChanged: (value) {
+        setState(() => searchQuery = value);
+        _resetPagination();
+      },
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: 'Rechercher un journal…',
+        prefixIcon: Icon(Icons.search, color: Colors.grey.shade500, size: 18),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.blue.shade400, width: 1.5),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      ),
+    );
+  }
+
+  Widget _buildTypeDropdown() {
+    return DropdownButtonFormField<String?>(
+      isExpanded: true,
+      isDense: true,
+      value: _selectedType,
+      decoration: InputDecoration(
+        labelText: 'Type',
+        labelStyle: const TextStyle(fontSize: 12),
+        prefixIcon: Icon(
+          Icons.circle,
+          size: 10,
+          color: _selectedType == 'financier'
+              ? const Color(0xFF00695C)
+              : _selectedType == 'non_financier'
+                  ? const Color(0xFFE65100)
+                  : Colors.grey.shade400,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.blue.shade400, width: 1.5),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      ),
+      items: [
+        const DropdownMenuItem(value: null, child: Text('— Tous —', style: TextStyle(fontSize: 12))),
+        DropdownMenuItem(
+          value: 'financier',
+          child: Row(children: [
+            Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF00695C))),
+            const SizedBox(width: 6),
+            const Text('Financier', style: TextStyle(fontSize: 12)),
+          ]),
+        ),
+        DropdownMenuItem(
+          value: 'non_financier',
+          child: Row(children: [
+            Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFE65100))),
+            const SizedBox(width: 6),
+            const Text('Non Financier', style: TextStyle(fontSize: 12)),
+          ]),
+        ),
+      ],
+      onChanged: (value) {
+        setState(() => _selectedType = value);
+        _resetPagination();
+      },
+    );
+  }
+
+  Widget _buildStatusDropdown() {
+    return DropdownButtonFormField<String>(
+      isExpanded: true,
+      isDense: true,
+      value: _filterStatus,
+      decoration: InputDecoration(
+        labelText: 'Statut',
+        labelStyle: const TextStyle(fontSize: 12),
+        prefixIcon: Icon(Icons.filter_alt, size: 18, color: Colors.grey.shade500),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.blue.shade400, width: 1.5),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      ),
+      items: const [
+        DropdownMenuItem(value: 'actifs', child: Text('Actifs', style: TextStyle(fontSize: 12))),
+        DropdownMenuItem(value: 'inactifs', child: Text('Inactifs', style: TextStyle(fontSize: 12))),
+        DropdownMenuItem(value: 'tous', child: Text('Tous', style: TextStyle(fontSize: 12))),
+      ],
+      onChanged: (value) {
+        setState(() => _filterStatus = value ?? 'actifs');
+        _resetPagination();
+      },
+    );
+  }
+
+  Widget _buildResetButton(bool hasActiveFilter) {
+    return Tooltip(
+      message: 'Réinitialiser',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          setState(() {
+            searchQuery = '';
+            _selectedType = null;
+            _filterStatus = 'actifs';
+          });
+          _resetPagination();
+        },
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: hasActiveFilter ? Colors.blue.shade50 : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: hasActiveFilter ? Colors.blue.shade300 : Colors.grey.shade300,
+            ),
+          ),
+          child: Icon(
+            Icons.clear,
+            size: 18,
+            color: hasActiveFilter ? Colors.blue.shade600 : Colors.grey.shade500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypeLegend() {
+    return Row(
+      children: [
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 10, height: 10, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF00695C))),
+          const SizedBox(width: 4),
+          Text('Financier', style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+        ]),
+        const SizedBox(width: 16),
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 10, height: 10, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFE65100))),
+          const SizedBox(width: 4),
+          Text('Non Financier', style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+        ]),
+        const SizedBox(width: 16),
+        Text(
+          '${_filteredJournaux.length} journal${_filteredJournaux.length > 1 ? 'aux' : ''}',
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMainContent() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 650;
+
+        if (isMobile) {
+          return ListView.builder(
+            itemCount: _paginatedJournaux.length,
+            itemBuilder: (context, index) => _buildMobileCard(_paginatedJournaux[index]),
+          );
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SingleChildScrollView(
+              child: LayoutBuilder(
+                builder: (context, innerConstraints) {
+                  final double tw = innerConstraints.maxWidth.isFinite
+                      ? innerConstraints.maxWidth
+                      : (MediaQuery.of(context).size.width - 48);
+                  final double cs = (tw * 0.015).clamp(6, 28).toDouble();
+
+                  double cw(double v, double mn, double mxf) =>
+                      v.clamp(mn, math.max(mn, tw * mxf));
+
+                  final double codeWidth     = cw(tw * 0.14, 80,  0.18);
+                  final double intituleWidth = cw(tw * 0.32, 140, 0.40);
+                  final double typeWidth     = cw(tw * 0.16, 110, 0.22);
+                  final double collectifW    = cw(tw * 0.14, 90,  0.18);
+                  final double saisieWidth   = cw(tw * 0.10, 80,  0.14);
+                  final double actionsWidth  = cw(tw * 0.08, 60,  0.12);
+
+                  return SizedBox(
+                    width: tw,
+                    child: DataTable(
+                      headingRowColor: WidgetStateProperty.all(Colors.blue.shade700),
+                      headingRowHeight: 22,
+                      headingTextStyle: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        letterSpacing: 0.3,
+                      ),
+                      dataRowMinHeight: 20,
+                      dataRowMaxHeight: 24,
+                      columnSpacing: cs * 0.5,
+                      horizontalMargin: 12,
+                      dividerThickness: 0.5,
+                      columns: const [
+                        DataColumn(label: Text('Code')),
+                        DataColumn(label: Text('Intitulé')),
+                        DataColumn(label: Text('Type')),
+                        DataColumn(label: Text('Cpte Trésorerie')),
+                        DataColumn(label: Text('Analytique')),
+                        DataColumn(label: Text('Actions')),
+                      ],
+                      rows: _paginatedJournaux.map((j) {
+                        final color = _getTypeColor(j.type);
+                        return DataRow(
+                          color: WidgetStateProperty.resolveWith<Color?>((states) {
+                            if (states.contains(WidgetState.hovered)) return Colors.blue.shade50;
+                            return Colors.white;
+                          }),
+                          cells: [
+                            DataCell(SizedBox(
+                              width: codeWidth,
+                              child: Text(j.code,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'monospace', fontSize: 11),
+                              ),
+                            )),
+                            DataCell(SizedBox(
+                              width: intituleWidth,
+                              child: Text(j.intitule,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 11, color: Colors.grey.shade800),
+                              ),
+                            )),
+                            DataCell(SizedBox(
+                              width: typeWidth,
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
+                                const SizedBox(width: 5),
+                                Flexible(child: Text(j.type.toLabel(),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+                                )),
+                              ]),
+                            )),
+                            DataCell(SizedBox(
+                              width: collectifW,
+                              child: Text(j.compteTresorerie ?? '—',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontFamily: j.compteTresorerie != null ? 'monospace' : null,
+                                  color: j.compteTresorerie != null ? Colors.grey.shade800 : Colors.grey.shade400,
+                                ),
+                              ),
+                            )),
+                            DataCell(SizedBox(
+                              width: saisieWidth,
+                              child: Center(
+                                child: j.saisieAnalytique
+                                    ? const Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 14)
+                                    : Icon(Icons.cancel, color: Colors.grey.shade400, size: 14),
+                              ),
+                            )),
+                            DataCell(SizedBox(
+                              width: actionsWidth,
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit, size: 15),
+                                  color: Colors.blue.shade700,
+                                  onPressed: () => _showJournalDialog(j),
+                                  tooltip: 'Modifier',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, size: 15),
+                                  color: Colors.red.shade700,
+                                  onPressed: () => _deleteJournal(j.id, j.intitule),
+                                  tooltip: 'Supprimer',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                                ),
+                              ]),
+                            )),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileCard(Journal j) {
+    final color = _getTypeColor(j.type);
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 4, height: 54,
+              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Text(j.code,
+                      style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: color.withValues(alpha: 0.35)),
+                      ),
+                      child: Text(j.type.toLabel(),
+                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color),
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 3),
+                  Text(j.intitule, style: TextStyle(fontSize: 12, color: Colors.grey.shade800)),
+                  if (j.compteTresorerie != null) ...[
+                    const SizedBox(height: 2),
+                    Text('Trésorerie : ${j.compteTresorerie}',
+                      style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Column(mainAxisSize: MainAxisSize.min, children: [
+              IconButton(
+                icon: Icon(Icons.edit, size: 16, color: Colors.blue.shade700),
+                onPressed: () => _showJournalDialog(j),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+              IconButton(
+                icon: Icon(Icons.delete, size: 16, color: Colors.red.shade700),
+                onPressed: () => _deleteJournal(j.id, j.intitule),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+            ]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaginationControls() {
+    final totalPages = _totalPages;
+    final totalItems = _filteredJournaux.length;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 500;
+          if (isMobile) {
+            return Column(children: [
+              Text('Page $_currentPage / $totalPages  •  $totalItems journal${totalItems > 1 ? 'aux' : ''}',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+              const SizedBox(height: 8),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                _pagBtn(Icons.arrow_back, '', _currentPage > 1, () => setState(() => _currentPage--)),
+                const SizedBox(width: 8),
+                _pagBtn(Icons.arrow_forward, '', _currentPage < totalPages, () => setState(() => _currentPage++)),
+              ]),
+            ]);
+          }
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Page $_currentPage sur $totalPages  •  $totalItems journal${totalItems > 1 ? 'aux' : ''}',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+              ),
+              Row(children: [
+                _pagBtn(Icons.arrow_back, 'Précédent', _currentPage > 1, () => setState(() => _currentPage--)),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 90,
+                  child: DropdownButtonFormField<int>(
+                    isDense: true,
+                    value: _currentPage,
+                    decoration: InputDecoration(
+                      labelText: 'Page',
+                      labelStyle: const TextStyle(fontSize: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      filled: true, fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    ),
+                    items: List.generate(totalPages, (i) => DropdownMenuItem(
+                      value: i + 1, child: Text('${i + 1}', style: const TextStyle(fontSize: 13)),
+                    )),
+                    onChanged: (v) { if (v != null) setState(() => _currentPage = v); },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 110,
+                  child: DropdownButtonFormField<int>(
+                    isDense: true,
+                    value: _itemsPerPage,
+                    decoration: InputDecoration(
+                      labelText: 'Par page',
+                      labelStyle: const TextStyle(fontSize: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      filled: true, fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    ),
+                    items: [5, 10, 15, 20, 50].map((v) => DropdownMenuItem(
+                      value: v, child: Text('$v', style: const TextStyle(fontSize: 13)),
+                    )).toList(),
+                    onChanged: (v) {
+                      if (v != null) setState(() { _itemsPerPage = v; _currentPage = 1; });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _pagBtn(Icons.arrow_forward, 'Suivant', _currentPage < totalPages, () => setState(() => _currentPage++)),
+              ]),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _pagBtn(IconData icon, String label, bool enabled, VoidCallback onPressed) {
+    return ElevatedButton.icon(
+      onPressed: enabled ? onPressed : null,
+      icon: Icon(icon, size: 16),
+      label: label.isNotEmpty ? Text(label) : const SizedBox.shrink(),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.blue.shade700,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: Colors.grey.shade200,
+        disabledForegroundColor: Colors.grey.shade500,
+        padding: EdgeInsets.symmetric(horizontal: label.isNotEmpty ? 14 : 10, vertical: 10),
+        textStyle: const TextStyle(fontSize: 13),
       ),
     );
   }
@@ -1219,32 +1448,17 @@ class _JournalDialogState extends State<JournalDialog> {
     _selectedType = journal?.type ?? TypeJournal.financier;
     _saisieAnalytique = journal?.saisieAnalytique ?? false;
 
-    // DEBUG
-    print('DEBUG initState - Journal: ${journal?.code}');
-    print('DEBUG - compteTresorerie value: "${journal?.compteTresorerie}"');
-    print(
-      'DEBUG - compteTresorerie null: ${journal?.compteTresorerie == null}',
-    );
-    print(
-      'DEBUG - compteTresorerie empty: ${journal?.compteTresorerie?.isEmpty}',
-    );
-
     // Chercher le compte de trésorerie si édition
     if (journal?.compteTresorerie != null &&
         journal!.compteTresorerie!.isNotEmpty) {
       try {
-        print('DEBUG - Cherchant compte: "${journal.compteTresorerie}"');
         _selectedCompteFresorerie = widget.comptes.firstWhere(
           (c) => c.numeroCompte == journal.compteTresorerie,
         );
-        print(
-          'DEBUG - Compte trouvé: ${_selectedCompteFresorerie!.numeroCompte}',
-        );
         _compteFresorerieController.text =
             '${_selectedCompteFresorerie!.numeroCompte} - ${_selectedCompteFresorerie!.intitule}';
-      } catch (e) {
-        // Compte non trouvé
-        print('DEBUG - Compte non trouvé: $e');
+      } catch (_) {
+        // Compte non trouvé dans la liste locale
       }
     }
   }

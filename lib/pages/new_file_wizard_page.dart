@@ -230,7 +230,8 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Créer un nouveau fichier comptable'),
-        backgroundColor: Colors.blue.shade900,
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
@@ -329,6 +330,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                             _currentStep == 3
                                 ? Icons.check
                                 : Icons.arrow_forward,
+                              color: Colors.white,
                           ),
                   label: Text(
                     _currentStep == 3 ? 'Créer le fichier' : 'Suivant',
@@ -460,7 +462,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: _selectFile,
-              icon: const Icon(Icons.folder_open, size: 32),
+              icon: const Icon(Icons.folder_open, size: 32, color: Colors.white),
               label: const Text(
                 'Choisir l\'emplacement',
                 style: TextStyle(fontSize: 16),

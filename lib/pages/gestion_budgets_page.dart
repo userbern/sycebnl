@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/user_session.dart';
@@ -26,6 +27,20 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
   final FocusNode _focusNode = FocusNode();
   final TextEditingController _searchController = TextEditingController();
   List<Map<String, dynamic>> _filteredBudgets = [];
+
+  int _itemsPerPage = 15;
+  int _currentPage = 1;
+
+  List<Map<String, dynamic>> get _paginatedBudgets {
+    final start = (_currentPage - 1) * _itemsPerPage;
+    final end = math.min(start + _itemsPerPage, _filteredBudgets.length);
+    if (start >= _filteredBudgets.length) return [];
+    return _filteredBudgets.sublist(start, end);
+  }
+
+  int get _totalPages => math.max(1, (_filteredBudgets.length / _itemsPerPage).ceil());
+
+  void _resetPagination() => setState(() => _currentPage = 1);
 
   bool get _canCreate => _hasPermission('creation');
   bool get _canUpdate => _hasPermission('modification');
@@ -80,6 +95,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
             }).toList();
       });
     }
+    _resetPagination();
   }
 
   Future<void> _loadData() async {
@@ -121,25 +137,45 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
     }
   }
 
-  Future<void> _deleteBudget(int budgetId) async {
+  Future<void> _deleteBudget(int budgetId, String projetDesignation) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Confirmer la suppression'),
-            content: const Text(
-              'Êtes-vous sûr de vouloir supprimer ce budget ?',
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+                const SizedBox(width: 8),
+                const Text('Confirmer la suppression'),
+              ],
+            ),
+            content: RichText(
+              text: TextSpan(
+                style: const TextStyle(fontSize: 14, color: Colors.black87),
+                children: [
+                  const TextSpan(text: 'Voulez-vous vraiment supprimer le budget '),
+                  TextSpan(
+                    text: '"$projetDesignation"',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const TextSpan(text: ' ?'),
+                ],
+              ),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
                 child: const Text('Annuler'),
               ),
-              TextButton(
+              ElevatedButton.icon(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text(
-                  'Supprimer',
-                  style: TextStyle(color: Colors.red),
+                icon: const Icon(Icons.delete_forever, size: 18, color: Colors.white),
+                label: const Text('Supprimer'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ],
@@ -193,209 +229,344 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
     );
   }
 
-  Widget _buildBudgetRow(Map<String, dynamic> budget) {
-    return Container(
-      height: 26,
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+  Widget _buildPageTitle() {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade700,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(Icons.account_balance_wallet, color: Colors.white, size: 22),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Budgets',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.black87),
+            ),
+            Text(
+              '${_filteredBudgets.length} budget${_filteredBudgets.length != 1 ? 's' : ''}',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeaderActions() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.end,
+      children: [
+        if (_canCreate)
+          ElevatedButton.icon(
+            onPressed: _showCreateBudgetDialog,
+            icon: const Icon(Icons.add, size: 18, color: Colors.white),
+            label: const Text('Nouveau budget'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+              textStyle: const TextStyle(fontWeight: FontWeight.bold),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              elevation: 3,
+              shadowColor: Colors.blue.shade200,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildFilterBar() {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 36,
+                child: TextField(
+                  controller: _searchController,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Rechercher par projet, bailleur...',
+                    hintStyle: const TextStyle(fontSize: 13),
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Tooltip(
+              message: 'Réinitialiser',
+              child: IconButton(
+                onPressed: () {
+                  _searchController.clear();
+                  _resetPagination();
+                },
+                icon: const Icon(Icons.refresh, size: 18),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.grey.shade100,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                padding: EdgeInsets.zero,
+              ),
+            ),
+          ],
         ),
       ),
-      child: Row(
+    );
+  }
+
+  Widget _buildMainContent() {
+    if (_filteredBudgets.isEmpty) {
+      return Expanded(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.account_balance_wallet, size: 56, color: Colors.grey.shade300),
+              const SizedBox(height: 12),
+              Text(
+                _searchController.text.isNotEmpty ? 'Aucun résultat' : 'Aucun budget',
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Expanded(
+      child: Column(
         children: [
-          // Colonne PROJET
           Expanded(
-            flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 16),
-              child: GestureDetector(
-                onTap: () => _showBudgetDetails(budget),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    /* Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade100,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.blue.shade200),
-                      ),
-                      child: Text(
-                        budget['projet_code'] ?? 'N/A',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.blue.shade800,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth >= 650) {
+                  return Card(
+                    elevation: 0,
+                    color: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    child: SingleChildScrollView(
+                      child: DataTable(
+                        headingRowColor: WidgetStateProperty.all(Colors.blue.shade700),
+                        headingRowHeight: 40,
+                        headingTextStyle: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
                         ),
+                        dataRowMinHeight: 36,
+                        dataRowMaxHeight: 48,
+                        columnSpacing: 20,
+                        horizontalMargin: 16,
+                        columns: const [
+                          DataColumn(label: Text('Projet')),
+                          DataColumn(label: Text('Bailleur')),
+                          DataColumn(label: Text('Actions')),
+                        ],
+                        rows: _paginatedBudgets.map((budget) {
+                          return DataRow(
+                            color: WidgetStateProperty.resolveWith<Color?>((states) {
+                              if (states.contains(WidgetState.hovered)) return Colors.blue.shade50;
+                              return Colors.white;
+                            }),
+                            cells: [
+                              DataCell(
+                                Text(
+                                  budget['projet_designation'] ?? 'N/A',
+                                  style: const TextStyle(fontSize: 13),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                onTap: () => _showBudgetDetails(budget),
+                              ),
+                              DataCell(
+                                Text(
+                                  budget['bailleur_designation'] ?? 'N/A',
+                                  style: const TextStyle(fontSize: 13),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                onTap: () => _showBudgetDetails(budget),
+                              ),
+                              DataCell(
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_canUpdate)
+                                      IconButton(
+                                        icon: Icon(Icons.add, size: 20, color: Colors.blue.shade600),
+                                        onPressed: () => _showBudgetDetails(budget),
+                                        tooltip: 'Ajouter poste',
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                      ),
+                                    if (_canDelete)
+                                      IconButton(
+                                        icon: const Icon(Icons.delete, size: 20, color: Colors.red),
+                                        onPressed: () => _deleteBudget(budget['id'] as int, budget['projet_designation'] ?? ''),
+                                        tooltip: 'Supprimer',
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
                       ),
-                    ), */
-                    Text(
-                      budget['projet_designation'] ?? 'N/A',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
                     ),
-                  ],
-                ),
-              ),
+                  );
+                } else {
+                  return ListView.separated(
+                    itemCount: _paginatedBudgets.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    itemBuilder: (context, index) => _buildMobileCard(_paginatedBudgets[index]),
+                  );
+                }
+              },
             ),
           ),
-          // Colonne BAILLEUR
-          Expanded(
-            flex: 3,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 16),
-              child: GestureDetector(
-                onTap: () => _showBudgetDetails(budget),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      /* children: [
-                        Text(
-                          budget['bailleur_sigle'] ?? 'N/A',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.blue.shade400,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ], */
-                    ),
-
-                    Text(
-                      budget['bailleur_designation'] ?? 'N/A',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.black,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          // Colonne ACTIONS
-          SizedBox(
-            width: 120,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (_canUpdate)
-                    IconButton(
-                      icon: Icon(
-                        Icons.add,
-                        size: 18,
-                        color: Colors.blue.shade400,
-                      ),
-                      key: const Key('Ajouter poste'),
-                      onPressed: () => _showBudgetDetails(budget),
-                      tooltip: 'ajouter un poste budgetaire',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 18,
-                        minHeight: 18,
-                      ),
-                    ),
-
-                  SizedBox(width: 5),
-
-                  if (_canDelete)
-                    IconButton(
-                      icon: const Icon(
-                        Icons.delete,
-                        size: 18,
-                        color: Colors.red,
-                      ),
-                      onPressed: () => _deleteBudget(budget['id'] as int),
-                      tooltip: 'Supprimer',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 18,
-                        minHeight: 18,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
+          _buildPaginationControls(),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 80),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.account_balance_wallet,
-                  size: 60,
-                  color: Colors.blue.shade300,
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Aucun budget',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+  Widget _buildMobileCard(Map<String, dynamic> budget) {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            Container(
+              width: 4,
+              decoration: BoxDecoration(
+                color: Colors.blue.shade700,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(10),
+                  bottomLeft: Radius.circular(10),
                 ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Créez votre premier budget pour commencer',
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              if (_canCreate)
-                ElevatedButton.icon(
-                  onPressed: _showCreateBudgetDialog,
-                  icon: const Icon(Icons.add, color: Colors.white),
-                  label: const Text('Créer un budget'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade400,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 14,
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      budget['projet_designation'] ?? 'N/A',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                    const SizedBox(height: 2),
+                    Text(
+                      budget['bailleur_designation'] ?? 'N/A',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                     ),
-                    elevation: 2,
+                  ],
+                ),
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_canUpdate)
+                  IconButton(
+                    icon: Icon(Icons.add, size: 18, color: Colors.blue.shade600),
+                    onPressed: () => _showBudgetDetails(budget),
+                    tooltip: 'Ajouter poste',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   ),
-                ),
-            ],
-          ),
+                if (_canDelete)
+                  IconButton(
+                    icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                    onPressed: () => _deleteBudget(budget['id'] as int, budget['projet_designation'] ?? ''),
+                    tooltip: 'Supprimer',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+                const SizedBox(width: 8),
+              ],
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPaginationControls() {
+    if (_totalPages <= 1 && _filteredBudgets.length <= _itemsPerPage) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Text('Lignes/page:', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          const SizedBox(width: 6),
+          DropdownButton<int>(
+            value: _itemsPerPage,
+            isDense: true,
+            items: [10, 15, 25, 50].map((n) => DropdownMenuItem(value: n, child: Text('$n', style: const TextStyle(fontSize: 12)))).toList(),
+            onChanged: (v) { if (v != null) setState(() { _itemsPerPage = v; _currentPage = 1; }); },
+            underline: const SizedBox.shrink(),
+          ),
+          const SizedBox(width: 16),
+          Text('$_currentPage / $_totalPages', style: const TextStyle(fontSize: 12)),
+          const SizedBox(width: 8),
+          _pagBtn(Icons.chevron_left, _currentPage > 1, () => setState(() => _currentPage--)),
+          const SizedBox(width: 4),
+          _pagBtn(Icons.chevron_right, _currentPage < _totalPages, () => setState(() => _currentPage++)),
+        ],
+      ),
+    );
+  }
+
+  Widget _pagBtn(IconData icon, bool enabled, VoidCallback onTap) {
+    return SizedBox(
+      width: 28,
+      height: 28,
+      child: ElevatedButton(
+        onPressed: enabled ? onTap : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: enabled ? Colors.blue.shade700 : Colors.grey.shade200,
+          foregroundColor: Colors.white,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          elevation: 0,
+        ),
+        child: Icon(icon, size: 16),
       ),
     );
   }
@@ -415,256 +586,42 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
         }
       },
       child: Scaffold(
-        appBar:
-            widget.showAppBar
-                ? AppBar(
-                  title: const Text('Gestion des Budgets'),
-                  backgroundColor: Colors.blue.shade400,
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () {
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      }
-                    },
-                  ),
-                )
-                : null,
-        body:
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header avec statistiques
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade100,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                Icons.account_balance_wallet,
-                                size: 28,
-                                color: Colors.black,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Budgets',
-                                    style: TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${_budgets.length} budget${_budgets.length > 1 ? 's' : ''} disponible${_budgets.length > 1 ? 's' : ''}',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (_canCreate)
-                              ElevatedButton.icon(
-                                onPressed: _showCreateBudgetDialog,
-                                icon: const Icon(
-                                  Icons.add,
-                                  size: 20,
-                                  color: Colors.white,
-                                ),
-                                label: const Text('Nouveau budget'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue.shade400,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  elevation: 2,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Barre de recherche et filtres
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.03),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _searchController,
-                                decoration: InputDecoration(
-                                  hintText: 'Rechercher un budget...',
-                                  prefixIcon: const Icon(Icons.search),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey.shade300,
-                                    ),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Tooltip(
-                              message: 'Rafraîchir',
-                              child: IconButton(
-                                onPressed: _loadData,
-                                icon: const Icon(Icons.refresh),
-                                style: IconButton.styleFrom(
-                                  backgroundColor: Colors.grey.shade100,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // En-tête du tableau
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade400,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Row(
-                          children: [
-                            SizedBox(width: 56), // Espace pour l'icône
-                            Expanded(
-                              flex: 2,
-                              child: Padding(
-                                padding: EdgeInsets.only(left: 16),
-                                child: Text(
-                                  'PROJET',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 4,
-                              child: Padding(
-                                padding: EdgeInsets.only(left: 16),
-                                child: Text(
-                                  'BAILLEUR',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 120,
-                              child: Text(
-                                'ACTIONS',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Liste des budgets sous forme de tableau
-                      Expanded(
-                        child:
-                            _budgets.isEmpty
-                                ? _buildEmptyState()
-                                : Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(0),
-                                    border: Border.all(
-                                      color: Colors.grey.shade200,
-                                    ),
-                                  ),
-                                  child: ListView.separated(
-                                    itemCount: _filteredBudgets.length,
-                                    separatorBuilder:
-                                        (context, index) => Divider(
-                                          height: 1,
-                                          color: Colors.grey.shade800,
-                                        ),
-                                    itemBuilder: (context, index) {
-                                      return _buildBudgetRow(
-                                        _filteredBudgets[index],
-                                      );
-                                    },
-                                  ),
-                                ),
-                      ),
-                    ],
-                  ),
+        backgroundColor: const Color(0xFFF5F7FA),
+        appBar: widget.showAppBar
+            ? AppBar(
+                title: const Text('Gestion des Budgets'),
+                backgroundColor: Colors.blue.shade700,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () {
+                    if (Navigator.canPop(context)) Navigator.pop(context);
+                  },
                 ),
+              )
+            : null,
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildPageTitle(),
+                        _buildHeaderActions(),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _buildFilterBar(),
+                    const SizedBox(height: 12),
+                    _buildMainContent(),
+                  ],
+                ),
+              ),
       ),
     );
   }
@@ -2292,7 +2249,9 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
             ),
           ],
         ),
-        backgroundColor: Colors.blue.shade400,
+        backgroundColor: Colors.blue.shade700,
+        foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
