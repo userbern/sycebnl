@@ -152,6 +152,7 @@ class DatabaseService {
         onOpen: (db) async {
           await _ensureCompteSchema(db);
           await _ensureUtilisateurSchema(db);
+          await _ensureExerciceSchema(db);
 
           // Migration: Ajouter exercice_id à la table budget
           try {
@@ -830,6 +831,20 @@ class DatabaseService {
     }
   }
 
+  static Future<void> _ensureExerciceSchema(Database db) async {
+    try {
+      final columns = await db.rawQuery("PRAGMA table_info(exercice)");
+      final names = columns.map((c) => c['name']).toSet();
+      if (!names.contains('is_cloture')) {
+        await db.execute(
+          'ALTER TABLE exercice ADD COLUMN is_cloture INTEGER DEFAULT 0',
+        );
+      }
+    } catch (e) {
+      print('Migration exercice échouée: $e');
+    }
+  }
+
   static Future<void> _ensureCompteSchema(Database db) async {
     try {
       final columns = await db.rawQuery("PRAGMA table_info(compte)");
@@ -1466,6 +1481,31 @@ class DatabaseService {
         );
       }
     });
+  }
+
+  static Future<void> cloturerExercice(int id) async {
+    await ensureDatabaseOpen();
+    await database.update(
+      'exercice',
+      {
+        'is_cloture': 1,
+        'is_active': 0,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>> getPeriodesNonEquilibrees(int exerciceId) async {
+    await ensureDatabaseOpen();
+    return await database.rawQuery(
+      '''SELECT code_journal, annee, mois
+         FROM journaux_periodes
+         WHERE exercice_id = ? AND nombre_ecritures > 0 AND is_equilibre = 0
+         ORDER BY annee, mois''',
+      [exerciceId],
+    );
   }
 
   static Future<void> _reportSoldesOuverture(

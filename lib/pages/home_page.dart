@@ -938,6 +938,28 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _cloturerExercice(int id) async {
+    try {
+      await DatabaseService.cloturerExercice(id);
+      await _refreshExercices();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Exercice clôturé avec succès'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur : ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<void> _switchExercice(int exerciceId) async {
     try {
       await DatabaseService.setActiveExercice(exerciceId);
@@ -1044,6 +1066,8 @@ class _HomePageState extends State<HomePage> {
           onSwitch: _switchExercice,
           onCreateNew: () => _showPage(12),
           onEdit: _editExercice,
+          onCloture: _cloturerExercice,
+          onCheckPeriodesEquilibre: DatabaseService.getPeriodesNonEquilibrees,
         );
       case 13:
         return BalanceComptesPage(

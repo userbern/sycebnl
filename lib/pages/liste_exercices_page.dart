@@ -11,6 +11,9 @@ class ListeExercicesPage extends StatelessWidget {
     String dateDebut,
     String dateFin,
   ) onEdit;
+  final Future<void> Function(int id) onCloture;
+  final Future<List<Map<String, dynamic>>> Function(int id)
+      onCheckPeriodesEquilibre;
 
   const ListeExercicesPage({
     super.key,
@@ -19,6 +22,8 @@ class ListeExercicesPage extends StatelessWidget {
     required this.onSwitch,
     required this.onCreateNew,
     required this.onEdit,
+    required this.onCloture,
+    required this.onCheckPeriodesEquilibre,
   });
 
   String _fmt(String? iso) {
@@ -61,7 +66,6 @@ class ListeExercicesPage extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // En-tête
           Container(
             color: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -111,7 +115,6 @@ class ListeExercicesPage extends StatelessWidget {
             ),
           ),
           const Divider(height: 1),
-          // Liste
           Expanded(
             child: exercices.isEmpty
                 ? Center(
@@ -162,6 +165,7 @@ class ListeExercicesPage extends StatelessWidget {
                         moisEcoules: ecoules,
                         onSwitch: () => onSwitch(ex['id'] as int),
                         onEdit: () => _showEditDialog(context, ex),
+                        onCloture: () => _showClotureDialog(context, ex),
                       );
                     },
                   ),
@@ -169,6 +173,143 @@ class ListeExercicesPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _showClotureDialog(
+      BuildContext context, Map<String, dynamic> ex) async {
+    final id = ex['id'] as int;
+    final code = ex['code']?.toString() ?? '';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => FutureBuilder<List<Map<String, dynamic>>>(
+        future: onCheckPeriodesEquilibre(id),
+        builder: (ctx, snapshot) {
+          final loading = !snapshot.hasData && !snapshot.hasError;
+          final periodes = snapshot.data ?? [];
+
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.lock_outline,
+                    color: Colors.orange.shade700, size: 20),
+                const SizedBox(width: 8),
+                Text('Clôturer $code'),
+              ],
+            ),
+            content: SizedBox(
+              width: 400,
+              child: loading
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (snapshot.hasError)
+                          Row(
+                            children: [
+                              Icon(Icons.error_outline,
+                                  color: Colors.red.shade600, size: 18),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'Impossible de vérifier les périodes.',
+                                  style: TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          )
+                        else if (periodes.isEmpty)
+                          Row(
+                            children: [
+                              Icon(Icons.check_circle_outline,
+                                  color: Colors.green.shade600, size: 18),
+                              const SizedBox(width: 8),
+                              const Text(
+                                  'Toutes les périodes sont équilibrées.',
+                                  style: TextStyle(fontSize: 13)),
+                            ],
+                          )
+                        else ...[
+                          Row(
+                            children: [
+                              Icon(Icons.warning_amber_outlined,
+                                  color: Colors.orange.shade700, size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${periodes.length} période${periodes.length > 1 ? 's' : ''} non équilibrée${periodes.length > 1 ? 's' : ''} :',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.orange.shade700,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ...periodes.map((p) => Padding(
+                                padding: const EdgeInsets.only(
+                                    left: 26, bottom: 3),
+                                child: Text(
+                                  '• ${p['code_journal']}  —  ${_moisLabel(p['mois'] as int?)}  ${p['annee']}',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade700),
+                                ),
+                              )),
+                        ],
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border:
+                                Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: const Text(
+                            'Cette action est irréversible. L\'exercice clôturé ne pourra plus être modifié.',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Annuler'),
+              ),
+              if (!loading)
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade700,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Clôturer'),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (confirm == true) {
+      await onCloture(id);
+    }
+  }
+
+  String _moisLabel(int? mois) {
+    const noms = [
+      'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun',
+      'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc',
+    ];
+    if (mois == null || mois < 1 || mois > 12) return '-';
+    return noms[mois - 1];
   }
 
   Future<void> _showEditDialog(
@@ -261,8 +402,8 @@ class ListeExercicesPage extends StatelessWidget {
                         onChanged: (v) {
                           if (v == null) return;
                           final nd = daysInMonth(year, v);
-                          setState(() =>
-                              onChange(day > nd ? nd : day, v, year));
+                          setState(
+                              () => onChange(day > nd ? nd : day, v, year));
                         },
                       ),
                     ),
@@ -280,8 +421,8 @@ class ListeExercicesPage extends StatelessWidget {
                         onChanged: (v) {
                           if (v == null) return;
                           final nd = daysInMonth(v, month);
-                          setState(() =>
-                              onChange(day > nd ? nd : day, month, v));
+                          setState(
+                              () => onChange(day > nd ? nd : day, month, v));
                         },
                       ),
                     ),
@@ -375,6 +516,7 @@ class _ExerciceCard extends StatelessWidget {
   final int moisEcoules;
   final VoidCallback onSwitch;
   final VoidCallback onEdit;
+  final VoidCallback onCloture;
 
   const _ExerciceCard({
     required this.ex,
@@ -384,12 +526,16 @@ class _ExerciceCard extends StatelessWidget {
     required this.moisEcoules,
     required this.onSwitch,
     required this.onEdit,
+    required this.onCloture,
   });
+
+  bool get _isCloture =>
+      (ex['is_cloture'] as int? ?? 0) == 1 ||
+      (ex['statut']?.toString().toUpperCase() == 'CLOTURE');
 
   String get _badgeLabel {
     if (isActive) return 'ACTIF';
-    final s = ex['statut']?.toString().toUpperCase() ?? '';
-    if (s == 'CLOTURE' || s == 'CLÔTURÉ') return 'CLÔTURÉ';
+    if (_isCloture) return 'CLÔTURÉ';
     return 'OUVERT';
   }
 
@@ -404,15 +550,13 @@ class _ExerciceCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color:
-              isActive ? Colors.blue.shade400 : Colors.grey.shade200,
+          color: isActive ? Colors.blue.shade400 : Colors.grey.shade200,
           width: isActive ? 1.5 : 1,
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Dot
           Container(
             width: 9,
             height: 9,
@@ -422,12 +566,10 @@ class _ExerciceCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 14),
-          // Infos
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Ligne 1: code + badge
                 Row(
                   children: [
                     Text(
@@ -440,13 +582,11 @@ class _ExerciceCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                // Ligne 2: dates + durée
                 Text(
                   '$dateLabel  ·  $dureeMois mois',
-                  style: TextStyle(
-                      fontSize: 13, color: Colors.grey.shade600),
+                  style:
+                      TextStyle(fontSize: 13, color: Colors.grey.shade600),
                 ),
-                // Barre de progression pour l'actif
                 if (isActive) ...[
                   const SizedBox(height: 6),
                   ClipRRect(
@@ -472,8 +612,7 @@ class _ExerciceCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          // Actions
-          if (!isActive)
+          if (!isActive && !_isCloture)
             OutlinedButton(
               onPressed: onSwitch,
               style: OutlinedButton.styleFrom(
@@ -489,22 +628,40 @@ class _ExerciceCard extends StatelessWidget {
               child:
                   const Text('Activer', style: TextStyle(fontSize: 13)),
             ),
-          const SizedBox(width: 8),
-          // Bouton éditer
-          InkWell(
-            onTap: onEdit,
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(6),
+          if (!_isCloture) ...[
+            const SizedBox(width: 8),
+            OutlinedButton(
+              onPressed: onCloture,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.orange.shade700,
+                side: BorderSide(color: Colors.orange.shade300),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: Icon(Icons.edit_outlined,
-                  size: 15, color: Colors.grey.shade500),
+              child:
+                  const Text('Clôturer', style: TextStyle(fontSize: 13)),
             ),
-          ),
+          ],
+          const SizedBox(width: 8),
+          if (!_isCloture)
+            InkWell(
+              onTap: onEdit,
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(Icons.edit_outlined,
+                    size: 15, color: Colors.grey.shade500),
+              ),
+            ),
         ],
       ),
     );
