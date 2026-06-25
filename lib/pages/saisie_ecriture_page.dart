@@ -1271,10 +1271,46 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
 
   Widget _buildPageBody() {
     return PopScope(
-      canPop: _totaux.isEquilibre,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && !_totaux.isEquilibre) {
-          _showBalanceWarning();
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (_totaux.isEquilibre) {
+          if (widget.onClose != null) {
+            widget.onClose!(true);
+          } else if (context.mounted) {
+            Navigator.of(context).pop();
+          }
+          return;
+        }
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Journal déséquilibré'),
+            content: Text(
+              'Le solde n\'est pas équilibré (${_totaux.solde.toStringAsFixed(2)}).\nVoulez-vous quitter quand même ?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Rester'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Quitter quand même'),
+              ),
+            ],
+          ),
+        );
+        if (confirm == true) {
+          if (widget.onClose != null) {
+            widget.onClose!(true);
+          } else if (mounted) {
+            Navigator.of(context).pop();
+          }
         }
       },
       child: Column(
@@ -1457,11 +1493,36 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         children: [
           if (widget.onClose != null)
             OutlinedButton.icon(
-              onPressed: () {
+              onPressed: () async {
                 if (_totaux.isEquilibre) {
                   widget.onClose!(true);
                 } else {
-                  _showBalanceWarning();
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Journal déséquilibré'),
+                      content: Text(
+                        'Le solde n\'est pas équilibré (${_totaux.solde.toStringAsFixed(2)}).\nVoulez-vous quitter quand même ?',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Rester'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Quitter quand même'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true && context.mounted) {
+                    widget.onClose!(true);
+                  }
                 }
               },
               icon: const Icon(Icons.arrow_back, size: 16),
@@ -1490,17 +1551,6 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
             onPressed: _loadData,
           ),
         ],
-      ),
-    );
-  }
-
-  void _showBalanceWarning() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Le solde doit être équilibré (actuellement: ${_totaux.solde.toStringAsFixed(2)})',
-        ),
-        backgroundColor: Colors.red.shade700,
       ),
     );
   }
