@@ -22,14 +22,18 @@ class Exercice {
 
   /// Créer un exercice depuis la base de données
   factory Exercice.fromMap(Map<String, dynamic> map) {
+    // La table SQLite utilise is_cloture (0/1) ; le champ statut n'existe pas.
+    final statut = map['statut'] as String? ??
+        ((map['is_cloture'] as int? ?? 0) == 1 ? 'CLOTURE' : 'OUVERT');
+    final isCurrent = (map['is_current'] as int? ?? map['is_active'] as int? ?? 0) == 1;
     return Exercice(
       id: map['id'] as int?,
       code: map['code'] as String,
       dateDebut: DateTime.parse(map['date_debut'] as String),
       dateFin: DateTime.parse(map['date_fin'] as String),
       dureeMois: map['duree_mois'] as int,
-      statut: map['statut'] as String? ?? 'OUVERT',
-      isCurrent: (map['is_current'] as int? ?? 0) == 1,
+      statut: statut,
+      isCurrent: isCurrent,
       createdAt:
           map['created_at'] != null
               ? DateTime.parse(map['created_at'] as String)

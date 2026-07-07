@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sycebnl_accounting/models/exercice.dart';
 import 'package:sycebnl_accounting/models/journal.dart';
 import 'package:sycebnl_accounting/models/saisie_comptable.dart';
+import 'package:sycebnl_accounting/models/user_session.dart';
 import 'package:sycebnl_accounting/services/saisie_comptable_service.dart';
 import 'package:sycebnl_accounting/services/auth_service.dart';
 import 'saisie_ecriture_page.dart';
@@ -26,11 +27,13 @@ const List<String> _monthNames = [
 class JournalPeriodeSelectionPage extends StatefulWidget {
   final bool showAppBar;
   final Future<bool> Function(JournalPeriode)? onOpenPeriode;
+  final UserSession? userSession;
 
   const JournalPeriodeSelectionPage({
     super.key,
     this.showAppBar = true,
     this.onOpenPeriode,
+    this.userSession,
   });
 
   @override
@@ -49,6 +52,13 @@ class _JournalPeriodeSelectionPageState
   int? _selectedMois;
   int? _selectedAnnee;
   bool _isCreating = false;
+
+  bool get _exerciceCloture => _exerciceActif?.isCloture ?? false;
+  bool get _canSaisir =>
+      !_exerciceCloture &&
+      (widget.userSession == null
+          ? true
+          : widget.userSession!.canCreate('saisie_comptable'));
 
   @override
   void initState() {
@@ -152,6 +162,21 @@ class _JournalPeriodeSelectionPageState
   }
 
   Future<void> _handleCreateSaisie() async {
+    if (_exerciceCloture) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Exercice clôturé : la saisie est désactivée.'),
+        backgroundColor: Colors.orange,
+      ));
+      return;
+    }
+    if (!_canSaisir) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Permission insuffisante pour accéder à la saisie.'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
     final codeJournal = _selectedCodeJournal;
     final mois = _selectedMois;
     final annee = _selectedAnnee;
@@ -196,7 +221,11 @@ class _JournalPeriodeSelectionPageState
         await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => SaisieEcriturePage(journalPeriode: periode),
+            builder: (context) => SaisieEcriturePage(
+              journalPeriode: periode,
+              userSession: widget.userSession,
+              exerciceCloture: _exerciceCloture,
+            ),
           ),
         );
       }
@@ -220,13 +249,34 @@ class _JournalPeriodeSelectionPageState
   @override
   Widget build(BuildContext context) {
     final content = SafeArea(
-      child:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-                child: _buildHeroCard(),
-              ),
+      child: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                if (_exerciceCloture)
+                  Container(
+                    width: double.infinity,
+                    color: Colors.orange.shade700,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.lock, color: Colors.white, size: 16),
+                        SizedBox(width: 8),
+                        Text(
+                          'Exercice clôturé — consultation uniquement, la saisie est désactivée.',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+                    child: _buildHeroCard(),
+                  ),
+                ),
+              ],
+            ),
     );
 
     if (widget.showAppBar) {

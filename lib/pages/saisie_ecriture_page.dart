@@ -3,6 +3,7 @@ import 'package:sycebnl_accounting/models/saisie_comptable.dart';
 import 'package:sycebnl_accounting/models/compte.dart';
 import 'package:sycebnl_accounting/models/tiers.dart';
 import 'package:sycebnl_accounting/models/journal.dart';
+import 'package:sycebnl_accounting/models/user_session.dart';
 import 'package:sycebnl_accounting/services/saisie_comptable_service.dart';
 import 'package:sycebnl_accounting/services/database_service.dart';
 import 'package:sycebnl_accounting/services/auth_service_local.dart' as auth;
@@ -21,12 +22,16 @@ class SaisieEcriturePage extends StatefulWidget {
   final JournalPeriode journalPeriode;
   final bool showAppBar;
   final Function(bool)? onClose;
+  final UserSession? userSession;
+  final bool exerciceCloture;
 
   const SaisieEcriturePage({
     super.key,
     required this.journalPeriode,
     this.showAppBar = true,
     this.onClose,
+    this.userSession,
+    this.exerciceCloture = false,
   });
 
   @override
@@ -69,6 +74,18 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
   // Gestion du numéro d'enregistrement courant
   int? _currentNumeroEnregistrement;
   bool _isCurrentEnregistrementBalanced = true;
+
+  // Permissions saisie + garde exercice clôturé
+  bool get _exerciceBloque => widget.exerciceCloture;
+  bool get _canCreate =>
+      !_exerciceBloque &&
+      (widget.userSession == null ? true : widget.userSession!.canCreate('saisie_comptable'));
+  bool get _canModify =>
+      !_exerciceBloque &&
+      (widget.userSession == null ? true : widget.userSession!.canModify('saisie_comptable'));
+  bool get _canDelete =>
+      !_exerciceBloque &&
+      (widget.userSession == null ? true : widget.userSession!.canDelete('saisie_comptable'));
 
   @override
   void initState() {
@@ -504,6 +521,17 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
   }
 
   void _submitForm() async {
+    final isEditing = _editingIndex != null;
+    if (isEditing ? !_canModify : !_canCreate) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_exerciceBloque
+            ? 'Exercice clôturé : aucune modification possible'
+            : 'Permission insuffisante'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
     final compteNumero = _selectedCompteNumero;
 
     if (compteNumero == null || compteNumero.isEmpty) {
@@ -1316,6 +1344,22 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       child: Column(
         children: [
           if (!widget.showAppBar) _buildEmbeddedToolbar(),
+          if (_exerciceBloque)
+            Container(
+              width: double.infinity,
+              color: Colors.orange.shade700,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: const Row(
+                children: [
+                  Icon(Icons.lock, color: Colors.white, size: 16),
+                  SizedBox(width: 8),
+                  Text(
+                    'Exercice clôturé — consultation uniquement, aucune modification possible.',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
           // En-tête avec infos du journal et totaux
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -2015,22 +2059,23 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: _submitForm,
-                          icon: Icon(
-                            _editingIndex != null ? Icons.edit : Icons.add,
-                            size: 14,
-                            color: Colors.white,
+                        if (_editingIndex != null ? _canModify : _canCreate)
+                          ElevatedButton.icon(
+                            onPressed: _submitForm,
+                            icon: Icon(
+                              _editingIndex != null ? Icons.edit : Icons.add,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                            label: Text(
+                              _editingIndex != null ? 'Modifier' : 'Ajouter',
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue.shade500,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                            ),
                           ),
-                          label: Text(
-                            _editingIndex != null ? 'Modifier' : 'Ajouter',
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue.shade500,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                          ),
-                        ),
                       ],
                     ),
                   ],
@@ -2125,7 +2170,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    IconButton(
+                    if (_canModify) IconButton(
                       icon: const Icon(Icons.edit, size: 16, color: Colors.blue),
                       tooltip: 'Modifier',
                       padding: EdgeInsets.zero,
@@ -2135,8 +2180,8 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                         () { if (mounted) _editEcriture(index, ecriture); },
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    IconButton(
+                    if (_canModify) const SizedBox(width: 12),
+                    if (_canDelete) IconButton(
                       icon: Icon(Icons.delete, size: 16, color: Colors.red.shade600),
                       tooltip: 'Supprimer',
                       padding: EdgeInsets.zero,

@@ -99,36 +99,10 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     return best;
   }
 
-  Map<String, dynamic>? get _exerciceSuivant {
-    final fin = DateTime.tryParse(_dateFinISO);
-    if (fin == null) return null;
-    Map<String, dynamic>? best;
-    DateTime? bestDate;
-    for (final ex in _exercices) {
-      final debut = DateTime.tryParse(ex['date_debut']?.toString() ?? '');
-      if (debut == null) continue;
-      if (debut.isAfter(fin)) {
-        if (bestDate == null || debut.isBefore(bestDate)) {
-          bestDate = debut;
-          best = ex;
-        }
-      }
-    }
-    return best;
-  }
 
   String _fmtDate(int d, int m, int y) =>
       '${d.toString().padLeft(2, '0')} ${_monthAbbr[m - 1]} $y';
 
-  String _fmtIso(String? iso) {
-    if (iso == null || iso.isEmpty) return '-';
-    try {
-      final dt = DateTime.parse(iso.substring(0, 10));
-      return '${dt.day.toString().padLeft(2, '0')} ${_monthAbbr[dt.month - 1]} ${dt.year}';
-    } catch (_) {
-      return iso;
-    }
-  }
 
   // ── Date picker ─────────────────────────────────────────────────────────────
 
@@ -278,6 +252,17 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
   // ── Actions ─────────────────────────────────────────────────────────────────
 
   Future<void> _creerExercice() async {
+    if (!widget.userSession.isAdmin &&
+        !widget.userSession.canCreate('exercices')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Permission insuffisante pour créer un exercice.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     if (_anneeController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -521,7 +506,6 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
   @override
   Widget build(BuildContext context) {
     final precede = _exercicePrecedent;
-    final suivant = _exerciceSuivant;
 
     final body = Column(
       children: [
@@ -534,9 +518,6 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                 constraints: const BoxConstraints(maxWidth: 680),
                 child: Column(
                   children: [
-                    _buildSummaryCard(),
-                    const SizedBox(height: 16),
-
                     _buildSection(
                       icon: Icons.tag,
                       title: 'IDENTIFICATION',
@@ -548,13 +529,6 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                       icon: Icons.date_range,
                       title: 'PÉRIODE',
                       child: _buildPeriodeContent(),
-                    ),
-                    const SizedBox(height: 12),
-
-                    _buildSection(
-                      icon: Icons.account_tree_outlined,
-                      title: 'CONTEXTE',
-                      child: _buildContexteContent(precede, suivant),
                     ),
                     const SizedBox(height: 12),
 
@@ -659,172 +633,6 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     );
   }
 
-  // ── Summary card ─────────────────────────────────────────────────────────────
-
-  Widget _buildSummaryCard() {
-    final code = _anneeController.text.trim();
-    final duree = _dureeMois;
-    final typeLabel = _typeExercice;
-    final dureeColor = duree == 12
-        ? Colors.blue.shade600
-        : duree < 12
-            ? Colors.orange.shade600
-            : Colors.purple.shade600;
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue.shade800, Colors.blue.shade500],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.summarize_outlined,
-                  color: Colors.white.withValues(alpha: 0.75), size: 13),
-              const SizedBox(width: 6),
-              Text(
-                'RÉSUMÉ DE L\'EXERCICE',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white.withValues(alpha: 0.75),
-                  letterSpacing: 0.9,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Code',
-                      style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.white.withValues(alpha: 0.65)),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      code.isEmpty ? '—' : code,
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: code.isEmpty
-                            ? Colors.white.withValues(alpha: 0.35)
-                            : Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Durée — badge proéminent
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '$duree',
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.bold,
-                        color: dureeColor,
-                        height: 1,
-                      ),
-                    ),
-                    Text(
-                      'mois',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade500,
-                          fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          // Ligne dates + type
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.calendar_today_outlined,
-                    size: 13,
-                    color: Colors.white.withValues(alpha: 0.8)),
-                const SizedBox(width: 8),
-                Text(
-                  _fmtDate(selectedDebutDay, selectedDebutMonth,
-                      selectedDebutYear),
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Icon(Icons.arrow_forward,
-                      size: 14,
-                      color: Colors.white.withValues(alpha: 0.65)),
-                ),
-                Text(
-                  _fmtDate(selectedFinDay, selectedFinMonth, selectedFinYear),
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white),
-                ),
-                const Spacer(),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    typeLabel,
-                    style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ── Section wrapper ──────────────────────────────────────────────────────────
 
   Widget _buildSection({
@@ -889,6 +697,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
         const SizedBox(height: 6),
         TextField(
           controller: _anneeController,
+          autofocus: true,
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             hintText: 'Ex : 2025, EX-2025, AN2025…',
@@ -1075,233 +884,6 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     );
   }
 
-  // ── Contexte métier ──────────────────────────────────────────────────────────
-
-  Widget _buildContexteContent(
-      Map<String, dynamic>? precede, Map<String, dynamic>? suivant) {
-    final position = _exercices.length + 1;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            _metaChip(
-              icon: Icons.lock_open_outlined,
-              label: 'Statut initial',
-              value: 'OUVERT',
-              color: Colors.green.shade700,
-              bg: Colors.green.shade50,
-              border: Colors.green.shade200,
-            ),
-            const SizedBox(width: 10),
-            _metaChip(
-              icon: Icons.format_list_numbered,
-              label: 'Position dans la série',
-              value: 'N°$position',
-              color: Colors.blue.shade700,
-              bg: Colors.blue.shade50,
-              border: Colors.blue.shade200,
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'POSITION DANS LA CHRONOLOGIE',
-          style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: Colors.grey.shade400,
-              letterSpacing: 0.8),
-        ),
-        const SizedBox(height: 8),
-        _buildTimeline(precede, suivant),
-      ],
-    );
-  }
-
-  Widget _metaChip({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-    required Color bg,
-    required Color border,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 9,
-                      color: color.withValues(alpha: 0.75),
-                      fontWeight: FontWeight.w600)),
-              Text(value,
-                  style: TextStyle(
-                      fontSize: 14,
-                      color: color,
-                      fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimeline(
-      Map<String, dynamic>? precede, Map<String, dynamic>? suivant) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: _timelineCard(label: 'Précédent', ex: precede)),
-        _timelineArrow(),
-        Expanded(child: _timelineCardNew()),
-        _timelineArrow(),
-        Expanded(child: _timelineCard(label: 'Suivant', ex: suivant)),
-      ],
-    );
-  }
-
-  Widget _timelineArrow() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 22, left: 6, right: 6),
-      child: Icon(Icons.arrow_forward, size: 15, color: Colors.grey.shade400),
-    );
-  }
-
-  Widget _timelineCardNew() {
-    final code = _anneeController.text.trim();
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade300, width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('NOUVEL EXERCICE',
-              style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.blue.shade600,
-                  letterSpacing: 0.5)),
-          const SizedBox(height: 4),
-          Text(
-            code.isEmpty ? '—' : code,
-            style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue.shade800),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            '${_fmtDate(selectedDebutDay, selectedDebutMonth, selectedDebutYear)}\n→ ${_fmtDate(selectedFinDay, selectedFinMonth, selectedFinYear)}',
-            style: TextStyle(fontSize: 10, color: Colors.blue.shade600),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _timelineCard({
-    required String label,
-    required Map<String, dynamic>? ex,
-  }) {
-    if (ex == null) {
-      return Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label.toUpperCase(),
-                style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.grey.shade400,
-                    letterSpacing: 0.5)),
-            const SizedBox(height: 4),
-            Text('Aucun',
-                style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade400,
-                    fontStyle: FontStyle.italic)),
-          ],
-        ),
-      );
-    }
-
-    final isCloture = (ex['is_cloture'] as int? ?? 0) == 1;
-
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label.toUpperCase(),
-              style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.grey.shade400,
-                  letterSpacing: 0.5)),
-          const SizedBox(height: 4),
-          Text(
-            ex['code']?.toString() ?? '—',
-            style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: isCloture
-                    ? Colors.grey.shade500
-                    : Colors.black87),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            '${_fmtIso(ex['date_debut']?.toString())}\n→ ${_fmtIso(ex['date_fin']?.toString())}',
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-          ),
-          if (isCloture) ...[
-            const SizedBox(height: 5),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text('CLÔTURÉ',
-                  style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.grey.shade600)),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
 
   // ── Options ──────────────────────────────────────────────────────────────────
 

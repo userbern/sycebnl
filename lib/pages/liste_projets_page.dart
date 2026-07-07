@@ -27,19 +27,12 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
   int _itemsPerPage = 15;
   int _currentPage = 1;
 
-  bool get _canCreate => _hasPermission('creation');
-  bool get _canUpdate => _hasPermission('modification');
-  bool get _canDelete => _hasPermission('suppression');
-
-  bool _hasPermission(String type) {
-    if (widget.userSession == null) return true;
-    final permission = widget.userSession!.permissions.firstWhere(
-      (p) => p['menu'] == 'parametrages' && p['sous_menu'] == 'liste_projets',
-      orElse: () => <String, dynamic>{},
-    );
-    if (permission.isEmpty) return true;
-    return permission[type] == true;
-  }
+  bool get _canCreate =>
+      widget.userSession == null ? true : widget.userSession!.canCreate('liste_projets');
+  bool get _canUpdate =>
+      widget.userSession == null ? true : widget.userSession!.canModify('liste_projets');
+  bool get _canDelete =>
+      widget.userSession == null ? true : widget.userSession!.canDelete('liste_projets');
 
   @override
   void initState() {
@@ -1332,6 +1325,7 @@ class _ProjetDialogState extends State<_ProjetDialog> {
                       children: [
                         TextFormField(
                           controller: sigController,
+                          autofocus: true,
                           decoration: InputDecoration(
                             labelText: 'Sigle *',
                             border: OutlineInputBorder(
@@ -1443,6 +1437,7 @@ class _ProjetDialogState extends State<_ProjetDialog> {
               children: [
                 TextFormField(
                   controller: _codeController,
+                  autofocus: widget.projet == null,
                   decoration: InputDecoration(
                     labelText: 'Code *',
                     border: OutlineInputBorder(

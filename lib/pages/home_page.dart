@@ -35,6 +35,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentPageIndex = 0;
+  int _createUserTrigger = 0;
   String? _expandedMenu;
   Map<String, dynamic>? _entiteData;
 
@@ -134,6 +135,13 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       print('Erreur lors du rafraîchissement des exercices: $e');
     }
+  }
+
+  void _openCreateUserShortcut() {
+    setState(() {
+      _currentPageIndex = 2;
+      _createUserTrigger++;
+    });
   }
 
   void _showPage(int index) async {
@@ -441,7 +449,14 @@ class _HomePageState extends State<HomePage> {
             )['code']
             : 'N/A';
 
-    return Scaffold(
+    return CallbackShortcuts(
+      bindings: {
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyN):
+            _openCreateUserShortcut,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: Row(
@@ -662,6 +677,8 @@ class _HomePageState extends State<HomePage> {
           // Main content area
           Expanded(child: _buildContentPage()),
         ],
+      ),
+        ),
       ),
     );
   }
@@ -903,6 +920,13 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _editExercice(
       int id, String code, String dateDebut, String dateFin) async {
+    if (!_session.isAdmin && !_session.canModify('exercices')) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Permission insuffisante pour modifier un exercice.'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
     try {
       final db = DatabaseService.database;
       final d = DateTime.parse(dateDebut);
@@ -939,6 +963,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _cloturerExercice(int id) async {
+    if (!_session.isAdmin && !_session.canModify('exercices')) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Permission insuffisante pour clôturer un exercice.'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
     try {
       await DatabaseService.cloturerExercice(id);
       await _refreshExercices();
@@ -982,6 +1013,28 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // Session de secours utilisée uniquement en mode bootstrap (aucun utilisateur en base).
+  static final _bootstrapSession = UserSession(
+    id: '0',
+    login: 'admin',
+    nom: 'Admin',
+    prenom: 'Système',
+    email: '',
+    role: 'admin',
+    permissions: [],
+  );
+
+  UserSession get _session => widget.userSession ?? _bootstrapSession;
+
+  bool get _activeExerciceCloture {
+    if (_activeExerciceId == null || _exercices.isEmpty) return false;
+    final ex = _exercices.firstWhere(
+      (e) => e['id'] == _activeExerciceId,
+      orElse: () => {},
+    );
+    return (ex['is_cloture'] as int? ?? 0) == 1;
+  }
+
   Widget _buildContentPage() {
     switch (_currentPageIndex) {
       case 0:
@@ -989,74 +1042,42 @@ class _HomePageState extends State<HomePage> {
       case 1:
         return EntiteIdentificationPage(onDataUpdated: _loadDatabaseInfo);
       case 2:
-        return PermissionsPage(showAppBar: false, userSession: widget.userSession);
-      case 4:
-        return const PlanComptablePage();
-      case 5:
-        return const ListeTiersPage();
-      case 6:
-        return JournauxPage(
-          userSession: UserSession(
-            id: '0',
-            login: 'admin',
-            nom: 'Admin',
-            prenom: 'Système',
-            email: '',
-            role: 'admin',
-            permissions: [],
-          ),
+        return PermissionsPage(
           showAppBar: false,
+          userSession: widget.userSession,
+          createUserTrigger: _createUserTrigger,
         );
+      case 4:
+        return PlanComptablePage(userSession: widget.userSession);
+      case 5:
+        return ListeTiersPage(userSession: widget.userSession);
+      case 6:
+        return JournauxPage(userSession: _session, showAppBar: false);
       case 7:
-        return const ListeBailleursPage(showAppBar: false);
+        return ListeBailleursPage(showAppBar: false, userSession: widget.userSession);
       case 8:
-        return const ListeProjetsPage(showAppBar: false);
+        return ListeProjetsPage(showAppBar: false, userSession: widget.userSession);
       case 9:
         return GestionBudgetsPage(
           showAppBar: false,
           exerciceId: _activeExerciceId,
-          userSession: UserSession(
-            id: '0',
-            login: 'admin',
-            nom: 'Admin',
-            prenom: 'Système',
-            email: 'admin@system.local',
-            role: 'admin',
-            permissions: [],
-          ),
+          userSession: widget.userSession,
         );
       case 10:
         return JournalPeriodeSelectionPage(
           key: ValueKey(_selectionRefreshSeed),
           showAppBar: false,
           onOpenPeriode: _openSaisie,
+          userSession: widget.userSession,
         );
       case 11:
         return InterrogationsLettragesPage(
-          userSession:
-              widget.userSession ??
-              UserSession(
-                id: '0',
-                login: 'admin',
-                nom: 'Admin',
-                prenom: 'Système',
-                email: 'admin@system.local',
-                role: 'admin',
-                permissions: [],
-              ),
+          userSession: _session,
           showAppBar: false,
         );
       case 12:
         return NouvelExercicePage(
-          userSession: UserSession(
-            id: '0',
-            login: 'admin',
-            nom: 'Admin',
-            prenom: 'Système',
-            email: '',
-            role: 'admin',
-            permissions: [],
-          ),
+          userSession: _session,
           showAppBar: false,
         );
       case 17:
@@ -1068,6 +1089,7 @@ class _HomePageState extends State<HomePage> {
           onEdit: _editExercice,
           onCloture: _cloturerExercice,
           onCheckPeriodesEquilibre: DatabaseService.getPeriodesNonEquilibrees,
+          userSession: widget.userSession,
         );
       case 13:
         return BalanceComptesPage(
@@ -1093,6 +1115,8 @@ class _HomePageState extends State<HomePage> {
           journalPeriode: periode,
           showAppBar: false,
           onClose: _closeSaisie,
+          userSession: widget.userSession,
+          exerciceCloture: _activeExerciceCloture,
         );
       default:
         return _buildWelcomePage();

@@ -5,10 +5,13 @@ import 'package:flutter/services.dart';
 import '../services/database_service.dart';
 import '../models/tiers.dart';
 import '../models/compte.dart';
+import '../models/user_session.dart';
 import '../services/export_service.dart';
 
 class ListeTiersPage extends StatefulWidget {
-  const ListeTiersPage({super.key});
+  final UserSession? userSession;
+
+  const ListeTiersPage({super.key, this.userSession});
 
   @override
   State<ListeTiersPage> createState() => _ListeTiersPageState();
@@ -25,6 +28,14 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
   // Pagination
   int _itemsPerPage = 15;
   int _currentPage = 1;
+
+  // Permissions
+  bool get _canCreate =>
+      widget.userSession == null ? true : widget.userSession!.canCreate('liste_tiers');
+  bool get _canModify =>
+      widget.userSession == null ? true : widget.userSession!.canModify('liste_tiers');
+  bool get _canDelete =>
+      widget.userSession == null ? true : widget.userSession!.canDelete('liste_tiers');
 
   late FocusNode _focusNode;
 
@@ -220,6 +231,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                           label: 'N° compte *',
                           icon: Icons.numbers,
                           enabled: !isEdit,
+                          autofocus: !isEdit,
                           onChanged: !isEdit
                               ? (value) {
                                   final compteCollectif = _findCompteByNumero(value);
@@ -569,6 +581,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                 label: 'N° Compte *',
                                 icon: Icons.numbers,
                                 keyboardType: TextInputType.number,
+                                autofocus: true,
                                 validator: (value) {
                                   if (value == null || value.trim().isEmpty) return 'Champ requis';
                                   if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
@@ -882,12 +895,14 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
     bool enabled = true,
+    bool autofocus = false,
     String? Function(String?)? validator,
     void Function(String)? onChanged,
   }) {
     return TextFormField(
       controller: controller,
       enabled: enabled,
+      autofocus: autofocus,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
@@ -920,12 +935,14 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
     required String label,
     required IconData icon,
     bool enabled = true,
+    bool autofocus = false,
     int maxLines = 1,
     void Function(String)? onChanged,
   }) {
     return TextField(
       controller: controller,
       enabled: enabled,
+      autofocus: autofocus,
       maxLines: maxLines,
       onChanged: onChanged,
       decoration: InputDecoration(
@@ -1103,14 +1120,14 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                IconButton(
+                if (_canModify) IconButton(
                   icon: Icon(Icons.edit, size: 16, color: Colors.blue.shade700),
                   onPressed: () => _showTiersDialog(tiers: tiers),
                   tooltip: 'Modifier',
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 ),
-                IconButton(
+                if (_canDelete) IconButton(
                   icon: Icon(Icons.delete, size: 16, color: Colors.red.shade700),
                   onPressed: () => _deleteTiers(tiers),
                   tooltip: 'Supprimer',
@@ -1133,7 +1150,8 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
       onKeyEvent: (event) {
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyN &&
-            HardwareKeyboard.instance.isControlPressed) {
+            HardwareKeyboard.instance.isControlPressed &&
+            _canCreate) {
           _showTiersDialog();
         }
       },
@@ -1307,7 +1325,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
             textStyle: const TextStyle(fontSize: 13),
           ),
         ),
-        ElevatedButton.icon(
+        if (_canCreate) ElevatedButton.icon(
           onPressed: () => _showTiersDialog(),
           icon: const Icon(Icons.add, size: 18, color: Colors.white),
           label: const Text('Nouveau tiers'),

@@ -3,6 +3,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart' as path;
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:excel/excel.dart';
 import '../models/compte.dart';
 import '../models/tiers.dart';
 import '../models/journal.dart';
@@ -51,6 +53,13 @@ class DatabaseService {
         onCreate: (db, version) async {
           // Créer les tables
           await _createTables(db);
+
+          // Importer le plan comptable SYCEBNL de référence
+          await _seedPlanComptableFromAsset(
+            db,
+            longueurCompteGeneral:
+                (configData?['longueur_compte_general'] as int?) ?? 7,
+          );
 
           // Insérer les modules granulaires (un par sous-menu)
           for (final nom in const [
@@ -442,6 +451,74 @@ class DatabaseService {
   /// Vérifier un mot de passe
   static bool verifyPassword(String password, String hashedPassword) {
     return hashPassword(password) == hashedPassword;
+  }
+
+  /// Importe le plan comptable SYCEBNL de référence (asset bundlé) dans une base
+  /// nouvellement créée. Le fichier n'a pas d'en-têtes : le numéro de compte se
+  /// trouve dans la première colonne numérique de la ligne, l'intitulé dans la
+  /// colonne suivante. Le type (total/detail) est déduit de la hiérarchie des
+  /// numéros de compte (un compte est "total" si un autre numéro commence par lui,
+  /// ou si son numéro fait 2 chiffres). Les numéros des comptes "detail" sont
+  /// complétés par des zéros à droite pour atteindre la longueur de compte
+  /// configurée pour le fichier.
+  static Future<void> _seedPlanComptableFromAsset(
+    Database db, {
+    int longueurCompteGeneral = 7,
+  }) async {
+    const assetPath = 'lib/utils/PLAN_SYCEBNL Excel_Version actualise.xlsx';
+    final data = await rootBundle.load(assetPath);
+    final bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    final excel = Excel.decodeBytes(bytes);
+    final sheet = excel.sheets.values.first;
+
+    final codes = <String>[];
+    final labels = <String, String>{};
+
+    for (final row in sheet.rows) {
+      int codeCol = -1;
+      for (int c = 0; c < row.length && c <= 2; c++) {
+        final v = row[c]?.value;
+        if (v != null && int.tryParse(v.toString().trim()) != null) {
+          codeCol = c;
+          break;
+        }
+      }
+      if (codeCol == -1 || codeCol + 1 >= row.length) continue;
+
+      final code = row[codeCol]!.value.toString().trim();
+      final label = row[codeCol + 1]?.value?.toString().trim() ?? '';
+      if (code.isEmpty || label.isEmpty) continue;
+
+      codes.add(code);
+      labels[code] = label;
+    }
+
+    final now = DateTime.now().toIso8601String();
+    for (final code in codes) {
+      final isTotal = code.length == 2 ||
+          codes.any((other) => other != code && other.startsWith(code));
+      final nature = calculateNatureFromNumeroCompte(code);
+      final liaisonTiers = code.startsWith('40') || code.startsWith('41');
+      final storedNumero = !isTotal && code.length < longueurCompteGeneral
+          ? code.padRight(longueurCompteGeneral, '0')
+          : code;
+
+      await db.insert(
+        'compte',
+        {
+          'numero_compte': storedNumero,
+          'intitule': labels[code],
+          'type': isTotal ? 'total' : 'detail',
+          'nature': nature?.toDbString() ?? 'bilan_ressources_durables',
+          'liaison_tiers': liaisonTiers ? 1 : 0,
+          'description': null,
+          'is_active': 1,
+          'created_at': now,
+          'updated_at': now,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
   }
 
   /// Créer toutes les tables

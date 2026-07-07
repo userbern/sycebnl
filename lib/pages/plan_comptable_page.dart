@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/compte.dart';
+import '../models/user_session.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
 import '../services/import_service.dart';
 
 class PlanComptablePage extends StatefulWidget {
-  const PlanComptablePage({super.key});
+  final UserSession? userSession;
+
+  const PlanComptablePage({super.key, this.userSession});
 
   @override
   State<PlanComptablePage> createState() => _PlanComptablePageState();
@@ -23,6 +26,14 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
   // Pagination
   int _itemsPerPage = 15;
   int _currentPage = 1;
+
+  // Permissions
+  bool get _canCreate =>
+      widget.userSession == null ? true : widget.userSession!.canCreate('plan_comptable');
+  bool get _canModify =>
+      widget.userSession == null ? true : widget.userSession!.canModify('plan_comptable');
+  bool get _canDelete =>
+      widget.userSession == null ? true : widget.userSession!.canDelete('plan_comptable');
 
   @override
   void initState() {
@@ -258,6 +269,9 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                     event.logicalKey == LogicalKeyboardKey.enter &&
                     !isEdit) {
                   addAccount();
+                } else if (event is KeyDownEvent &&
+                    event.logicalKey == LogicalKeyboardKey.escape) {
+                  Navigator.of(context).pop();
                 }
               },
               child: AlertDialog(
@@ -293,6 +307,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                   isRequired: true,
                                   keyboardType: TextInputType.number,
                                   enabled: !isEdit,
+                                  autofocus: !isEdit,
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
                                       return 'Champ requis';
@@ -712,12 +727,14 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
     int maxLines = 1,
     bool isRequired = false,
     bool enabled = true,
+    bool autofocus = false,
     String? Function(String?)? validator,
     void Function(String)? onChanged,
   }) {
     return TextFormField(
       controller: controller,
       enabled: enabled,
+      autofocus: autofocus,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
@@ -848,14 +865,14 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                IconButton(
+                if (_canModify) IconButton(
                   icon: Icon(Icons.edit, size: 16, color: Colors.blue.shade700),
                   onPressed: () => _showCompteDialog(compte: compte),
                   tooltip: 'Modifier',
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 ),
-                IconButton(
+                if (_canDelete) IconButton(
                   icon: Icon(Icons.delete, size: 16, color: Colors.red.shade700),
                   onPressed: () => _deleteCompte(compte),
                   tooltip: 'Supprimer',
@@ -877,7 +894,8 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyN &&
-            HardwareKeyboard.instance.isControlPressed) {
+            HardwareKeyboard.instance.isControlPressed &&
+            _canCreate) {
           _showCompteDialog();
           return KeyEventResult.handled;
         }
@@ -1068,19 +1086,20 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
           ),
         ),
         // Bouton "Nouveau compte" mis en valeur
-        ElevatedButton.icon(
-          onPressed: () => _showCompteDialog(),
-          icon: const Icon(Icons.add, size: 18, color: Colors.white),
-          label: const Text('Nouveau compte'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue.shade700,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            elevation: 3,
-            shadowColor: Colors.blue.shade200,
+        if (_canCreate)
+          ElevatedButton.icon(
+            onPressed: () => _showCompteDialog(),
+            icon: const Icon(Icons.add, size: 18, color: Colors.white),
+            label: const Text('Nouveau compte'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              elevation: 3,
+              shadowColor: Colors.blue.shade200,
+            ),
           ),
-        ),
       ],
     );
   }
@@ -1404,10 +1423,10 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                   final double colSpacing =
                       (availableWidth * 0.015).clamp(6, 32).toDouble();
 
-                  final double numWidth = availableWidth * 0.12;
+                  final double numWidth = availableWidth * 0.10;
                   final double actionsWidth = availableWidth * 0.09;
-                  final double typeWidth = availableWidth * 0.09;
-                  final double natureWidth = availableWidth * 0.14;
+                  final double typeWidth = availableWidth * 0.07;
+                  final double natureWidth = availableWidth * 0.22;
                   final double intituleWidth = (availableWidth -
                           (numWidth +
                               actionsWidth +
@@ -1449,7 +1468,6 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                       rows: _paginatedComptes.map((compte) {
                         final isTotal = compte.type == TypeCompte.total;
                         final color = _getNatureColor(compte.nature);
-                        final category = _getNatureCategoryShort(compte.nature);
 
                         return DataRow(
                           color: WidgetStateProperty.resolveWith<Color?>(
@@ -1537,7 +1555,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                 ),
                               ),
                             ),
-                            // Nature avec point coloré et catégorie courte
+                            // Nature avec point coloré et nom complet
                             DataCell(
                               Tooltip(
                                 message: compte.nature.toLabel(),
@@ -1557,7 +1575,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                       const SizedBox(width: 5),
                                       Flexible(
                                         child: Text(
-                                          category,
+                                          compte.nature.toLabel(),
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
                                             fontSize: 11,
@@ -1578,7 +1596,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Flexible(
+                                    if (_canModify) Flexible(
                                       child: IconButton(
                                         icon: const Icon(Icons.edit, size: 15),
                                         color: Colors.blue.shade700,
@@ -1592,7 +1610,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
                                         ),
                                       ),
                                     ),
-                                    Flexible(
+                                    if (_canDelete) Flexible(
                                       child: IconButton(
                                         icon: const Icon(Icons.delete, size: 15),
                                         color: Colors.red.shade700,

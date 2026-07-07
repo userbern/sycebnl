@@ -31,19 +31,14 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
   int _currentPage = 1;
 
   // Permissions
-  bool get _canCreate => _hasPermission('creation');
-
-  bool _hasPermission(String type) {
-    if (userSession == null) return true;
-    final permission = userSession!.permissions.firstWhere(
-      (p) => p['menu'] == 'parametrages' && p['sous_menu'] == 'liste_bailleurs',
-      orElse: () => <String, dynamic>{},
-    );
-    if (permission.isEmpty) return true;
-    return permission[type] == true;
-  }
-
   UserSession? get userSession => widget.userSession;
+
+  bool get _canCreate =>
+      userSession == null ? true : userSession!.canCreate('liste_bailleurs');
+  bool get _canModify =>
+      userSession == null ? true : userSession!.canModify('liste_bailleurs');
+  bool get _canDelete =>
+      userSession == null ? true : userSession!.canDelete('liste_bailleurs');
 
   @override
   void initState() {
@@ -503,8 +498,8 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                             DataCell(SizedBox(
                               width: actW,
                               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                IconButton(icon: const Icon(Icons.edit, size: 15), color: Colors.blue.shade700, onPressed: () => _showBailleurDialog(b), tooltip: 'Modifier', padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 24, minHeight: 24)),
-                                IconButton(icon: const Icon(Icons.delete, size: 15), color: Colors.red.shade700, onPressed: () => _deleteBailleur(b['id'].toString(), b['sigle'] ?? ''), tooltip: 'Supprimer', padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 24, minHeight: 24)),
+                                if (_canModify) IconButton(icon: const Icon(Icons.edit, size: 15), color: Colors.blue.shade700, onPressed: () => _showBailleurDialog(b), tooltip: 'Modifier', padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 24, minHeight: 24)),
+                                if (_canDelete) IconButton(icon: const Icon(Icons.delete, size: 15), color: Colors.red.shade700, onPressed: () => _deleteBailleur(b['id'].toString(), b['sigle'] ?? ''), tooltip: 'Supprimer', padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 24, minHeight: 24)),
                               ]),
                             )),
                           ],
@@ -717,6 +712,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                           // Sigle
                           TextFormField(
                             controller: sigleController,
+                            autofocus: !isEdit,
                             decoration: InputDecoration(
                               labelText: 'Sigle *',
                               prefixIcon: const Icon(Icons.label),

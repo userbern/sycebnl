@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/user_session.dart';
 
 class ListeExercicesPage extends StatelessWidget {
   final List<Map<String, dynamic>> exercices;
@@ -14,6 +15,7 @@ class ListeExercicesPage extends StatelessWidget {
   final Future<void> Function(int id) onCloture;
   final Future<List<Map<String, dynamic>>> Function(int id)
       onCheckPeriodesEquilibre;
+  final UserSession? userSession;
 
   const ListeExercicesPage({
     super.key,
@@ -24,7 +26,13 @@ class ListeExercicesPage extends StatelessWidget {
     required this.onEdit,
     required this.onCloture,
     required this.onCheckPeriodesEquilibre,
+    this.userSession,
   });
+
+  bool get _canCreate =>
+      userSession == null ? true : userSession!.canCreate('exercices');
+  bool get _canModify =>
+      userSession == null ? true : userSession!.canModify('exercices');
 
   String _fmt(String? iso) {
     if (iso == null || iso.isEmpty) return '-';
@@ -98,19 +106,20 @@ class ListeExercicesPage extends StatelessWidget {
                     ],
                   ),
                 ),
-                OutlinedButton.icon(
-                  onPressed: onCreateNew,
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Nouvel exercice'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.black87,
-                    side: BorderSide(color: Colors.grey.shade400),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                if (_canCreate)
+                  OutlinedButton.icon(
+                    onPressed: onCreateNew,
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Nouvel exercice'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.black87,
+                      side: BorderSide(color: Colors.grey.shade400),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -164,8 +173,9 @@ class ListeExercicesPage extends StatelessWidget {
                         dureeMois: duree,
                         moisEcoules: ecoules,
                         onSwitch: () => onSwitch(ex['id'] as int),
-                        onEdit: () => _showEditDialog(context, ex),
-                        onCloture: () => _showClotureDialog(context, ex),
+                        onEdit: _canModify ? () => _showEditDialog(context, ex) : () {},
+                        onCloture: _canModify ? () => _showClotureDialog(context, ex) : () {},
+                        canModify: _canModify,
                       );
                     },
                   ),
@@ -517,6 +527,7 @@ class _ExerciceCard extends StatelessWidget {
   final VoidCallback onSwitch;
   final VoidCallback onEdit;
   final VoidCallback onCloture;
+  final bool canModify;
 
   const _ExerciceCard({
     required this.ex,
@@ -527,6 +538,7 @@ class _ExerciceCard extends StatelessWidget {
     required this.onSwitch,
     required this.onEdit,
     required this.onCloture,
+    this.canModify = true,
   });
 
   bool get _isCloture =>
@@ -628,7 +640,7 @@ class _ExerciceCard extends StatelessWidget {
               child:
                   const Text('Activer', style: TextStyle(fontSize: 13)),
             ),
-          if (!_isCloture) ...[
+          if (!_isCloture && canModify) ...[
             const SizedBox(width: 8),
             OutlinedButton(
               onPressed: onCloture,
@@ -647,7 +659,7 @@ class _ExerciceCard extends StatelessWidget {
             ),
           ],
           const SizedBox(width: 8),
-          if (!_isCloture)
+          if (!_isCloture && canModify)
             InkWell(
               onTap: onEdit,
               borderRadius: BorderRadius.circular(6),

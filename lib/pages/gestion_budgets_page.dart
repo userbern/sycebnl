@@ -55,18 +55,12 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
   int get _totalPages => math.max(1, (_filteredBudgets.length / _itemsPerPage).ceil());
 
   // ── Permissions ───────────────────────────────────────────────────────────
-  bool get _canCreate => _hasPermission('creation');
-  bool get _canDelete => _hasPermission('suppression');
-
-  bool _hasPermission(String type) {
-    if (widget.userSession == null) return true;
-    final permission = widget.userSession!.permissions.firstWhere(
-      (p) => p['menu'] == 'parametrages' && p['sous_menu'] == 'gestion_budgets',
-      orElse: () => <String, dynamic>{},
-    );
-    if (permission.isEmpty) return true;
-    return permission[type] == true;
-  }
+  bool get _canCreate =>
+      widget.userSession == null ? true : widget.userSession!.canCreate('gestion_budgets');
+  bool get _canModify =>
+      widget.userSession == null ? true : widget.userSession!.canModify('gestion_budgets');
+  bool get _canDelete =>
+      widget.userSession == null ? true : widget.userSession!.canDelete('gestion_budgets');
 
   // ── Cycle de vie ──────────────────────────────────────────────────────────
   @override
@@ -1049,18 +1043,12 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
   bool _isLoadingLignes = false;
   final Set<int> _expandedLignesIds = {};
 
-  bool get _canCreate => _hasPermission('creation');
-  bool get _canDelete => _hasPermission('suppression');
-
-  bool _hasPermission(String type) {
-    if (widget.userSession == null) return true;
-    final permission = widget.userSession!.permissions.firstWhere(
-      (p) => p['menu'] == 'parametrages' && p['sous_menu'] == 'gestion_budgets',
-      orElse: () => <String, dynamic>{},
-    );
-    if (permission.isEmpty) return true;
-    return permission[type] == true;
-  }
+  bool get _canCreate =>
+      widget.userSession == null ? true : widget.userSession!.canCreate('gestion_budgets');
+  bool get _canModify =>
+      widget.userSession == null ? true : widget.userSession!.canModify('gestion_budgets');
+  bool get _canDelete =>
+      widget.userSession == null ? true : widget.userSession!.canDelete('gestion_budgets');
 
   @override
   void initState() {
@@ -1402,7 +1390,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
-                                if (_canCreate)
+                                if (_canModify)
                                   _buildActionButton(
                                     icon: Icons.edit,
                                     color: Colors.blue.shade400,
@@ -1603,7 +1591,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              if (_canCreate)
+                              if (_canModify)
                                 _buildActionButton(
                                   icon: Icons.edit,
                                   color: Colors.blue.shade400,
@@ -1766,7 +1754,7 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
                                         mainAxisAlignment:
                                             MainAxisAlignment.end,
                                         children: [
-                                          if (_canCreate)
+                                          if (_canModify)
                                             _buildActionButton(
                                               icon: Icons.edit,
                                               size: 16,
@@ -3015,6 +3003,7 @@ class __CreateBudgetDialogState extends State<_CreateBudgetDialog> {
           children: [
             DropdownButtonFormField<int>(
               value: selectedProjetId,
+              autofocus: true,
               hint: const Text('Sélectionner un projet'),
               items:
                   widget.projets

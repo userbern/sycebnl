@@ -1,0 +1,4 @@
+#Thu Jun 25 17:26:41 UTC 2026
+base.0=D\:\\SOFICOM\\sycebnl\\sycebnl_accounting\\android\\app\\build\\intermediates\\dex\\release\\minifyReleaseWithR8\\classes.dex
+path.0=classes.dex
+renamed.0=classes.dex

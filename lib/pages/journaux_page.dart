@@ -38,6 +38,17 @@ class _JournauxPageState extends State<JournauxPage> {
   int _itemsPerPage = 15;
   int _currentPage = 1;
 
+  // Permissions
+  bool get _canCreate => widget.userSession.isAdmin
+      ? true
+      : widget.userSession.canCreate('codes_journaux');
+  bool get _canModify => widget.userSession.isAdmin
+      ? true
+      : widget.userSession.canModify('codes_journaux');
+  bool get _canDelete => widget.userSession.isAdmin
+      ? true
+      : widget.userSession.canDelete('codes_journaux');
+
   @override
   void initState() {
     super.initState();
@@ -206,7 +217,8 @@ class _JournauxPageState extends State<JournauxPage> {
       onKeyEvent: (event) {
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyN &&
-            HardwareKeyboard.instance.isControlPressed) {
+            HardwareKeyboard.instance.isControlPressed &&
+            _canCreate) {
           _showJournalDialog(null);
         } else if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.escape) {
@@ -382,7 +394,7 @@ class _JournauxPageState extends State<JournauxPage> {
             textStyle: const TextStyle(fontSize: 13),
           ),
         ),
-        ElevatedButton.icon(
+        if (_canCreate) ElevatedButton.icon(
           onPressed: () => _showJournalDialog(null),
           icon: const Icon(Icons.add, size: 18, color: Colors.white),
           label: const Text('Nouveau journal'),
@@ -767,7 +779,7 @@ class _JournauxPageState extends State<JournauxPage> {
                             DataCell(SizedBox(
                               width: actionsWidth,
                               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                IconButton(
+                                if (_canModify) IconButton(
                                   icon: const Icon(Icons.edit, size: 15),
                                   color: Colors.blue.shade700,
                                   onPressed: () => _showJournalDialog(j),
@@ -775,7 +787,7 @@ class _JournauxPageState extends State<JournauxPage> {
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                                 ),
-                                IconButton(
+                                if (_canDelete) IconButton(
                                   icon: const Icon(Icons.delete, size: 15),
                                   color: Colors.red.shade700,
                                   onPressed: () => _deleteJournal(j.id, j.intitule),
@@ -1161,6 +1173,7 @@ class _JournalDialogState extends State<JournalDialog> {
                                 // Numéro de compte
                                 TextFormField(
                                   controller: numeroController,
+                                  autofocus: true,
                                   decoration: InputDecoration(
                                     labelText: 'N° Compte *',
                                     prefixIcon: const Icon(Icons.numbers),
@@ -1689,6 +1702,7 @@ class _JournalDialogState extends State<JournalDialog> {
                             Expanded(
                               child: TextFormField(
                                 controller: _codeController,
+                                autofocus: true,
                                 decoration: InputDecoration(
                                   labelText: 'Code *',
                                   prefixIcon: const Icon(Icons.code),

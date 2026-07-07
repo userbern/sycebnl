@@ -7,7 +7,16 @@ class PermissionsPage extends StatefulWidget {
   final bool showAppBar;
   final UserSession? userSession;
 
-  const PermissionsPage({super.key, this.showAppBar = true, this.userSession});
+  /// Incrémenté par la page parente pour déclencher l'ouverture automatique
+  /// du dialogue "Nouvel utilisateur" (raccourci Ctrl+N).
+  final int createUserTrigger;
+
+  const PermissionsPage({
+    super.key,
+    this.showAppBar = true,
+    this.userSession,
+    this.createUserTrigger = 0,
+  });
 
   @override
   State<PermissionsPage> createState() => _PermissionsPageState();
@@ -21,6 +30,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
   bool _isLoading = true;
   bool _isSaving = false;
   String? _error;
+  late int _lastCreateUserTrigger = widget.createUserTrigger;
 
   bool get _isAdmin => widget.userSession?.isAdmin == true;
   int? get _currentUserId => int.tryParse(widget.userSession?.id ?? '');
@@ -42,7 +52,24 @@ class _PermissionsPageState extends State<PermissionsPage> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadData().then((_) {
+      if (mounted && widget.createUserTrigger > 0 && _canManage) {
+        _showCreateUserDialog();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant PermissionsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.createUserTrigger != _lastCreateUserTrigger) {
+      _lastCreateUserTrigger = widget.createUserTrigger;
+      if (_canManage) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _showCreateUserDialog();
+        });
+      }
+    }
   }
 
   Future<void> _loadData() async {
@@ -270,7 +297,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
             child: Form(
               key: formKey,
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                _formField(prenomCtrl, 'Prénom'),
+                _formField(prenomCtrl, 'Prénom', autofocus: true),
                 const SizedBox(height: 12),
                 _formField(nomCtrl, 'Nom'),
                 const SizedBox(height: 12),
@@ -697,10 +724,11 @@ class _PermissionsPageState extends State<PermissionsPage> {
   }
 
   TextFormField _formField(TextEditingController ctrl, String label,
-      {bool obscure = false, bool required = true}) {
+      {bool obscure = false, bool required = true, bool autofocus = false}) {
     return TextFormField(
       controller: ctrl,
       obscureText: obscure,
+      autofocus: autofocus,
       decoration: InputDecoration(
         labelText: label,
         border: const OutlineInputBorder(),
