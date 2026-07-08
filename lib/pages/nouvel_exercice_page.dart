@@ -18,6 +18,7 @@ class NouvelExercicePage extends StatefulWidget {
 
 class _NouvelExercicePageState extends State<NouvelExercicePage> {
   final _anneeController = TextEditingController();
+  final _anneeFocusNode = FocusNode();
   bool isLoading = false;
   bool reportSoldes = true;
   List<Map<String, dynamic>> _exercices = [];
@@ -41,11 +42,18 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     selectedFinMonth = 12;
     selectedFinYear = now.year;
     _loadExercices();
+    // Force le focus dès l'arrivée sur la page, sinon le champ ne réagit
+    // pas instantanément au clavier (le focus est resté sur le widget
+    // précédent, ex: le bouton cliqué pour naviguer jusqu'ici).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _anneeFocusNode.requestFocus();
+    });
   }
 
   @override
   void dispose() {
     _anneeController.dispose();
+    _anneeFocusNode.dispose();
     super.dispose();
   }
 
@@ -697,7 +705,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
         const SizedBox(height: 6),
         TextField(
           controller: _anneeController,
-          autofocus: true,
+          focusNode: _anneeFocusNode,
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             hintText: 'Ex : 2025, EX-2025, AN2025…',

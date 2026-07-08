@@ -45,6 +45,12 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
     super.initState();
     _loadData();
     _focusNode = FocusNode();
+    // Force le focus dès l'arrivée sur la page, sinon le raccourci Ctrl+N
+    // ne réagit pas tant que le focus est resté sur le widget précédent
+    // (ex: l'élément de menu cliqué pour naviguer jusqu'ici).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
   }
 
   @override
@@ -1141,7 +1147,6 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
   Widget build(BuildContext context) {
     return KeyboardListener(
       focusNode: _focusNode,
-      autofocus: true,
       onKeyEvent: (event) {
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyN &&

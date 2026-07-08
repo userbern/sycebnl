@@ -36,12 +36,26 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
   bool get _canDelete =>
       widget.userSession == null ? true : widget.userSession!.canDelete('plan_comptable');
 
+  final FocusNode _pageFocusNode = FocusNode();
+
   @override
   void initState() {
     super.initState();
     _loadComptes();
     _loadLongueurCompteGeneral();
     _loadEntite();
+    // Force le focus sur la page dès son arrivée, sinon le raccourci Ctrl+N
+    // ne réagit pas tant que le focus est resté sur le widget précédent
+    // (ex: l'élément de menu cliqué pour naviguer jusqu'ici).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _pageFocusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageFocusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _loadEntite() async {
@@ -905,7 +919,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
   @override
   Widget build(BuildContext context) {
     return Focus(
-      autofocus: true,
+      focusNode: _pageFocusNode,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyN &&

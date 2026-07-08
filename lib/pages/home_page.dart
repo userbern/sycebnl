@@ -48,6 +48,7 @@ class _HomePageState extends State<HomePage> {
   int _journauxRefreshSeed = 0;
   int _selectionRefreshSeed = 0;
   bool _isSidebarCollapsed = false;
+  final List<int> _pageHistory = [];
   static const List<_QuickAccessItem> _quickAccessItems = [
     _QuickAccessItem(
       label: 'Plan comptable',
@@ -144,7 +145,7 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  void _showPage(int index) async {
+  void _showPage(int index, {bool recordHistory = true}) async {
     _saisieCompleter?.complete(false);
     _saisieCompleter = null;
 
@@ -174,10 +175,22 @@ class _HomePageState extends State<HomePage> {
     }
 
     setState(() {
+      if (recordHistory && index != _currentPageIndex) {
+        _pageHistory.add(_currentPageIndex);
+      }
       _currentPageIndex = index;
       _activeSaisiePeriode = null;
       _previousPageIndex = null;
     });
+  }
+
+  bool get _canGoBack =>
+      _pageHistory.isNotEmpty && _currentPageIndex != _saisiePageIndex;
+
+  void _goBack() {
+    if (_pageHistory.isEmpty) return;
+    final previous = _pageHistory.removeLast();
+    _showPage(previous, recordHistory: false);
   }
 
   void _toggleMenu(String menuName) {
@@ -676,7 +689,38 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           // Main content area
-          Expanded(child: _buildContentPage()),
+          Expanded(
+            child: Stack(
+              children: [
+                _buildContentPage(),
+                if (_canGoBack)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Tooltip(
+                      message: 'Retour à la page précédente',
+                      child: Material(
+                        color: Colors.white,
+                        shape: const CircleBorder(),
+                        elevation: 2,
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: _goBack,
+                          child: const Padding(
+                            padding: EdgeInsets.all(6),
+                            child: Icon(
+                              Icons.arrow_back,
+                              size: 18,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
         ),

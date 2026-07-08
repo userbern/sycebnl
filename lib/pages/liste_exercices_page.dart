@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/user_session.dart';
 
-class ListeExercicesPage extends StatelessWidget {
+class ListeExercicesPage extends StatefulWidget {
   final List<Map<String, dynamic>> exercices;
   final int? activeExerciceId;
   final Future<void> Function(int id) onSwitch;
@@ -29,10 +30,36 @@ class ListeExercicesPage extends StatelessWidget {
     this.userSession,
   });
 
-  bool get _canCreate =>
-      userSession == null ? true : userSession!.canCreate('exercices');
-  bool get _canModify =>
-      userSession == null ? true : userSession!.canModify('exercices');
+  @override
+  State<ListeExercicesPage> createState() => _ListeExercicesPageState();
+}
+
+class _ListeExercicesPageState extends State<ListeExercicesPage> {
+  final _focusNode = FocusNode();
+
+  bool get _canCreate => widget.userSession == null
+      ? true
+      : widget.userSession!.canCreate('exercices');
+  bool get _canModify => widget.userSession == null
+      ? true
+      : widget.userSession!.canModify('exercices');
+
+  @override
+  void initState() {
+    super.initState();
+    // Force le focus dès l'arrivée sur la page, sinon le raccourci Ctrl+N
+    // ne réagit pas tant que le focus est resté sur le widget précédent
+    // (ex: l'élément de menu cliqué pour naviguer jusqu'ici).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   String _fmt(String? iso) {
     if (iso == null || iso.isEmpty) return '-';
@@ -69,7 +96,17 @@ class ListeExercicesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KeyboardListener(
+      focusNode: _focusNode,
+      onKeyEvent: (event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.keyN &&
+            HardwareKeyboard.instance.isControlPressed &&
+            _canCreate) {
+          widget.onCreateNew();
+        }
+      },
+      child: Scaffold(
       backgroundColor: Colors.grey.shade100,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -99,7 +136,7 @@ class ListeExercicesPage extends StatelessWidget {
                             fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        '${exercices.length} exercice${exercices.length > 1 ? 's' : ''} enregistré${exercices.length > 1 ? 's' : ''}',
+                        '${widget.exercices.length} exercice${widget.exercices.length > 1 ? 's' : ''} enregistré${widget.exercices.length > 1 ? 's' : ''}',
                         style: TextStyle(
                             fontSize: 12, color: Colors.grey.shade500),
                       ),
@@ -108,7 +145,7 @@ class ListeExercicesPage extends StatelessWidget {
                 ),
                 if (_canCreate)
                   OutlinedButton.icon(
-                    onPressed: onCreateNew,
+                    onPressed: widget.onCreateNew,
                     icon: const Icon(Icons.add, size: 16),
                     label: const Text('Nouvel exercice'),
                     style: OutlinedButton.styleFrom(
@@ -125,7 +162,7 @@ class ListeExercicesPage extends StatelessWidget {
           ),
           const Divider(height: 1),
           Expanded(
-            child: exercices.isEmpty
+            child: widget.exercices.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -140,7 +177,7 @@ class ListeExercicesPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         ElevatedButton.icon(
-                          onPressed: onCreateNew,
+                          onPressed: widget.onCreateNew,
                           icon: const Icon(Icons.add),
                           label: const Text('Créer le premier exercice'),
                           style: ElevatedButton.styleFrom(
@@ -155,11 +192,11 @@ class ListeExercicesPage extends StatelessWidget {
                   )
                 : ListView.separated(
                     padding: const EdgeInsets.all(16),
-                    itemCount: exercices.length,
+                    itemCount: widget.exercices.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, i) {
-                      final ex = exercices[i];
-                      final isActive = ex['id'] == activeExerciceId;
+                      final ex = widget.exercices[i];
+                      final isActive = ex['id'] == widget.activeExerciceId;
                       final duree = _dureeMois(
                           ex['date_debut']?.toString(),
                           ex['date_fin']?.toString());
@@ -172,7 +209,7 @@ class ListeExercicesPage extends StatelessWidget {
                             '${_fmt(ex['date_debut']?.toString())} → ${_fmt(ex['date_fin']?.toString())}',
                         dureeMois: duree,
                         moisEcoules: ecoules,
-                        onSwitch: () => onSwitch(ex['id'] as int),
+                        onSwitch: () => widget.onSwitch(ex['id'] as int),
                         onEdit: _canModify ? () => _showEditDialog(context, ex) : () {},
                         onCloture: _canModify ? () => _showClotureDialog(context, ex) : () {},
                         canModify: _canModify,
@@ -181,6 +218,7 @@ class ListeExercicesPage extends StatelessWidget {
                   ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -194,7 +232,7 @@ class ListeExercicesPage extends StatelessWidget {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => FutureBuilder<List<Map<String, dynamic>>>(
-        future: onCheckPeriodesEquilibre(id),
+        future: widget.onCheckPeriodesEquilibre(id),
         builder: (ctx, snapshot) {
           final loading = !snapshot.hasData && !snapshot.hasError;
           final periodes = snapshot.data ?? [];
@@ -309,7 +347,7 @@ class ListeExercicesPage extends StatelessWidget {
     );
 
     if (confirm == true) {
-      await onCloture(id);
+      await widget.onCloture(id);
     }
   }
 
@@ -512,7 +550,7 @@ class ListeExercicesPage extends StatelessWidget {
           '$dYear-${dMonth.toString().padLeft(2, '0')}-${dDay.toString().padLeft(2, '0')}';
       final df =
           '$fYear-${fMonth.toString().padLeft(2, '0')}-${fDay.toString().padLeft(2, '0')}';
-      await onEdit(ex['id'] as int, codeCtrl.text.trim(), dd, df);
+      await widget.onEdit(ex['id'] as int, codeCtrl.text.trim(), dd, df);
     }
     codeCtrl.dispose();
   }

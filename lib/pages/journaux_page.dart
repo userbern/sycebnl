@@ -54,6 +54,12 @@ class _JournauxPageState extends State<JournauxPage> {
   void initState() {
     super.initState();
     _loadData();
+    // Force le focus dès l'arrivée sur la page, sinon le raccourci Ctrl+N
+    // ne réagit pas tant que le focus est resté sur le widget précédent
+    // (ex: l'élément de menu cliqué pour naviguer jusqu'ici).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
   }
 
   @override
@@ -216,7 +222,6 @@ class _JournauxPageState extends State<JournauxPage> {
   Widget build(BuildContext context) {
     return KeyboardListener(
       focusNode: _focusNode,
-      autofocus: true,
       onKeyEvent: (event) {
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyN &&
