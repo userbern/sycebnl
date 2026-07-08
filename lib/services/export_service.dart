@@ -4,7 +4,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:excel/excel.dart';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:path_provider/path_provider.dart';
+import 'package:file_picker/file_picker.dart';
 
 class ExportService {
   /// Génère et sauvegarde un PDF de la balance des résultats avec le même layout que l'interface
@@ -25,25 +25,14 @@ class ExportService {
         totals: totals,
       );
 
-      // Sauvegarder le PDF
-      final directory = await getApplicationDocumentsDirectory();
       final fileName =
           'balance_resultat_${DateTime.now().toString().split(' ')[0]}.pdf';
-      final filePath = '${directory.path}/$fileName';
-      final file = File(filePath);
-      await file.writeAsBytes(pdf);
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'PDF généré sur votre bureau ou Desktop : $fileName',
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      await _saveBytesWithPicker(
+        bytes: pdf,
+        suggestedFileName: fileName,
+        context: context,
+        label: 'PDF',
+      );
     } catch (e) {
       debugPrint('Erreur lors de la génération du PDF: $e');
       if (context.mounted) {
@@ -143,13 +132,13 @@ class ExportService {
     final pdf = pw.Document();
 
     pdf.addPage(
-      pw.Page(
+      pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
         margin: const pw.EdgeInsets.all(12),
+        maxPages: 2000,
+        footer: (context) => _pdfFooter(),
         build: (context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
+          return [
               // Titre
               pw.Center(
                 child: pw.Text(
@@ -269,8 +258,7 @@ class ExportService {
 
               // Tableau des comptes
               _buildBalanceTable(comptes),
-            ],
-          );
+          ];
         },
       ),
     );
@@ -821,48 +809,24 @@ class ExportService {
     BuildContext context,
     String title,
   ) async {
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      final fileName =
-          'balance_resultat_${DateTime.now().toString().split(' ')[0]}.pdf';
-      final filePath = '${directory.path}/$fileName';
-      final file = File(filePath);
-      await file.writeAsBytes(pdfData);
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('PDF téléchargé: $fileName\n$filePath'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-              label: 'OK',
-              textColor: Colors.white,
-              onPressed: () {},
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('Erreur lors de la sauvegarde du PDF: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    final fileName =
+        'balance_resultat_${DateTime.now().toString().split(' ')[0]}.pdf';
+    await _saveBytesWithPicker(
+      bytes: pdfData,
+      suggestedFileName: fileName,
+      context: context,
+      label: 'PDF',
+    );
   }
 
   /// Exporte la balance des résultats en vrai fichier Excel (.xlsx) formaté
-  static Future<File> generateExcel({
+  static Future<File?> generateExcel({
     required String title,
     required String entityName,
     required String periodInfo,
     required List<Map<String, dynamic>> comptes,
     required Map<String, dynamic>? totals,
+    required BuildContext context,
   }) async {
     try {
       final excel = Excel.createExcel();
@@ -1105,19 +1069,18 @@ class ExportService {
       sheet.setColumnWidth(6, 22);
       sheet.setColumnWidth(7, 22);
 
-      // Sauvegarder le fichier
-      final directory = await getApplicationDocumentsDirectory();
       final fileName =
           'balance_resultat_${DateTime.now().toString().split(' ')[0]}.xlsx';
-      final filePath = '${directory.path}/$fileName';
-      final file = File(filePath);
       final bytes = excel.encode();
       if (bytes == null) {
         throw Exception('Impossible de générer le fichier Excel');
       }
-      await file.writeAsBytes(bytes, flush: true);
-
-      return file;
+      return _saveBytesWithPicker(
+        bytes: Uint8List.fromList(bytes),
+        suggestedFileName: fileName,
+        context: context,
+        label: 'Excel',
+      );
     } catch (e) {
       debugPrint('Erreur lors de la génération du fichier Excel: $e');
       rethrow;
@@ -1130,18 +1093,20 @@ class ExportService {
   static Future<void> exportPlanComptablePDF({
     required List<Map<String, dynamic>> comptes,
     required BuildContext context,
+    String? entiteNom,
   }) async {
     try {
       final pdf = pw.Document();
 
       pdf.addPage(
-        pw.Page(
+        pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(12),
+          maxPages: 2000,
+          footer: (context) => _pdfFooter(),
           build: (context) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
+            return [
+                _pdfEntiteHeader(entiteNom),
                 // Titre
                 pw.Center(
                   child: pw.Text(
@@ -1250,30 +1215,19 @@ class ExportService {
                     }),
                   ],
                 ),
-              ],
-            );
+            ];
           },
         ),
       );
 
-      final directory = await _getExportDirectory();
       final fileName =
           'plan_comptable_${DateTime.now().toString().split(' ')[0]}.pdf';
-      final filePath = '${directory.path}/$fileName';
-      final file = File(filePath);
-      await file.writeAsBytes(await pdf.save());
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'PDF généré sur votre bureau ou Desktop : $fileName',
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      await _saveBytesWithPicker(
+        bytes: await pdf.save(),
+        suggestedFileName: fileName,
+        context: context,
+        label: 'PDF',
+      );
     } catch (e) {
       debugPrint('Erreur PDF: $e');
       if (context.mounted) {
@@ -1339,24 +1293,16 @@ class ExportService {
         row++;
       }
 
-      final directory = await _getExportDirectory();
       final fileName =
           'plan_comptable_${DateTime.now().toString().split(' ')[0]}.xlsx';
-      final filePath = '${directory.path}/$fileName';
-      final file = File(filePath);
       final bytes = excel.encode();
       if (bytes != null) {
-        await file.writeAsBytes(bytes);
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Excel généré sur votre bureau ou Desktop : $fileName'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
+        await _saveBytesWithPicker(
+          bytes: Uint8List.fromList(bytes),
+          suggestedFileName: fileName,
+          context: context,
+          label: 'Excel',
+        );
       }
     } catch (e) {
       debugPrint('Erreur Excel: $e');
@@ -1377,18 +1323,20 @@ class ExportService {
   static Future<void> exportTiersPDF({
     required List<Map<String, dynamic>> tiers,
     required BuildContext context,
+    String? entiteNom,
   }) async {
     try {
       final pdf = pw.Document();
 
       pdf.addPage(
-        pw.Page(
+        pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(12),
+          maxPages: 2000,
+          footer: (context) => _pdfFooter(),
           build: (context) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
+            return [
+                _pdfEntiteHeader(entiteNom),
                 pw.Center(
                   child: pw.Text(
                     'LISTE DES TIERS',
@@ -1493,30 +1441,19 @@ class ExportService {
                     }),
                   ],
                 ),
-              ],
-            );
+            ];
           },
         ),
       );
 
-      final directory = await _getExportDirectory();
       final fileName =
           'liste_tiers_${DateTime.now().toString().split(' ')[0]}.pdf';
-      final filePath = '${directory.path}/$fileName';
-      final file = File(filePath);
-      await file.writeAsBytes(await pdf.save());
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'PDF généré sur votre bureau ou Desktop : $fileName',
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      await _saveBytesWithPicker(
+        bytes: await pdf.save(),
+        suggestedFileName: fileName,
+        context: context,
+        label: 'PDF',
+      );
     } catch (e) {
       debugPrint('Erreur PDF: $e');
       if (context.mounted) {
@@ -1582,24 +1519,16 @@ class ExportService {
         row++;
       }
 
-      final directory = await _getExportDirectory();
       final fileName =
           'liste_tiers_${DateTime.now().toString().split(' ')[0]}.xlsx';
-      final filePath = '${directory.path}/$fileName';
-      final file = File(filePath);
       final bytes = excel.encode();
       if (bytes != null) {
-        await file.writeAsBytes(bytes);
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Excel généré sur votre bureau ou Desktop : $fileName'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
+        await _saveBytesWithPicker(
+          bytes: Uint8List.fromList(bytes),
+          suggestedFileName: fileName,
+          context: context,
+          label: 'Excel',
+        );
       }
     } catch (e) {
       debugPrint('Erreur Excel: $e');
@@ -1620,18 +1549,20 @@ class ExportService {
   static Future<void> exportBailleursListPDF({
     required List<Map<String, dynamic>> bailleurs,
     required BuildContext context,
+    String? entiteNom,
   }) async {
     try {
       final pdf = pw.Document();
 
       pdf.addPage(
-        pw.Page(
+        pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(12),
+          maxPages: 2000,
+          footer: (context) => _pdfFooter(),
           build: (context) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
+            return [
+                _pdfEntiteHeader(entiteNom),
                 pw.Center(
                   child: pw.Text(
                     'LISTE DES BAILLEURS',
@@ -1702,30 +1633,19 @@ class ExportService {
                     }),
                   ],
                 ),
-              ],
-            );
+            ];
           },
         ),
       );
 
-      final directory = await _getExportDirectory();
       final fileName =
           'liste_bailleurs_${DateTime.now().toString().split(' ')[0]}.pdf';
-      final filePath = '${directory.path}/$fileName';
-      final file = File(filePath);
-      await file.writeAsBytes(await pdf.save());
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'PDF généré sur votre bureau ou Desktop : $fileName',
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      await _saveBytesWithPicker(
+        bytes: await pdf.save(),
+        suggestedFileName: fileName,
+        context: context,
+        label: 'PDF',
+      );
     } catch (e) {
       debugPrint('Erreur PDF: $e');
       if (context.mounted) {
@@ -1789,24 +1709,16 @@ class ExportService {
         row++;
       }
 
-      final directory = await _getExportDirectory();
       final fileName =
           'liste_bailleurs_${DateTime.now().toString().split(' ')[0]}.xlsx';
-      final filePath = '${directory.path}/$fileName';
-      final file = File(filePath);
       final bytes = excel.encode();
       if (bytes != null) {
-        await file.writeAsBytes(bytes);
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Excel généré sur votre bureau ou Desktop : $fileName'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
+        await _saveBytesWithPicker(
+          bytes: Uint8List.fromList(bytes),
+          suggestedFileName: fileName,
+          context: context,
+          label: 'Excel',
+        );
       }
     } catch (e) {
       debugPrint('Erreur Excel: $e');
@@ -1827,18 +1739,20 @@ class ExportService {
   static Future<void> exportProjetsPDF({
     required List<Map<String, dynamic>> projets,
     required BuildContext context,
+    String? entiteNom,
   }) async {
     try {
       final pdf = pw.Document();
 
       pdf.addPage(
-        pw.Page(
+        pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(12),
+          maxPages: 2000,
+          footer: (context) => _pdfFooter(),
           build: (context) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
+            return [
+                _pdfEntiteHeader(entiteNom),
                 pw.Center(
                   child: pw.Text(
                     'LISTE DES PROJETS',
@@ -1926,30 +1840,19 @@ class ExportService {
                     }),
                   ],
                 ),
-              ],
-            );
+            ];
           },
         ),
       );
 
-      final directory = await _getExportDirectory();
       final fileName =
           'liste_projets_${DateTime.now().toString().split(' ')[0]}.pdf';
-      final filePath = '${directory.path}/$fileName';
-      final file = File(filePath);
-      await file.writeAsBytes(await pdf.save());
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'PDF généré sur votre bureau ou Desktop : $fileName',
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      await _saveBytesWithPicker(
+        bytes: await pdf.save(),
+        suggestedFileName: fileName,
+        context: context,
+        label: 'PDF',
+      );
     } catch (e) {
       debugPrint('Erreur PDF: $e');
       if (context.mounted) {
@@ -2014,24 +1917,16 @@ class ExportService {
         row++;
       }
 
-      final directory = await _getExportDirectory();
       final fileName =
           'liste_projets_${DateTime.now().toString().split(' ')[0]}.xlsx';
-      final filePath = '${directory.path}/$fileName';
-      final file = File(filePath);
       final bytes = excel.encode();
       if (bytes != null) {
-        await file.writeAsBytes(bytes);
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Excel généré sur votre bureau ou Desktop : $fileName'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
+        await _saveBytesWithPicker(
+          bytes: Uint8List.fromList(bytes),
+          suggestedFileName: fileName,
+          context: context,
+          label: 'Excel',
+        );
       }
     } catch (e) {
       debugPrint('Erreur Excel: $e');
@@ -2053,6 +1948,7 @@ class ExportService {
     DateTime? dateDebut,
     DateTime? dateFin,
     required BuildContext context,
+    String? entiteNom,
   }) async {
     try {
       final pdf = pw.Document();
@@ -2076,8 +1972,11 @@ class ExportService {
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4.landscape,
           margin: const pw.EdgeInsets.all(16),
+          maxPages: 2000,
+          footer: (context) => _pdfFooter(),
           build: (context) {
             return [
+              _pdfEntiteHeader(entiteNom),
               pw.Text(
                 'Interrogation de compte',
                 style: pw.TextStyle(
@@ -2144,20 +2043,14 @@ class ExportService {
         ),
       );
 
-      final directory = await _getExportDirectory();
       final fileName =
           'interrogation_compte_${numeroCompte}_${DateTime.now().toString().split(' ').first}.pdf';
-      final file = File('${directory.path}/$fileName');
-      await file.writeAsBytes(await pdf.save());
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('PDF généré sur votre bureau ou Desktop : $fileName'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      await _saveBytesWithPicker(
+        bytes: await pdf.save(),
+        suggestedFileName: fileName,
+        context: context,
+        label: 'PDF',
+      );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2289,24 +2182,18 @@ class ExportService {
       sheet.setColumnWidth(3, 18);
       sheet.setColumnWidth(4, 18);
 
-      final directory = await _getExportDirectory();
       final fileName =
           'interrogation_compte_${numeroCompte}_${DateTime.now().toString().split(' ').first}.xlsx';
-      final file = File('${directory.path}/$fileName');
       final bytes = excel.encode();
       if (bytes == null) {
         throw Exception('Impossible de generer le fichier Excel');
       }
-      await file.writeAsBytes(bytes, flush: true);
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Excel généré sur votre bureau ou Desktop : $fileName'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      await _saveBytesWithPicker(
+        bytes: Uint8List.fromList(bytes),
+        suggestedFileName: fileName,
+        context: context,
+        label: 'Excel',
+      );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2335,6 +2222,8 @@ class ExportService {
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4.landscape,
           margin: const pw.EdgeInsets.all(14),
+          maxPages: 2000,
+          footer: (context) => _pdfFooter(),
           build:
               (context) => [
                 pw.Center(
@@ -2468,20 +2357,14 @@ class ExportService {
         ),
       );
 
-      final directory = await _getExportDirectory();
       final fileName =
           'grand_livre_${DateTime.now().toString().split(' ').first}.pdf';
-      final file = File('${directory.path}/$fileName');
-      await file.writeAsBytes(await pdf.save());
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('PDF genere sur votre Bureau : $fileName'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      await _saveBytesWithPicker(
+        bytes: await pdf.save(),
+        suggestedFileName: fileName,
+        context: context,
+        label: 'PDF',
+      );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2635,24 +2518,18 @@ class ExportService {
         sheet.setColumnWidth(6, 16);
       }
 
-      final directory = await _getExportDirectory();
       final fileName =
           'grand_livre_${DateTime.now().toString().split(' ').first}.xlsx';
-      final file = File('${directory.path}/$fileName');
       final bytes = excel.encode();
       if (bytes == null) {
         throw Exception('Impossible de generer le fichier Excel');
       }
-      await file.writeAsBytes(bytes, flush: true);
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Excel genere sur votre Bureau : $fileName'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      await _saveBytesWithPicker(
+        bytes: Uint8List.fromList(bytes),
+        suggestedFileName: fileName,
+        context: context,
+        label: 'Excel',
+      );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2753,25 +2630,88 @@ class ExportService {
     );
   }
 
-  static Future<Directory> _getExportDirectory() async {
-    if (Platform.isWindows) {
-      final userProfile = Platform.environment['USERPROFILE'];
-      if (userProfile != null && userProfile.isNotEmpty) {
-        final desktop = Directory('$userProfile\\Desktop');
-        // Créer le dossier s'il n'existe pas
-        if (!await desktop.exists()) {
-          await desktop.create(recursive: true);
-        }
-        return desktop;
-      }
+  /// En-tête simple affichant la dénomination sociale en haut d'un PDF.
+  static pw.Widget _pdfEntiteHeader(String? entiteNom) {
+    if (entiteNom == null || entiteNom.isEmpty) {
+      return pw.SizedBox();
     }
-
-    // Sur les autres plateformes, essayer de créer/retourner le Bureau
-    // Cela assure que tous les fichiers sont enregistrés sur le Bureau uniquement
-    throw Exception(
-      'Les fichiers doivent être enregistrés sur le Bureau. '
-      'Plateforme non supportée ou USERPROFILE non disponible.',
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          'Dénomination sociale : $entiteNom',
+          style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 4),
+      ],
     );
+  }
+
+  /// Pied de page commun affiché en bas de chaque PDF exporté.
+  static pw.Widget _pdfFooter() {
+    return pw.Column(
+      mainAxisSize: pw.MainAxisSize.min,
+      children: [
+        pw.SizedBox(height: 12),
+        pw.Divider(color: PdfColors.grey400, thickness: 0.5),
+        pw.Center(
+          child: pw.Text(
+            'Imprimé depuis l\'application SYCEBNL ACCOUNTING',
+            style: pw.TextStyle(
+              fontSize: 8,
+              color: PdfColors.grey600,
+              fontStyle: pw.FontStyle.italic,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Demande à l'utilisateur où enregistrer un fichier puis écrit les octets fournis.
+  /// Retourne le fichier créé, ou `null` si l'utilisateur a annulé.
+  static Future<File?> _saveBytesWithPicker({
+    required Uint8List bytes,
+    required String suggestedFileName,
+    required BuildContext context,
+    required String label,
+  }) async {
+    try {
+      final path = await FilePicker.platform.saveFile(
+        dialogTitle: 'Enregistrer le fichier $label',
+        fileName: suggestedFileName,
+      );
+
+      if (path == null) {
+        return null;
+      }
+
+      final file = File(path);
+      await file.writeAsBytes(bytes, flush: true);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$label enregistré : ${file.path}'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+
+      return file;
+    } catch (e) {
+      debugPrint('Erreur lors de l\'enregistrement du fichier: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return null;
+    }
   }
 
   // ==================== EXPORT CODES JOURNAUX ====================
@@ -2780,18 +2720,20 @@ class ExportService {
   static Future<void> exportJournauxPDF({
     required List<Map<String, dynamic>> journaux,
     required BuildContext context,
+    String? entiteNom,
   }) async {
     try {
       final pdf = pw.Document();
 
       pdf.addPage(
-        pw.Page(
+        pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(12),
+          maxPages: 2000,
+          footer: (context) => _pdfFooter(),
           build: (context) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
+            return [
+                _pdfEntiteHeader(entiteNom),
                 pw.Center(
                   child: pw.Text(
                     'CODES JOURNAUX',
@@ -2841,26 +2783,18 @@ class ExportService {
                     )),
                   ],
                 ),
-              ],
-            );
+            ];
           },
         ),
       );
 
-      final directory = await _getExportDirectory();
       final fileName = 'codes_journaux_${DateTime.now().toString().split(' ')[0]}.pdf';
-      final file = File('${directory.path}/$fileName');
-      await file.writeAsBytes(await pdf.save());
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('PDF généré sur votre bureau : $fileName'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      await _saveBytesWithPicker(
+        bytes: await pdf.save(),
+        suggestedFileName: fileName,
+        context: context,
+        label: 'PDF',
+      );
     } catch (e) {
       debugPrint('Erreur PDF journaux: $e');
       if (context.mounted) {
@@ -2924,21 +2858,15 @@ class ExportService {
       sheet.setColumnWidth(3, 22);
       sheet.setColumnWidth(4, 18);
 
-      final directory = await _getExportDirectory();
       final fileName = 'codes_journaux_${DateTime.now().toString().split(' ')[0]}.xlsx';
-      final file = File('${directory.path}/$fileName');
       final bytes = excel.encode();
       if (bytes != null) {
-        await file.writeAsBytes(bytes);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Excel généré sur votre bureau : $fileName'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
+        await _saveBytesWithPicker(
+          bytes: Uint8List.fromList(bytes),
+          suggestedFileName: fileName,
+          context: context,
+          label: 'Excel',
+        );
       }
     } catch (e) {
       debugPrint('Erreur Excel journaux: $e');

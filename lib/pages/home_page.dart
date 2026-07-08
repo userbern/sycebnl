@@ -451,8 +451,9 @@ class _HomePageState extends State<HomePage> {
 
     return CallbackShortcuts(
       bindings: {
-        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyN):
-            _openCreateUserShortcut,
+        if (_currentPageIndex == 2)
+          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyN):
+              _openCreateUserShortcut,
       },
       child: Focus(
         autofocus: true,

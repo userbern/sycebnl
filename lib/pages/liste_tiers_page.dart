@@ -24,6 +24,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
   String _searchQuery = '';
   TypeTiers? _selectedType;
   String _sortBy = 'numero';
+  String? _entiteNom;
 
   // Pagination
   int _itemsPerPage = 15;
@@ -100,9 +101,11 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
     try {
       final tiers = await DatabaseService.getAllTiers();
       final comptes = await DatabaseService.getAllComptes();
+      final entite = await DatabaseService.getEntite();
       setState(() {
         _tiers = tiers;
         _comptes = comptes;
+        _entiteNom = entite?['denomination_sociale'] as String?;
         _isLoading = false;
         _currentPage = 1;
       });
@@ -150,10 +153,6 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
         return TypeTiers.client;
       case '40':
         return TypeTiers.fournisseur;
-      case '52':
-        return TypeTiers.banque;
-      case '57':
-        return TypeTiers.caisse;
       case '47':
         return TypeTiers.autre;
       case '42':
@@ -172,10 +171,6 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
         return const Color(0xFFC62828); // Rouge
       case TypeTiers.salarie:
         return const Color(0xFFE65100); // Orange
-      case TypeTiers.banque:
-        return const Color(0xFF00695C); // Teal
-      case TypeTiers.caisse:
-        return const Color(0xFF2E7D32); // Vert
       case TypeTiers.autre:
         return const Color(0xFF546E7A); // Gris bleuté
     }
@@ -455,7 +450,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                           }
                         }
                       },
-                      icon: const Icon(Icons.add),
+                      icon: const Icon(Icons.add, color: Colors.white),
                       label: const Text('Ajouter et continuer'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
@@ -519,7 +514,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                         }
                       }
                     },
-                    icon: Icon(isEdit ? Icons.save : Icons.check),
+                    icon: Icon(isEdit ? Icons.save : Icons.check, color: Colors.white),
                     label: Text(isEdit ? 'Enregistrer' : 'Ajouter'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue.shade700,
@@ -1295,7 +1290,11 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
               'type': t.type.toLabel(),
               'nif': t.nif ?? '',
             }).toList();
-            ExportService.exportTiersPDF(tiers: tiersList, context: context);
+            ExportService.exportTiersPDF(
+              tiers: tiersList,
+              context: context,
+              entiteNom: _entiteNom,
+            );
           },
           icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
           label: const Text('PDF'),
@@ -1580,8 +1579,6 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
       ('Client', const Color(0xFF1565C0)),
       ('Fournisseur', const Color(0xFFC62828)),
       ('Salarié', const Color(0xFFE65100)),
-      ('Banque', const Color(0xFF00695C)),
-      ('Caisse', const Color(0xFF2E7D32)),
       ('Autre', const Color(0xFF546E7A)),
     ];
     return Row(

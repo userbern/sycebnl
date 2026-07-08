@@ -34,6 +34,8 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
 
   // Formulaire sécurité
   bool _usePassword = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   final _loginController = TextEditingController(text: 'admin');
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -824,13 +826,19 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                 decoration: InputDecoration(
                   labelText: 'Mot de passe',
                   prefixIcon: const Icon(Icons.lock),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                    ),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   filled: true,
                   fillColor: Colors.grey.shade50,
                 ),
-                obscureText: true,
+                obscureText: _obscurePassword,
               ),
               const SizedBox(height: 12),
               TextField(
@@ -843,14 +851,27 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                   ),
                   filled: true,
                   fillColor: Colors.grey.shade50,
-                  suffixIcon:
-                      _passwordController.text ==
-                                  _confirmPasswordController.text &&
-                              _passwordController.text.isNotEmpty
-                          ? const Icon(Icons.check_circle, color: Colors.green)
-                          : null,
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_passwordController.text ==
+                              _confirmPasswordController.text &&
+                          _passwordController.text.isNotEmpty)
+                        const Icon(Icons.check_circle, color: Colors.green),
+                      IconButton(
+                        icon: Icon(
+                          _obscureConfirmPassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                obscureText: true,
+                obscureText: _obscureConfirmPassword,
               ),
             ],
           ],

@@ -1080,23 +1080,15 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
 
   Future<void> _exportToExcel() async {
     try {
-      final file = await ExportService.generateExcel(
+      await ExportService.generateExcel(
         title: 'BALANCE DE VERIFICATION',
         entityName: _entite?['denomination_sociale'] ?? 'Non spécifiée',
         periodInfo:
             'Période: ${widget.dateDebut.toString().split(' ')[0]} au ${widget.dateFin.toString().split(' ')[0]}',
         comptes: _comptes,
         totals: null,
+        context: context,
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Fichier Excel créé: ${file.path}'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

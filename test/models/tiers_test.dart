@@ -6,7 +6,6 @@ void main() {
     test('converts tier types to labels and db strings', () {
       expect(TypeTiers.client.toDbString(), 'client');
       expect(TypeTiers.salarie.toDbString(), 'salarié');
-      expect(TypeTiers.banque.toLabel(), 'Banque');
       expect(stringToTypeTiers('autre'), TypeTiers.autre);
       expect(stringToTypeTiers('unknown'), TypeTiers.client);
     });

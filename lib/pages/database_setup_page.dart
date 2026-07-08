@@ -5,6 +5,7 @@ import 'package:path/path.dart' as path;
 import 'dart:io';
 import '../services/database_service.dart';
 import 'login_page.dart';
+import 'home_page.dart';
 
 class DatabaseSetupPage extends StatefulWidget {
   const DatabaseSetupPage({super.key});
@@ -223,9 +224,16 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
         ),
       );
 
+      // Fichier sans utilisateur (aucun login/mot de passe admin renseigné) :
+      // pas de connexion possible, on ouvre directement en mode bootstrap.
+      final requiresPassword = await DatabaseService.requiresPassword(dbPath);
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const LoginPage()),
+        MaterialPageRoute(
+          builder: (context) =>
+              requiresPassword ? const LoginPage() : const HomePage(),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -255,10 +263,15 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
     try {
       await DatabaseService.connectToDatabase(_databasePath!);
 
+      final requiresPassword =
+          await DatabaseService.requiresPassword(_databasePath!);
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const LoginPage()),
+        MaterialPageRoute(
+          builder: (context) =>
+              requiresPassword ? const LoginPage() : const HomePage(),
+        ),
       );
     } catch (e) {
       if (!mounted) return;

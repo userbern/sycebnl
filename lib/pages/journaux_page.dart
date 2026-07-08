@@ -33,6 +33,7 @@ class _JournauxPageState extends State<JournauxPage> {
   String searchQuery = '';
   String? _selectedType;
   String _filterStatus = 'actifs';
+  String? _entiteNom;
 
   // Pagination
   int _itemsPerPage = 15;
@@ -65,10 +66,12 @@ class _JournauxPageState extends State<JournauxPage> {
     try {
       final result = await AuthService.getJournaux();
       final comptesList = await db_service.DatabaseService.getAllComptes();
+      final entite = await db_service.DatabaseService.getEntite();
       if (!mounted) return;
       setState(() {
         journaux = result;
         comptes = comptesList;
+        _entiteNom = entite?['denomination_sociale'] as String?;
         isLoading = false;
       });
     } catch (e) {
@@ -363,7 +366,11 @@ class _JournauxPageState extends State<JournauxPage> {
               'compteTresorerie': j.compteTresorerie ?? '',
               'saisieAnalytique': j.saisieAnalytique,
             }).toList();
-            ExportService.exportJournauxPDF(journaux: data, context: context);
+            ExportService.exportJournauxPDF(
+              journaux: data,
+              context: context,
+              entiteNom: _entiteNom,
+            );
           },
           icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
           label: const Text('PDF'),

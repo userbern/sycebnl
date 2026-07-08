@@ -1,5 +1,5 @@
 /// Types de tiers comptable
-enum TypeTiers { client, fournisseur, salarie, banque, caisse, autre }
+enum TypeTiers { client, fournisseur, salarie, autre }
 
 /// Extension pour convertir enum en string
 extension TypeTiersExtension on TypeTiers {
@@ -11,10 +11,6 @@ extension TypeTiersExtension on TypeTiers {
         return 'fournisseur';
       case TypeTiers.salarie:
         return 'salarié';
-      case TypeTiers.banque:
-        return 'banque';
-      case TypeTiers.caisse:
-        return 'caisse';
       case TypeTiers.autre:
         return 'autre';
     }
@@ -28,10 +24,6 @@ extension TypeTiersExtension on TypeTiers {
         return 'Fournisseurs';
       case TypeTiers.salarie:
         return 'Salarié';
-      case TypeTiers.banque:
-        return 'Banque';
-      case TypeTiers.caisse:
-        return 'Caisse';
       case TypeTiers.autre:
         return 'Autres';
     }
@@ -47,10 +39,6 @@ TypeTiers stringToTypeTiers(String value) {
       return TypeTiers.fournisseur;
     case 'salarié':
       return TypeTiers.salarie;
-    case 'banque':
-      return TypeTiers.banque;
-    case 'caisse':
-      return TypeTiers.caisse;
     case 'autre':
       return TypeTiers.autre;
     default:

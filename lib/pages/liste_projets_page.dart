@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/user_session.dart';
 import '../services/auth_service.dart';
+import '../services/database_service.dart';
 import '../services/export_service.dart';
 
 class ListeProjetsPage extends StatefulWidget {
@@ -23,6 +24,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
   String _sortBy = 'code';
   String _filterStatus = 'actifs';
   late FocusNode _focusNode;
+  String? _entiteNom;
 
   int _itemsPerPage = 15;
   int _currentPage = 1;
@@ -42,6 +44,20 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
       if (mounted) _focusNode.requestFocus();
     });
     _loadData();
+    _loadEntite();
+  }
+
+  Future<void> _loadEntite() async {
+    try {
+      final entite = await DatabaseService.getEntite();
+      if (mounted) {
+        setState(() {
+          _entiteNom = entite?['denomination_sociale'] as String?;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur chargement entité: $e');
+    }
   }
 
   @override
@@ -343,7 +359,11 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
               'designation': p['designation']?.toString() ?? '',
               'bailleur': p['bailleur']?.toString() ?? '',
             }).toList();
-            ExportService.exportProjetsPDF(projets: data, context: context);
+            ExportService.exportProjetsPDF(
+              projets: data,
+              context: context,
+              entiteNom: _entiteNom,
+            );
           },
           icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
           label: const Text('PDF'),

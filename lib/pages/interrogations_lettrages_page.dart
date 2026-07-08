@@ -51,6 +51,7 @@ class _InterrogationsLettragesPageState
   String? _lettrageMessage;
   bool isLoadingLettrage = false;
   String? selectedMode = 'manuel';
+  String? _entiteNom;
 
   @override
   void initState() {
@@ -61,6 +62,7 @@ class _InterrogationsLettragesPageState
     );
     _numeroCompteLettrageController.addListener(_handleLettrageCompteChange);
     _loadCompteSuggestions();
+    _loadEntite();
     // If opened with a prefilled account, set the controllers
     if (widget.initialCompte != null && widget.initialCompte!.isNotEmpty) {
       _numeroCompteInterrogController.text = widget.initialCompte!;
@@ -179,6 +181,19 @@ class _InterrogationsLettragesPageState
     });
   }
 
+  Future<void> _loadEntite() async {
+    try {
+      final entite = await DatabaseService.getEntite();
+      if (mounted) {
+        setState(() {
+          _entiteNom = entite?['denomination_sociale'] as String?;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur chargement entité: $e');
+    }
+  }
+
   Future<void> _loadCompteSuggestions() async {
     try {
       await DatabaseService.ensureDatabaseOpen();
@@ -236,6 +251,7 @@ class _InterrogationsLettragesPageState
       dateDebut: _dateDebutInterrog,
       dateFin: _dateFinInterrog,
       context: context,
+      entiteNom: _entiteNom,
     );
   }
 

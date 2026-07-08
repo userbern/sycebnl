@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/user_session.dart';
 import '../services/auth_service.dart';
+import '../services/database_service.dart';
 import '../services/export_service.dart';
 
 class ListeBailleursPage extends StatefulWidget {
@@ -26,6 +27,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
   String _sortBy = 'sigle'; // 'sigle' ou 'designation'
   String _filterStatus = 'actifs'; // 'actifs', 'inactifs', 'tous'
   late FocusNode _focusNode;
+  String? _entiteNom;
 
   int _itemsPerPage = 15;
   int _currentPage = 1;
@@ -48,6 +50,20 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
       if (mounted) _focusNode.requestFocus();
     });
     _loadBailleurs();
+    _loadEntite();
+  }
+
+  Future<void> _loadEntite() async {
+    try {
+      final entite = await DatabaseService.getEntite();
+      if (mounted) {
+        setState(() {
+          _entiteNom = entite?['denomination_sociale'] as String?;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur chargement entité: $e');
+    }
   }
 
   @override
@@ -302,7 +318,11 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
       spacing: 8, runSpacing: 8, alignment: WrapAlignment.end,
       children: [
         ElevatedButton.icon(
-          onPressed: () => ExportService.exportBailleursListPDF(bailleurs: _filteredBailleurs, context: context),
+          onPressed: () => ExportService.exportBailleursListPDF(
+            bailleurs: _filteredBailleurs,
+            context: context,
+            entiteNom: _entiteNom,
+          ),
           icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
           label: const Text('PDF'),
           style: ElevatedButton.styleFrom(

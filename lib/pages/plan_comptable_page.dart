@@ -22,6 +22,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
   NatureCompte? _selectedNature;
   TypeCompte? _selectedType;
   int _longueurCompteGeneral = 7;
+  String? _entiteNom;
 
   // Pagination
   int _itemsPerPage = 15;
@@ -40,6 +41,20 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
     super.initState();
     _loadComptes();
     _loadLongueurCompteGeneral();
+    _loadEntite();
+  }
+
+  Future<void> _loadEntite() async {
+    try {
+      final entite = await DatabaseService.getEntite();
+      if (mounted) {
+        setState(() {
+          _entiteNom = entite?['denomination_sociale'] as String?;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur chargement entité: $e');
+    }
   }
 
   Future<void> _loadLongueurCompteGeneral() async {
@@ -146,7 +161,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
         return const Color(0xFFC62828); // Rouge – Passif
       case NatureCompte.chargesAO:
       case NatureCompte.chargesHAO:
-        return const Color(0xFFE65100); // Orange – Charges
+        return const Color(0xFF6A1B9A); // Violet – Charges
       case NatureCompte.produitsAO:
       case NatureCompte.produitsHAO:
         return const Color(0xFF2E7D32); // Vert – Produits
@@ -1055,7 +1070,11 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
               'nature': c.nature.toLabel(),
               'type': c.type.toLabel(),
             }).toList();
-            ExportService.exportPlanComptablePDF(comptes: comptes, context: context);
+            ExportService.exportPlanComptablePDF(
+              comptes: comptes,
+              context: context,
+              entiteNom: _entiteNom,
+            );
           },
           icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
           label: const Text('PDF'),
@@ -1338,7 +1357,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
     final items = [
       ('Actif', const Color(0xFF1565C0)),
       ('Passif', const Color(0xFFC62828)),
-      ('Charges', const Color(0xFFE65100)),
+      ('Charges', const Color(0xFF6A1B9A)),
       ('Produits', const Color(0xFF2E7D32)),
     ];
     return Row(
