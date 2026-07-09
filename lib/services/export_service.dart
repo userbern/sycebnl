@@ -285,7 +285,7 @@ class ExportService {
       padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
       decoration: pw.BoxDecoration(border: borders),
       child: pw.Text(
-        text,
+        _pdfSafe(text),
         style: pw.TextStyle(
           fontSize: 8,
           fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
@@ -518,7 +518,7 @@ class ExportService {
                         ),
                       ),
                       child: pw.Text(
-                        compte['numero'] ?? '-',
+                        _pdfSafe(compte['numero'] ?? '-'),
                         style: pw.TextStyle(
                           fontSize: 8,
                           fontWeight: pw.FontWeight.bold,
@@ -539,7 +539,7 @@ class ExportService {
                         ),
                       ),
                       child: pw.Text(
-                        compte['intitule'] ?? ' ',
+                        _pdfSafe(compte['intitule'] ?? ' '),
                         style: const pw.TextStyle(fontSize: 8),
                       ),
                     ),
@@ -1185,28 +1185,28 @@ class ExportService {
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(4),
                             child: pw.Text(
-                              compte['numeroCompte']?.toString() ?? '-',
+                              _pdfSafe(compte['numeroCompte'] ?? '-'),
                               style: const pw.TextStyle(fontSize: 8),
                             ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(4),
                             child: pw.Text(
-                              compte['intitule']?.toString() ?? '-',
+                              _pdfSafe(compte['intitule'] ?? '-'),
                               style: const pw.TextStyle(fontSize: 8),
                             ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(4),
                             child: pw.Text(
-                              compte['nature']?.toString() ?? '-',
+                              _pdfSafe(compte['nature'] ?? '-'),
                               style: const pw.TextStyle(fontSize: 8),
                             ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(4),
                             child: pw.Text(
-                              compte['type']?.toString() ?? '-',
+                              _pdfSafe(compte['type'] ?? '-'),
                               style: const pw.TextStyle(fontSize: 8),
                             ),
                           ),
@@ -1411,28 +1411,28 @@ class ExportService {
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(4),
                             child: pw.Text(
-                              t['numeroCompte']?.toString() ?? '-',
+                              _pdfSafe(t['numeroCompte'] ?? '-'),
                               style: const pw.TextStyle(fontSize: 8),
                             ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(4),
                             child: pw.Text(
-                              t['intitule']?.toString() ?? '-',
+                              _pdfSafe(t['intitule'] ?? '-'),
                               style: const pw.TextStyle(fontSize: 8),
                             ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(4),
                             child: pw.Text(
-                              t['type']?.toString() ?? '-',
+                              _pdfSafe(t['type'] ?? '-'),
                               style: const pw.TextStyle(fontSize: 8),
                             ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(4),
                             child: pw.Text(
-                              t['nif']?.toString() ?? '-',
+                              _pdfSafe(t['nif'] ?? '-'),
                               style: const pw.TextStyle(fontSize: 8),
                             ),
                           ),
@@ -1617,14 +1617,14 @@ class ExportService {
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(4),
                             child: pw.Text(
-                              b['sigle']?.toString() ?? '-',
+                              _pdfSafe(b['sigle'] ?? '-'),
                               style: const pw.TextStyle(fontSize: 8),
                             ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(4),
                             child: pw.Text(
-                              b['designation']?.toString() ?? '-',
+                              _pdfSafe(b['designation'] ?? '-'),
                               style: const pw.TextStyle(fontSize: 8),
                             ),
                           ),
@@ -1817,21 +1817,21 @@ class ExportService {
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(4),
                             child: pw.Text(
-                              p['code']?.toString() ?? '-',
+                              _pdfSafe(p['code'] ?? '-'),
                               style: const pw.TextStyle(fontSize: 8),
                             ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(4),
                             child: pw.Text(
-                              p['designation']?.toString() ?? '-',
+                              _pdfSafe(p['designation'] ?? '-'),
                               style: const pw.TextStyle(fontSize: 8),
                             ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(4),
                             child: pw.Text(
-                              p['bailleur']?.toString() ?? '-',
+                              _pdfSafe(p['bailleur'] ?? '-'),
                               style: const pw.TextStyle(fontSize: 8),
                             ),
                           ),
@@ -2204,6 +2204,380 @@ class ExportService {
         );
       }
     }
+  }
+
+  // ==================== EXPORT JOURNAL (résultats) ====================
+
+  /// Exporte les résultats de journal (mode BASE ou TIERS) en PDF, groupés
+  /// par journal comme dans l'interface.
+  static Future<void> exportJournalPDF({
+    required Map<String, dynamic>? entite,
+    required String periodeLabel,
+    required String journalLabel,
+    required String typeLabel,
+    required List<Map<String, dynamic>> groups,
+    required BuildContext context,
+  }) async {
+    try {
+      final pdf = pw.Document();
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4.landscape,
+          margin: const pw.EdgeInsets.all(14),
+          maxPages: 2000,
+          footer: (context) => _pdfFooter(),
+          build:
+              (context) => [
+                _pdfEntiteHeader(
+                  entite?['denomination_sociale']?.toString(),
+                ),
+                pw.Center(
+                  child: pw.Text(
+                    'JOURNAL ($typeLabel)',
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.blue700,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 10),
+                _journalPdfHeader(
+                  entite: entite,
+                  periodeLabel: periodeLabel,
+                  journalLabel: journalLabel,
+                  typeLabel: typeLabel,
+                ),
+                pw.SizedBox(height: 12),
+                ...groups.expand((group) {
+                  final rows =
+                      (group['rows'] as List<dynamic>? ?? [])
+                          .cast<Map<String, dynamic>>();
+                  return [
+                    pw.Container(
+                      width: double.infinity,
+                      color: PdfColors.blue700,
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text(
+                        'Journal ${group['code']} - ${group['libelle']}',
+                        style: pw.TextStyle(
+                          color: PdfColors.white,
+                          fontSize: 9,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    pw.Table(
+                      border: pw.TableBorder.all(
+                        color: PdfColors.black,
+                        width: .5,
+                      ),
+                      columnWidths: const {
+                        0: pw.FlexColumnWidth(1.1),
+                        1: pw.FlexColumnWidth(1.1),
+                        2: pw.FlexColumnWidth(2.2),
+                        3: pw.FlexColumnWidth(1.1),
+                        4: pw.FlexColumnWidth(3.2),
+                        5: pw.FlexColumnWidth(1.1),
+                        6: pw.FlexColumnWidth(1.1),
+                      },
+                      children: [
+                        pw.TableRow(
+                          decoration: const pw.BoxDecoration(
+                            color: PdfColors.blue100,
+                          ),
+                          children: [
+                            _pdfCell('Date', bold: true),
+                            _pdfCell('N Compte', bold: true),
+                            _pdfCell('Intitulé', bold: true),
+                            _pdfCell('N Enreg.', bold: true),
+                            _pdfCell('Libellé', bold: true),
+                            _pdfCell('Débit', bold: true),
+                            _pdfCell('Crédit', bold: true),
+                          ],
+                        ),
+                        ...rows.map(
+                          (row) => pw.TableRow(
+                            children: [
+                              _pdfCell(_formatDateCell(row['date'])),
+                              _pdfCell(row['numeroCompte']?.toString() ?? ''),
+                              _pdfCell(row['compteIntitule']?.toString() ?? ''),
+                              _pdfCell(
+                                row['numeroEnregistrement']?.toString() ?? '',
+                              ),
+                              _pdfCell(row['libelle']?.toString() ?? ''),
+                              _pdfCell(_formatNumber(row['debit'])),
+                              _pdfCell(_formatNumber(row['credit'])),
+                            ],
+                          ),
+                        ),
+                        pw.TableRow(
+                          decoration: const pw.BoxDecoration(
+                            color: PdfColors.blue100,
+                          ),
+                          children: [
+                            _pdfCell(''),
+                            _pdfCell(''),
+                            _pdfCell(''),
+                            _pdfCell(''),
+                            _pdfCell(
+                              'TOTAL (${rows.length} écritures)',
+                              bold: true,
+                            ),
+                            _pdfCell(
+                              _formatNumber(group['totalDebit']),
+                              bold: true,
+                            ),
+                            _pdfCell(
+                              _formatNumber(group['totalCredit']),
+                              bold: true,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    pw.SizedBox(height: 14),
+                  ];
+                }),
+              ],
+        ),
+      );
+
+      final fileName =
+          'journal_${DateTime.now().toString().split(' ').first}.pdf';
+      await _saveBytesWithPicker(
+        bytes: await pdf.save(),
+        suggestedFileName: fileName,
+        context: context,
+        label: 'PDF',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur export PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Exporte les résultats de journal en Excel, une feuille par journal.
+  static Future<void> exportJournalExcel({
+    required Map<String, dynamic>? entite,
+    required String periodeLabel,
+    required String journalLabel,
+    required String typeLabel,
+    required List<Map<String, dynamic>> groups,
+    required BuildContext context,
+  }) async {
+    try {
+      final excel = Excel.createExcel();
+      final defaultSheet = excel.getDefaultSheet();
+      if (defaultSheet != null) {
+        excel.delete(defaultSheet);
+      }
+
+      final headerStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Center,
+        backgroundColorHex: ExcelColor.fromHexString('#DCE6F1'),
+      );
+      final totalStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Right,
+        backgroundColorHex: ExcelColor.fromHexString('#DCE6F1'),
+      );
+
+      for (final group in groups) {
+        final code = group['code']?.toString() ?? 'Journal';
+        final sheetName = code.length > 31 ? code.substring(0, 31) : code;
+        final sheet = excel[sheetName];
+        var rowIndex = 0;
+
+        _excelText(sheet, 0, rowIndex++, 'JOURNAL ($typeLabel)');
+        _excelText(sheet, 0, rowIndex, 'Denomination sociale');
+        _excelText(
+          sheet,
+          1,
+          rowIndex,
+          entite?['denomination_sociale']?.toString() ?? '',
+        );
+        _excelText(sheet, 2, rowIndex, 'NIF');
+        _excelText(
+          sheet,
+          3,
+          rowIndex,
+          entite?['numero_fiscal']?.toString() ?? '',
+        );
+        _excelText(sheet, 4, rowIndex, 'Periode');
+        _excelText(sheet, 5, rowIndex++, periodeLabel);
+        _excelText(sheet, 0, rowIndex, 'Journal');
+        _excelText(sheet, 1, rowIndex, journalLabel);
+        _excelText(sheet, 2, rowIndex, 'Type');
+        _excelText(sheet, 3, rowIndex++, typeLabel);
+        rowIndex++;
+        _excelText(
+          sheet,
+          0,
+          rowIndex++,
+          'Journal $code - ${group['libelle']}',
+        );
+
+        final headers = [
+          'Date',
+          'N Compte',
+          'Intitulé',
+          'N Enreg.',
+          'Libellé',
+          'Débit',
+          'Crédit',
+        ];
+        for (var col = 0; col < headers.length; col++) {
+          final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: col, rowIndex: rowIndex),
+          );
+          cell.value = TextCellValue(headers[col]);
+          cell.cellStyle = headerStyle;
+        }
+        rowIndex++;
+
+        final rows =
+            (group['rows'] as List<dynamic>? ?? [])
+                .cast<Map<String, dynamic>>();
+        for (final item in rows) {
+          _excelText(sheet, 0, rowIndex, _formatDateCell(item['date']));
+          _excelText(
+            sheet,
+            1,
+            rowIndex,
+            item['numeroCompte']?.toString() ?? '',
+          );
+          _excelText(
+            sheet,
+            2,
+            rowIndex,
+            item['compteIntitule']?.toString() ?? '',
+          );
+          _excelText(
+            sheet,
+            3,
+            rowIndex,
+            item['numeroEnregistrement']?.toString() ?? '',
+          );
+          _excelText(sheet, 4, rowIndex, item['libelle']?.toString() ?? '');
+          _excelNumber(
+            sheet,
+            5,
+            rowIndex,
+            (item['debit'] as num?)?.toDouble() ?? 0,
+          );
+          _excelNumber(
+            sheet,
+            6,
+            rowIndex++,
+            (item['credit'] as num?)?.toDouble() ?? 0,
+          );
+        }
+
+        _excelText(sheet, 4, rowIndex, 'TOTAL (${rows.length} écritures)');
+        _excelNumber(
+          sheet,
+          5,
+          rowIndex,
+          (group['totalDebit'] as num?)?.toDouble() ?? 0,
+        );
+        _excelNumber(
+          sheet,
+          6,
+          rowIndex,
+          (group['totalCredit'] as num?)?.toDouble() ?? 0,
+        );
+        for (var col = 4; col <= 6; col++) {
+          sheet
+              .cell(
+                CellIndex.indexByColumnRow(
+                  columnIndex: col,
+                  rowIndex: rowIndex,
+                ),
+              )
+              .cellStyle = totalStyle;
+        }
+
+        sheet.setColumnWidth(0, 14);
+        sheet.setColumnWidth(1, 14);
+        sheet.setColumnWidth(2, 32);
+        sheet.setColumnWidth(3, 14);
+        sheet.setColumnWidth(4, 42);
+        sheet.setColumnWidth(5, 16);
+        sheet.setColumnWidth(6, 16);
+      }
+
+      final fileName =
+          'journal_${DateTime.now().toString().split(' ').first}.xlsx';
+      final bytes = excel.encode();
+      if (bytes == null) {
+        throw Exception('Impossible de generer le fichier Excel');
+      }
+      await _saveBytesWithPicker(
+        bytes: Uint8List.fromList(bytes),
+        suggestedFileName: fileName,
+        context: context,
+        label: 'Excel',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur export Excel: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  static pw.Widget _journalPdfHeader({
+    required Map<String, dynamic>? entite,
+    required String periodeLabel,
+    required String journalLabel,
+    required String typeLabel,
+  }) {
+    final adresse = [
+      entite?['ville'],
+      entite?['quartier'],
+    ].where((value) => value != null && value.toString().isNotEmpty).join(', ');
+
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey500, width: .5),
+      children: [
+        pw.TableRow(
+          children: [
+            _pdfCell('Denomination sociale', bold: true),
+            _pdfCell(entite?['denomination_sociale']?.toString() ?? ''),
+            _pdfCell('NIF', bold: true),
+            _pdfCell(entite?['numero_fiscal']?.toString() ?? ''),
+            _pdfCell('Adresse', bold: true),
+            _pdfCell(adresse),
+            _pdfCell('Periode', bold: true),
+            _pdfCell(periodeLabel),
+          ],
+        ),
+        pw.TableRow(
+          children: [
+            _pdfCell('JOURNAL', bold: true),
+            _pdfCell(journalLabel),
+            _pdfCell(''),
+            _pdfCell('TYPE', bold: true),
+            _pdfCell(typeLabel),
+            _pdfCell(''),
+            _pdfCell(''),
+            _pdfCell(''),
+          ],
+        ),
+      ],
+    );
   }
 
   static Future<void> exportGrandLivrePDF({
@@ -2621,13 +2995,39 @@ class ExportService {
     return pw.Padding(
       padding: const pw.EdgeInsets.all(4),
       child: pw.Text(
-        text,
+        _pdfSafe(text),
         style: pw.TextStyle(
           fontSize: 9,
           fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
         ),
       ),
     );
+  }
+
+  /// Remplace les caractères typographiques (guillemets courbes, points de
+  /// suspension, tirets longs, etc.) absents de la police PDF par défaut par
+  /// leur équivalent ASCII, pour éviter les avertissements "Unable to find
+  /// a font to draw" et les glyphes manquants à l'impression.
+  static String _pdfSafe(dynamic value) {
+    if (value == null) return '';
+    var text = value.toString();
+    const replacements = {
+      '‘': "'", // '
+      '’': "'", // '
+      '‚': "'",
+      '‛': "'",
+      '“': '"', // "
+      '”': '"', // "
+      '„': '"',
+      '–': '-', // –
+      '—': '-', // —
+      '…': '...', // …
+      ' ': ' ',
+    };
+    replacements.forEach((from, to) {
+      text = text.replaceAll(from, to);
+    });
+    return text;
   }
 
   /// En-tête simple affichant la dénomination sociale en haut d'un PDF.

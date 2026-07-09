@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
+import '../services/export_service.dart';
 
 class JournalResultsPage extends StatefulWidget {
   final String? codeJournal;
@@ -494,7 +495,7 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
                     'Debit',
                     'Credit',
                   ],
-                  color: const Color.fromARGB(255, 0, 7, 12),
+                  color: Colors.blue.shade100,
                   bold: true,
                 ),
                 // Lignes
@@ -555,17 +556,89 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
     );
   }
 
-  // ───────────── exports (placeholder) ─────────────
+  // ───────────── exports ─────────────
+
+  List<Map<String, dynamic>> _buildExportGroups() {
+    final grouped = <String, _JournalGroup>{};
+    for (final e in _entries) {
+      final g = grouped.putIfAbsent(
+        e.codeJournal,
+        () => _JournalGroup(code: e.codeJournal, libelle: e.journalLibelle),
+      );
+      g.entries.add(e);
+      g.totalDebit += e.debit;
+      g.totalCredit += e.credit;
+    }
+
+    final sortedGroups =
+        grouped.values.toList()..sort((a, b) => a.code.compareTo(b.code));
+
+    return sortedGroups
+        .map(
+          (g) => {
+            'code': g.code,
+            'libelle': g.libelle,
+            'totalDebit': g.totalDebit,
+            'totalCredit': g.totalCredit,
+            'rows':
+                g.entries
+                    .map(
+                      (e) => {
+                        'date': e.dateComptable,
+                        'numeroCompte': e.numeroCompte,
+                        'compteIntitule': e.compteIntitule,
+                        'numeroEnregistrement':
+                            e.numeroEnregistrement > 0
+                                ? e.numeroEnregistrement
+                                    .toString()
+                                    .padLeft(3, '0')
+                                : '-',
+                        'libelle': e.libelle,
+                        'debit': e.debit,
+                        'credit': e.credit,
+                      },
+                    )
+                    .toList(),
+          },
+        )
+        .toList();
+  }
+
+  String get _typeLabel => widget.typeEtat == 'tiers' ? 'TIERS' : 'BASE';
+  String get _journalLabel =>
+      _isAll ? 'Tous les journaux' : widget.codeJournal!;
 
   Future<void> _exportPdf() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Export PDF en cours de developpement')),
+    if (_entries.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucune donnee a exporter')),
+      );
+      return;
+    }
+    await ExportService.exportJournalPDF(
+      entite: _entite,
+      periodeLabel: _periodeLabel,
+      journalLabel: _journalLabel,
+      typeLabel: _typeLabel,
+      groups: _buildExportGroups(),
+      context: context,
     );
   }
 
   Future<void> _exportExcel() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Export Excel en cours de developpement')),
+    if (_entries.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucune donnee a exporter')),
+      );
+      return;
+    }
+    await ExportService.exportJournalExcel(
+      entite: _entite,
+      periodeLabel: _periodeLabel,
+      journalLabel: _journalLabel,
+      typeLabel: _typeLabel,
+      groups: _buildExportGroups(),
+      context: context,
     );
   }
 }
