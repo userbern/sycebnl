@@ -44,4 +44,5 @@ Quand une modification est demandée :
 - Modification de plusieurs modules alors qu'un seul est demandé.
 - Ajout de dépendances inutiles.
 
-
+TAF:
+(au niveau de nouvelle sous-rubrique formulaire de création champ dropdown compte met une ligne recherche tout en haut du dropdown pour qu'on puisse rechercher un compte rapidement au niveau du dropdown)

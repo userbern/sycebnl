@@ -2136,6 +2136,77 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
     }
   }
 
+  Future<Map<String, dynamic>?> _showCompteSearchDialog(
+    List<Map<String, dynamic>> comptes,
+    Map<String, dynamic>? currentValue,
+  ) {
+    String query = '';
+    return showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            final filtered = comptes.where((compte) {
+              if (query.isEmpty) return true;
+              final q = query.toLowerCase();
+              final numero = (compte['numeroCompte'] ?? '').toString().toLowerCase();
+              final intitule = (compte['intitule'] ?? '').toString().toLowerCase();
+              return numero.contains(q) || intitule.contains(q);
+            }).toList();
+            return AlertDialog(
+              title: const Text('Sélectionner un compte'),
+              content: SizedBox(
+                width: 420,
+                height: 420,
+                child: Column(
+                  children: [
+                    TextField(
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: 'Rechercher un compte...',
+                        prefixIcon: const Icon(Icons.search),
+                        isDense: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onChanged: (value) => setState(() => query = value),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(child: Text('Aucun compte trouvé'))
+                          : ListView.builder(
+                              itemCount: filtered.length,
+                              itemBuilder: (context, index) {
+                                final compte = filtered[index];
+                                return ListTile(
+                                  selected: currentValue != null &&
+                                      compte['id'] == currentValue['id'],
+                                  title: Text(
+                                    '${compte['numeroCompte']} - ${compte['intitule']}',
+                                  ),
+                                  onTap: () => Navigator.pop(context, compte),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annuler'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _createSousRubrique(int ligneId) async {
     final intituleController = TextEditingController();
     final montantController = TextEditingController();
@@ -2211,30 +2282,35 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
                             ),
                           )
                         else
-                          DropdownButtonFormField<Map<String, dynamic>>(
-                            value: selectedCompte,
-                            hint: const Text('Sélectionner un compte'),
-                            items:
-                                comptes
-                                    .map(
-                                      (compte) => DropdownMenuItem(
-                                        value: compte,
-                                        child: Text(
-                                          '${compte['numeroCompte']} - ${compte['intitule']}',
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                            onChanged: (value) {
-                              setState(() => selectedCompte = value);
+                          InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () async {
+                              final result = await _showCompteSearchDialog(
+                                comptes,
+                                selectedCompte,
+                              );
+                              if (result != null) {
+                                setState(() => selectedCompte = result);
+                              }
                             },
-                            decoration: InputDecoration(
-                              labelText: 'Compte',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: 'Compte',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                suffixIcon: const Icon(Icons.arrow_drop_down),
+                                contentPadding: const EdgeInsets.all(12),
                               ),
-                              contentPadding: const EdgeInsets.all(12),
+                              child: Text(
+                                selectedCompte != null
+                                    ? '${selectedCompte!['numeroCompte']} - ${selectedCompte!['intitule']}'
+                                    : 'Sélectionner un compte',
+                                overflow: TextOverflow.ellipsis,
+                                style: selectedCompte == null
+                                    ? TextStyle(color: Colors.grey.shade600)
+                                    : null,
+                              ),
                             ),
                           ),
                       ],
