@@ -57,8 +57,6 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
   // ── Permissions ───────────────────────────────────────────────────────────
   bool get _canCreate =>
       widget.userSession == null ? true : widget.userSession!.canCreate('gestion_budgets');
-  bool get _canModify =>
-      widget.userSession == null ? true : widget.userSession!.canModify('gestion_budgets');
   bool get _canDelete =>
       widget.userSession == null ? true : widget.userSession!.canDelete('gestion_budgets');
 
@@ -3101,7 +3099,7 @@ class __CreateBudgetDialogState extends State<_CreateBudgetDialog> {
               selectedProjetId != null && selectedBailleurId != null
                   ? _createBudgetAndContinue
                   : null,
-          icon: const Icon(Icons.add_circle),
+          icon: const Icon(Icons.add_circle, color: Colors.white),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green.shade600,
             foregroundColor: Colors.white,

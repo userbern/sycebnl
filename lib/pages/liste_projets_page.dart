@@ -1162,7 +1162,7 @@ class _ProjetDialogState extends State<_ProjetDialog> {
       },
       displayStringForOption:
           (Map<String, dynamic> option) =>
-              '${option['code']} - ${option['sigle']}',
+              '${option['sigle']} - ${option['designation']}',
       fieldViewBuilder: (
         context,
         textEditingController,

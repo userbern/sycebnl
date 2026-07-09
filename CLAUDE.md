@@ -45,5 +45,3 @@ Quand une modification est demandée :
 - Ajout de dépendances inutiles.
 
 
-TAF : 
-(au niveau de plan tiers formulaire de création d'un compte tiers champ dropdown compte collectif met une ligne recherche tout en haut du dropdown pour qu'on puisse rechercher un compte rapidement au niveau du dropdown)
