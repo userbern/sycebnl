@@ -1541,7 +1541,7 @@ class _ProjetDialogState extends State<_ProjetDialog> {
                       message: 'Créer un nouveau bailleur',
                       child: ElevatedButton.icon(
                         onPressed: _isSaving ? null : _showCreateBailleurDialog,
-                        icon: const Icon(Icons.add),
+                        icon: const Icon(Icons.add, color: Colors.white),
                         label: const Text('Nouveau'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green.shade600,
@@ -1630,7 +1630,7 @@ class _ProjetDialogState extends State<_ProjetDialog> {
                         color: Colors.white,
                       ),
                     )
-                    : const Icon(Icons.add_circle),
+                    : const Icon(Icons.add_circle, color: Colors.white),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green.shade600,
               foregroundColor: Colors.white,
