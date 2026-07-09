@@ -128,6 +128,95 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
     }
   }
 
+  String _compteCollectifLabel(String numeroCompte) {
+    if (numeroCompte.isEmpty) return '';
+    for (final compte in _comptes) {
+      if (compte.numeroCompte == numeroCompte) {
+        final displayIntitule = compte.intitule.isEmpty
+            ? compte.nature.toLabel()
+            : compte.intitule;
+        return '${compte.numeroCompte} - $displayIntitule';
+      }
+    }
+    return numeroCompte;
+  }
+
+  Future<String?> _showCompteCollectifSearchDialog(String currentValue) {
+    String query = '';
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            final filtered = _comptes.where((compte) {
+              if (query.isEmpty) return true;
+              final q = query.toLowerCase();
+              final displayIntitule = compte.intitule.isEmpty
+                  ? compte.nature.toLabel()
+                  : compte.intitule;
+              return compte.numeroCompte.toLowerCase().contains(q) ||
+                  displayIntitule.toLowerCase().contains(q);
+            }).toList();
+            return AlertDialog(
+              title: const Text('Sélectionner un compte collectif'),
+              content: SizedBox(
+                width: 420,
+                height: 420,
+                child: Column(
+                  children: [
+                    TextField(
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: 'Rechercher un compte...',
+                        prefixIcon: const Icon(Icons.search),
+                        isDense: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onChanged: (value) => setState(() => query = value),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(child: Text('Aucun compte trouvé'))
+                          : ListView.builder(
+                              itemCount: filtered.length,
+                              itemBuilder: (context, index) {
+                                final compte = filtered[index];
+                                final displayIntitule = compte.intitule.isEmpty
+                                    ? compte.nature.toLabel()
+                                    : compte.intitule;
+                                return ListTile(
+                                  selected:
+                                      compte.numeroCompte == currentValue,
+                                  title: Text(
+                                    '${compte.numeroCompte} - $displayIntitule',
+                                  ),
+                                  onTap: () => Navigator.pop(
+                                    context,
+                                    compte.numeroCompte,
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annuler'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Compte? _findCompteByNumero(String tiersNumero) {
     if (tiersNumero.isEmpty) return null;
 
@@ -306,57 +395,53 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                         Row(
                           children: [
                             Expanded(
-                              child: DropdownButtonFormField<String>(
-                                isExpanded: true,
-                                value: selectedCompteCollectif.isEmpty
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: isEdit
                                     ? null
-                                    : selectedCompteCollectif,
-                                decoration: InputDecoration(
-                                  labelText: 'Compte collectif *',
-                                  prefixIcon: const Icon(Icons.account_tree),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.grey.shade400),
-                                  ),
-                                  disabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.grey.shade300),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.blue.shade400,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  filled: true,
-                                  fillColor:
-                                      isEdit ? Colors.grey.shade200 : Colors.grey.shade50,
-                                ),
-                                items: _comptes.map((compte) {
-                                  final displayIntitule = compte.intitule.isEmpty
-                                      ? compte.nature.toLabel()
-                                      : compte.intitule;
-                                  return DropdownMenuItem(
-                                    value: compte.numeroCompte,
-                                    child: Text(
-                                      '${compte.numeroCompte} - $displayIntitule',
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  );
-                                }).toList(),
-                                onChanged: isEdit
-                                    ? null
-                                    : (value) {
-                                        if (value != null) {
+                                    : () async {
+                                        final result =
+                                            await _showCompteCollectifSearchDialog(
+                                          selectedCompteCollectif,
+                                        );
+                                        if (result != null) {
                                           setDialogState(
-                                            () => selectedCompteCollectif = value,
+                                            () => selectedCompteCollectif = result,
                                           );
                                         }
                                       },
+                                child: InputDecorator(
+                                  decoration: InputDecoration(
+                                    labelText: 'Compte collectif *',
+                                    prefixIcon: const Icon(Icons.account_tree),
+                                    suffixIcon: const Icon(Icons.arrow_drop_down),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(color: Colors.grey.shade400),
+                                    ),
+                                    disabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(color: Colors.grey.shade300),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: Colors.blue.shade400,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    filled: true,
+                                    fillColor:
+                                        isEdit ? Colors.grey.shade200 : Colors.grey.shade50,
+                                  ),
+                                  child: Text(
+                                    _compteCollectifLabel(selectedCompteCollectif),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
