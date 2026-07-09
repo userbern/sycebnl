@@ -44,4 +44,4 @@ Quand une modification est demandée :
 - Modification de plusieurs modules alors qu'un seul est demandé.
 - Ajout de dépendances inutiles.
 
-(Lors de l'export des comptes met un background de couleur blue.shade100 pour les comptes de type total au niveau du plan comptable)
+(au niveau de plan tiers )

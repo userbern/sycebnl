@@ -1186,7 +1186,11 @@ class ExportService {
                     ),
                     // Données
                     ...comptes.map((compte) {
+                      final isTotal = compte['type'] == 'Total';
                       return pw.TableRow(
+                        decoration: isTotal
+                            ? const pw.BoxDecoration(color: PdfColors.blue100)
+                            : null,
                         children: [
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(4),
