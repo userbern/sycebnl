@@ -44,9 +44,4 @@ Quand une modification est demandée :
 - Modification de plusieurs modules alors qu'un seul est demandé.
 - Ajout de dépendances inutiles.
 
-( quand j'exporte le fichier .pdf du plan comptable avec les comptes importés depuis la création du fichier de la base Les numéros comme 00 ou 297500 sont tronqués ou mal alignés.
-
-Le mot « Total » apparaît en partie comme « tail ».
-
-Les colonnes ne sont pas assez larges pour contenir le texte complet.
-tu peux corriger ça s'il te plaît)
+(Lors de l'export des comptes met un background de couleur blue.shade100 pour les comptes de type total au niveau du plan comptable)

@@ -1129,6 +1129,12 @@ class ExportService {
                 // Tableau
                 pw.Table(
                   border: pw.TableBorder.all(color: PdfColors.black),
+                  columnWidths: const {
+                    0: pw.FlexColumnWidth(1.3),
+                    1: pw.FlexColumnWidth(3.5),
+                    2: pw.FlexColumnWidth(2),
+                    3: pw.FlexColumnWidth(1.2),
+                  },
                   children: [
                     // En-tête
                     pw.TableRow(
