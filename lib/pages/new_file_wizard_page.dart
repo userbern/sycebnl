@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/database_service.dart';
+import '../services/dossier_crypto_service.dart';
+import 'recovery_key_display_page.dart';
 
 class NewFileWizardPage extends StatefulWidget {
   const NewFileWizardPage({super.key});
@@ -209,6 +211,44 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
         configData: configData,
         exerciceData: exerciceData,
       );
+
+      // Activer le chiffrement du dossier (module Sécurité) avec le même
+      // mot de passe que l'utilisateur admin, et afficher la clé de
+      // récupération une seule fois.
+      if (_usePassword) {
+        final (recoveryKey, dossierUuid) =
+            await DatabaseService.enableDossierEncryption(
+          _selectedFilePath!,
+          _passwordController.text,
+        );
+
+        // enableDossierEncryption() ferme la base et chiffre le fichier :
+        // il faut la rouvrir (comme le ferait password_login_page à la
+        // prochaine connexion) pour que l'écran d'accueil qui suit dispose
+        // d'une base de données connectée, exactement comme pour un dossier
+        // créé sans mot de passe.
+        final decrypted = await DossierCryptoService.decryptToTemp(
+          _selectedFilePath!,
+          _passwordController.text,
+        );
+        DossierCryptoService.registerOpenSession(
+          tempPath: decrypted.tempPath,
+          realPath: _selectedFilePath!,
+          password: _passwordController.text,
+        );
+        await DatabaseService.openDatabase(decrypted.tempPath);
+
+        if (!mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => RecoveryKeyDisplayPage(
+              dossierUuid: dossierUuid,
+              recoveryKey: recoveryKey,
+              entiteNom: _denominationController.text,
+            ),
+          ),
+        );
+      }
 
       if (!mounted) return;
 

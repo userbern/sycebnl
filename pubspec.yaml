@@ -24,13 +24,17 @@ dependencies:
   path_provider: ^2.1.1
   crypto: ^3.0.3
   file_picker: ^8.0.0+1
-  
+
   # Window management for desktop
   window_manager: ^0.4.3
-  
+
   # PDF generation
   pdf: ^3.10.6
   excel: ^4.0.6
+
+  # Sécurité du dossier comptable (Argon2id, AES-256-GCM, X25519)
+  cryptography: ^2.7.0
+  uuid: ^4.4.0
 
 dev_dependencies:
   flutter_test:

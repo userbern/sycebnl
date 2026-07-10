@@ -8,6 +8,8 @@ import 'package:excel/excel.dart';
 import '../models/compte.dart';
 import '../models/tiers.dart';
 import '../models/journal.dart';
+import '../models/dossier_security.dart';
+import 'dossier_crypto_service.dart';
 
 class DatabaseService {
   static Database? _database;
@@ -102,6 +104,17 @@ class DatabaseService {
             });
           }
 
+          // Générer l'UUID du dossier (toujours, même sans mot de passe) :
+          // cf. module Sécurité du dossier comptable.
+          final nowSecurity = DateTime.now().toIso8601String();
+          await db.insert('dossier_security', {
+            'dossier_uuid': DossierCryptoService.generateDossierUuid(),
+            'is_encrypted': 0,
+            'auth_algo': 'argon2id',
+            'created_at': nowSecurity,
+            'updated_at': nowSecurity,
+          });
+
           // Créer l'utilisateur admin par défaut si login et password fournis
           if (adminLogin != null &&
               adminLogin.isNotEmpty &&
@@ -162,6 +175,7 @@ class DatabaseService {
           await _ensureCompteSchema(db);
           await _ensureUtilisateurSchema(db);
           await _ensureExerciceSchema(db);
+          await _ensureDossierSecuritySchema(db);
 
           // Migration: Ajouter exercice_id à la table budget
           try {
@@ -451,6 +465,80 @@ class DatabaseService {
   /// Vérifier un mot de passe
   static bool verifyPassword(String password, String hashedPassword) {
     return hashPassword(password) == hashedPassword;
+  }
+
+  /// Récupérer la ligne de métadonnées de sécurité du dossier courant.
+  static Future<DossierSecurity?> getDossierSecurity() async {
+    await ensureDatabaseOpen();
+    final rows = await database.query('dossier_security', limit: 1);
+    if (rows.isEmpty) return null;
+    return DossierSecurity.fromMap(rows.first);
+  }
+
+  /// Active le chiffrement AES-256-GCM du dossier courant (module Sécurité) :
+  /// génère une clé de récupération, hache le mot de passe et la clé de
+  /// récupération en Argon2id, met à jour `dossier_security`, puis chiffre le
+  /// fichier physique. Le dossier doit être fraîchement créé (non chiffré) et
+  /// ouvert. Retourne la clé de récupération en clair (à afficher une seule
+  /// fois par l'appelant).
+  static Future<(String recoveryKey, String dossierUuid)>
+      enableDossierEncryption(
+    String filePath,
+    String password,
+  ) async {
+    await ensureDatabaseOpen();
+    final rows = await database.query('dossier_security', limit: 1);
+    if (rows.isEmpty) {
+      throw Exception('Métadonnées de sécurité du dossier introuvables');
+    }
+    final securityId = rows.first['id'];
+    final dossierUuid = rows.first['dossier_uuid'] as String;
+
+    final recoveryKey = DossierCryptoService.generateRecoveryKey();
+    final (authHash, authSalt) = await DossierCryptoService.hashSecret(password);
+    final (recoveryHash, recoverySalt) =
+        await DossierCryptoService.hashSecret(recoveryKey);
+
+    // La clé de données et l'enveloppe éditeur doivent être calculées avant
+    // la fermeture de la base : l'enveloppe éditeur est stockée dans
+    // `dossier_security`, qui n'est plus accessible une fois le fichier
+    // chiffré.
+    final dataKeyBytes = DossierCryptoService.generateDataKey();
+    final editorUnlockBlob = await DossierCryptoService.computeEditorUnlockBlob(
+      dataKeyBytes,
+      dossierUuid,
+    );
+
+    await database.update(
+      'dossier_security',
+      {
+        'is_encrypted': 1,
+        'auth_algo': 'argon2id',
+        'auth_salt': authSalt,
+        'auth_hash': authHash,
+        'argon2_params': DossierCryptoService.argon2ParamsJson,
+        'recovery_key_hash': recoveryHash,
+        'recovery_key_salt': recoverySalt,
+        'editor_unlock_pubkey_wrapped': editorUnlockBlob,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [securityId],
+    );
+
+    // Le fichier doit être fermé avant d'être réécrit en clair→chiffré.
+    await database.close();
+    _database = null;
+    _currentDatabasePath = null;
+
+    await DossierCryptoService.encryptNewFile(
+      filePath,
+      password,
+      recoveryKey,
+      dataKeyBytes: dataKeyBytes,
+    );
+
+    return (recoveryKey, dossierUuid);
   }
 
   /// Importe le plan comptable SYCEBNL de référence (asset bundlé) dans une base
@@ -776,6 +864,25 @@ class DatabaseService {
       )
     ''');
 
+    // Table dossier_security : métadonnées du module Sécurité du dossier
+    // comptable (UUID, chiffrement, récupération). Une seule ligne par dossier.
+    await db.execute('''
+      CREATE TABLE dossier_security (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        dossier_uuid TEXT NOT NULL UNIQUE,
+        is_encrypted INTEGER NOT NULL DEFAULT 0,
+        auth_algo TEXT NOT NULL DEFAULT 'argon2id',
+        auth_salt TEXT,
+        auth_hash TEXT,
+        argon2_params TEXT,
+        recovery_key_hash TEXT,
+        recovery_key_salt TEXT,
+        editor_unlock_pubkey_wrapped TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    ''');
+
     // Table journaux_periodes (journal + mois + année)
     await db.execute('''
       CREATE TABLE journaux_periodes (
@@ -959,8 +1066,64 @@ class DatabaseService {
           'ALTER TABLE utilisateur ADD COLUMN is_active INTEGER DEFAULT 1',
         );
       }
+      if (!names.contains('password_algo')) {
+        print('Migration: ajout de password_algo à la table utilisateur');
+        await db.execute(
+          "ALTER TABLE utilisateur ADD COLUMN password_algo TEXT DEFAULT 'sha256'",
+        );
+      }
+      if (!names.contains('password_salt')) {
+        print('Migration: ajout de password_salt à la table utilisateur');
+        await db.execute(
+          'ALTER TABLE utilisateur ADD COLUMN password_salt TEXT',
+        );
+      }
     } catch (e) {
       print('Migration utilisateur échouée: $e');
+    }
+  }
+
+  /// S'assure que la table `dossier_security` existe pour les dossiers créés
+  /// avant l'introduction du module Sécurité (migration additive, sans
+  /// impact sur le fonctionnement existant tant que le chiffrement n'est pas
+  /// activé par l'utilisateur).
+  static Future<void> _ensureDossierSecuritySchema(Database db) async {
+    try {
+      final tables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='dossier_security'",
+      );
+      if (tables.isEmpty) {
+        print('Migration: création de la table dossier_security');
+        await db.execute('''
+          CREATE TABLE dossier_security (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            dossier_uuid TEXT NOT NULL UNIQUE,
+            is_encrypted INTEGER NOT NULL DEFAULT 0,
+            auth_algo TEXT NOT NULL DEFAULT 'argon2id',
+            auth_salt TEXT,
+            auth_hash TEXT,
+            argon2_params TEXT,
+            recovery_key_hash TEXT,
+            recovery_key_salt TEXT,
+            editor_unlock_pubkey_wrapped TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+          )
+        ''');
+      }
+      final existing = await db.query('dossier_security', limit: 1);
+      if (existing.isEmpty) {
+        final now = DateTime.now().toIso8601String();
+        await db.insert('dossier_security', {
+          'dossier_uuid': DossierCryptoService.generateDossierUuid(),
+          'is_encrypted': 0,
+          'auth_algo': 'argon2id',
+          'created_at': now,
+          'updated_at': now,
+        });
+      }
+    } catch (e) {
+      print('Migration dossier_security échouée: $e');
     }
   }
 
@@ -1426,6 +1589,12 @@ class DatabaseService {
   /// Vérifier si le fichier nécessite un mot de passe
   static Future<bool> requiresPassword(String databasePath) async {
     try {
+      // Un dossier chiffré (module Sécurité) nécessite toujours un mot de
+      // passe ; son fichier n'est pas un fichier SQLite lisible directement.
+      if (await DossierCryptoService.isFileEncrypted(databasePath)) {
+        return true;
+      }
+
       if (isConnected && currentDatabasePath == databasePath) {
         final users = await database.query('utilisateur', limit: 1);
         return users.isNotEmpty;

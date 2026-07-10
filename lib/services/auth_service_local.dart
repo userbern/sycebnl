@@ -1,5 +1,6 @@
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'database_service.dart';
+import 'dossier_crypto_service.dart';
 import '../models/entite.dart';
 import '../models/compte.dart';
 import '../models/tiers.dart';
@@ -30,11 +31,34 @@ class AuthService {
 
       final user = users.first;
 
-      // 2. Vérifier le mot de passe
-      if (!DatabaseService.verifyPassword(
-        password,
-        user['password'] as String,
-      )) {
+      // 2. Vérifier le mot de passe (Argon2id si migré, sinon SHA-256 legacy)
+      final algo = user['password_algo'] as String? ?? 'sha256';
+      final storedHash = user['password'] as String;
+      bool passwordOk;
+      if (algo == 'argon2id') {
+        final salt = user['password_salt'] as String?;
+        passwordOk = salt != null &&
+            await DossierCryptoService.verifySecret(password, storedHash, salt);
+      } else {
+        passwordOk = DatabaseService.verifyPassword(password, storedHash);
+        if (passwordOk) {
+          // Migration transparente SHA-256 -> Argon2id après connexion réussie.
+          final (newHash, newSalt) =
+              await DossierCryptoService.hashSecret(password);
+          await _db.update(
+            'utilisateur',
+            {
+              'password': newHash,
+              'password_algo': 'argon2id',
+              'password_salt': newSalt,
+              'updated_at': DateTime.now().toIso8601String(),
+            },
+            where: 'id = ?',
+            whereArgs: [user['id']],
+          );
+        }
+      }
+      if (!passwordOk) {
         throw Exception('Login ou mot de passe incorrect');
       }
 
@@ -128,13 +152,16 @@ class AuthService {
         throw Exception('Ce login existe déjà');
       }
 
-      // Hasher le mot de passe
-      final hashedPassword = _hashPassword(password);
+      // Hasher le mot de passe (Argon2id pour tout nouvel utilisateur)
+      final (hashedPassword, salt) =
+          await DossierCryptoService.hashSecret(password);
 
       // Insérer l'utilisateur
       final userId = await _db.insert('utilisateur', {
         'login': login,
         'password': hashedPassword,
+        'password_algo': 'argon2id',
+        'password_salt': salt,
         'nom': nom,
         'prenom': prenom,
         'email': email,
@@ -150,8 +177,10 @@ class AuthService {
     }
   }
 
-  static String _hashPassword(String password) {
-    return DatabaseService.hashPassword(password);
+  /// Hache un mot de passe en Argon2id, retourne (hash, sel) à stocker dans
+  /// les colonnes `password`/`password_salt` avec `password_algo='argon2id'`.
+  static Future<(String, String)> _hashPassword(String password) {
+    return DossierCryptoService.hashSecret(password);
   }
 
   /// Récupérer la liste de tous les utilisateurs
@@ -185,7 +214,12 @@ class AuthService {
       };
 
       if (login != null) data['login'] = login;
-      if (password != null) data['password'] = _hashPassword(password);
+      if (password != null) {
+        final (hash, salt) = await _hashPassword(password);
+        data['password'] = hash;
+        data['password_algo'] = 'argon2id';
+        data['password_salt'] = salt;
+      }
       if (nom != null) data['nom'] = nom;
       if (prenom != null) data['prenom'] = prenom;
       if (email != null) data['email'] = email;
@@ -249,16 +283,34 @@ class AuthService {
         }
 
         final storedHash = user.first['password'] as String?;
-        if (storedHash != null &&
-            !DatabaseService.verifyPassword(oldPassword, storedHash)) {
+        final algo = user.first['password_algo'] as String? ?? 'sha256';
+        bool oldPasswordOk = false;
+        if (storedHash != null) {
+          if (algo == 'argon2id') {
+            final salt = user.first['password_salt'] as String?;
+            oldPasswordOk = salt != null &&
+                await DossierCryptoService.verifySecret(
+                  oldPassword,
+                  storedHash,
+                  salt,
+                );
+          } else {
+            oldPasswordOk =
+                DatabaseService.verifyPassword(oldPassword, storedHash);
+          }
+        }
+        if (!oldPasswordOk) {
           throw Exception('Ancien mot de passe incorrect');
         }
       }
 
+      final (newHash, newSalt) = await _hashPassword(newPassword);
       await _db.update(
         'utilisateur',
         {
-          'password': _hashPassword(newPassword),
+          'password': newHash,
+          'password_algo': 'argon2id',
+          'password_salt': newSalt,
           'updated_at': DateTime.now().toIso8601String(),
         },
         where: 'id = ?',

@@ -20,6 +20,7 @@ import 'grand_livre_page.dart';
 import 'saisie_ecriture_page.dart';
 import 'balance_comptes_page.dart';
 import 'permissions_page.dart';
+import 'dossier_security_page.dart';
 import 'interrogations_lettrages_page.dart';
 import 'liste_exercices_page.dart';
 import '../models/saisie_comptable.dart';
@@ -658,6 +659,7 @@ class _HomePageState extends State<HomePage> {
                       _buildMenuItem('NOTRE ENTITE', Icons.business, [
                         _SubMenuItem('Identification', 1,    moduleNom: 'identification'),
                         _SubMenuItem('Autorisations d\'accès', 2),
+                        _SubMenuItem('Sécurité du dossier', 3),
                       ]),
                       _buildMenuItem('PARAMETRAGES', Icons.settings, [
                         _SubMenuItem('Plan comptable', 4,      moduleNom: 'plan_comptable'),
@@ -1091,6 +1093,11 @@ class _HomePageState extends State<HomePage> {
           showAppBar: false,
           userSession: widget.userSession,
           createUserTrigger: _createUserTrigger,
+        );
+      case 3:
+        return DossierSecurityPage(
+          showAppBar: false,
+          userSession: widget.userSession,
         );
       case 4:
         return PlanComptablePage(userSession: widget.userSession);

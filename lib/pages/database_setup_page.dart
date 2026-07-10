@@ -4,7 +4,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'dart:io';
 import '../services/database_service.dart';
+import '../services/dossier_crypto_service.dart';
+import '../models/user_session.dart';
 import 'login_page.dart';
+import 'password_login_page.dart';
 import 'home_page.dart';
 
 class DatabaseSetupPage extends StatefulWidget {
@@ -261,6 +264,31 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
     setState(() => _isLoading = true);
 
     try {
+      // Un dossier chiffré (module Sécurité) ne peut pas être ouvert
+      // directement : il faut passer par l'écran de mot de passe, qui pilote
+      // lui-même le déchiffrement avant d'ouvrir la base.
+      if (await DossierCryptoService.isFileEncrypted(_databasePath!)) {
+        if (!mounted) return;
+        final userSession = await Navigator.push<UserSession>(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PasswordLoginPage(filePath: _databasePath!),
+          ),
+        );
+        if (!mounted) return;
+        if (userSession != null) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => HomePage(userSession: userSession),
+            ),
+          );
+        } else {
+          setState(() => _isLoading = false);
+        }
+        return;
+      }
+
       await DatabaseService.connectToDatabase(_databasePath!);
 
       final requiresPassword =

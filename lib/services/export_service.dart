@@ -3215,6 +3215,94 @@ class ExportService {
     }
   }
 
+  /// Exporte la clé de récupération d'un dossier comptable en PDF (module
+  /// Sécurité du dossier comptable). À conserver précieusement par
+  /// l'utilisateur : elle n'est affichée qu'une seule fois.
+  static Future<void> exportRecoveryKeyPDF({
+    required String dossierUuid,
+    required String recoveryKey,
+    required String entiteNom,
+    required BuildContext context,
+  }) async {
+    try {
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          build: (context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                _pdfEntiteHeader(entiteNom),
+                pw.SizedBox(height: 16),
+                pw.Text(
+                  'CLÉ DE RÉCUPÉRATION DU DOSSIER COMPTABLE',
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.blue800,
+                  ),
+                ),
+                pw.SizedBox(height: 8),
+                pw.Text(
+                  'Identifiant du dossier : $dossierUuid',
+                  style: const pw.TextStyle(fontSize: 10),
+                ),
+                pw.Text(
+                  'Date de génération : ${DateTime.now().toString().split(' ')[0]}',
+                  style: const pw.TextStyle(fontSize: 10),
+                ),
+                pw.SizedBox(height: 24),
+                pw.Center(
+                  child: pw.Container(
+                    padding: const pw.EdgeInsets.all(16),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.black),
+                    ),
+                    child: pw.Text(
+                      recoveryKey,
+                      style: pw.TextStyle(
+                        fontSize: 22,
+                        fontWeight: pw.FontWeight.bold,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 24),
+                pw.Text(
+                  'Cette clé permet de réinitialiser le mot de passe de ce dossier '
+                  'comptable en cas d\'oubli, sans perte de données. Conservez-la '
+                  'dans un endroit sûr : elle ne sera plus affichée après cette '
+                  'exportation. Toute personne en possession de cette clé peut '
+                  'accéder aux données de ce dossier.',
+                  style: const pw.TextStyle(fontSize: 10),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      final fileName = 'cle_recuperation_${DateTime.now().toString().split(' ')[0]}.pdf';
+      await _saveBytesWithPicker(
+        bytes: await pdf.save(),
+        suggestedFileName: fileName,
+        context: context,
+        label: 'PDF',
+      );
+    } catch (e) {
+      debugPrint('Erreur PDF clé de récupération: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: ${e.toString()}'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   /// Exporte la liste des codes journaux en Excel
   static Future<void> exportJournauxExcel({
     required List<Map<String, dynamic>> journaux,

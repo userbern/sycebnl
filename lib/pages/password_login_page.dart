@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../services/database_service.dart';
 import '../services/auth_service_local.dart';
+import '../services/dossier_crypto_service.dart';
 import '../models/user_session.dart';
+import 'dossier_recovery_page.dart';
 
 class PasswordLoginPage extends StatefulWidget {
   final String filePath;
@@ -22,11 +24,24 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
   List<Map<String, dynamic>> _users = [];
   String? _selectedLogin;
   bool _isLoadingUsers = true;
+  bool _isEncrypted = false;
 
   @override
   void initState() {
     super.initState();
-    _loadUsers();
+    _init();
+  }
+
+  Future<void> _init() async {
+    _isEncrypted = await DossierCryptoService.isFileEncrypted(widget.filePath);
+    if (_isEncrypted) {
+      // Le fichier réel est chiffré : impossible de lire la liste des
+      // utilisateurs avant d'avoir déchiffré avec le mot de passe. Le login
+      // sera saisi manuellement (repli existant : voir _users vide ci-dessous).
+      if (mounted) setState(() => _isLoadingUsers = false);
+      return;
+    }
+    await _loadUsers();
   }
 
   Future<void> _loadUsers() async {
@@ -80,8 +95,35 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
     setState(() => _isLoading = true);
 
     try {
+      String openPath = widget.filePath;
+
+      if (_isEncrypted) {
+        final decrypted = await DossierCryptoService.decryptToTemp(
+          widget.filePath,
+          _passwordController.text,
+        );
+        DossierCryptoService.registerOpenSession(
+          tempPath: decrypted.tempPath,
+          realPath: widget.filePath,
+          password: _passwordController.text,
+        );
+        openPath = decrypted.tempPath;
+
+        // La liste des utilisateurs n'a pu être chargée qu'après déchiffrement.
+        if (_users.isEmpty) {
+          await DatabaseService.initializeFfi();
+          final db = await databaseFactoryFfi.openDatabase(openPath);
+          _users = await db.query(
+            'utilisateur',
+            where: 'is_active = 1 AND deleted_at IS NULL',
+            orderBy: 'login ASC',
+          );
+          await db.close();
+        }
+      }
+
       // Ouvrir la base de données
-      await DatabaseService.openDatabase(widget.filePath);
+      await DatabaseService.openDatabase(openPath);
 
       // Vérifier le login, mot de passe et récupérer les permissions
       final loginResult = await AuthService.login(
@@ -108,10 +150,32 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
       AuthService.setCurrentUser(userData);
 
       Navigator.pop(context, userSession);
+    } on WrongPasswordException {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showError('Mot de passe incorrect');
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
       _showError('Erreur: ${e.toString()}');
+    }
+  }
+
+  Future<void> _forgotPassword() async {
+    final newPasswordSet = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => DossierRecoveryPage(filePath: widget.filePath),
+      ),
+    );
+    if (newPasswordSet == true && mounted) {
+      // Le mot de passe a changé : réinitialiser le formulaire. Le dossier
+      // reste chiffré, la liste des utilisateurs sera rechargée après le
+      // prochain déchiffrement réussi dans _login().
+      _passwordController.clear();
+      setState(() {
+        _users = [];
+        _selectedLogin = null;
+      });
     }
   }
 
@@ -337,7 +401,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
 
               // Bouton connexion
               Padding(
-                padding: const EdgeInsets.only(left: 28, right: 28, bottom: 28),
+                padding: const EdgeInsets.only(left: 28, right: 28, bottom: 8),
                 child: SizedBox(
                   width: double.infinity,
                   height: 44,
@@ -356,6 +420,14 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                   ),
                 ),
               ),
+              if (_isEncrypted)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: TextButton(
+                    onPressed: _isLoading ? null : _forgotPassword,
+                    child: const Text('Mot de passe oublié ?'),
+                  ),
+                ),
             ],
           ),
         ),

@@ -4,6 +4,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
 import 'dart:io';
 import 'services/app_config_service.dart';
+import 'services/database_service.dart';
+import 'services/dossier_crypto_service.dart';
 import 'pages/welcome_page.dart';
 
 bool get _isDesktop =>
@@ -24,6 +26,10 @@ Future<void> main() async {
 
   // Initialiser la base de données de configuration de l'application
   await AppConfigService.initialize();
+
+  // Nettoyer les fichiers temporaires déchiffrés laissés par une session
+  // interrompue (crash) du module Sécurité du dossier comptable.
+  await DossierCryptoService.cleanupStaleTempFiles();
 
   runApp(const MyApp());
 }
@@ -84,6 +90,12 @@ class _MyAppState extends State<MyApp> with WindowListener {
     );
 
     if (confirmer == true) {
+      if (DossierCryptoService.hasOpenEncryptedSession) {
+        if (DatabaseService.isConnected) {
+          await DatabaseService.database.close();
+        }
+        await DossierCryptoService.closeOpenSessionAndReencrypt();
+      }
       await windowManager.destroy();
     }
   }

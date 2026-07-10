@@ -45,4 +45,39 @@ Quand une modification est demandée :
 - Ajout de dépendances inutiles.
 
 TAF:
-(au niveau de nouvelle sous-rubrique formulaire de création champ dropdown compte met une ligne recherche tout en haut du dropdown pour qu'on puisse rechercher un compte rapidement au niveau du dropdown)
+Implémente un module **Sécurité du dossier comptable** en Flutter Desktop.
+
+### Fonctionnement
+
+* Lors de la création d'un dossier comptable, l'utilisateur choisit un mot de passe.
+* Les données du dossier doivent être chiffrées (AES-256-GCM).
+* Le mot de passe ne doit jamais être stocké en clair (utiliser Argon2id ou PBKDF2).
+* Générer un **ID unique du dossier** (UUID).
+* Générer une **clé de récupération unique** au format lisible (ex. XXXX-XXXX-XXXX-XXXX).
+* Afficher cette clé une seule fois après la création du dossier avec les options Copier, Imprimer et Exporter en PDF.
+* Ajouter un bouton **« Mot de passe oublié »** sur l'écran d'ouverture.
+
+### Récupération
+
+Si l'utilisateur possède sa clé de récupération :
+
+* vérifier la clé ;
+* autoriser immédiatement la création d'un nouveau mot de passe ;
+* conserver toutes les données.
+
+### Assistance par l'éditeur
+
+Prévoir une architecture permettant à l'éditeur de déverrouiller **un seul dossier à la fois** à l'aide d'un code de récupération généré à partir de l'ID du dossier. **Ne pas intégrer de login ou de mot de passe maître universel dans l'application**, ni de clé permettant d'ouvrir tous les dossiers.
+
+### Interface
+
+Ajouter une section **Sécurité** contenant :
+
+* Modifier le mot de passe.
+* Afficher l'ID du dossier.
+* Afficher ou régénérer la clé de récupération.
+* Exporter la clé en PDF.
+* Copier la clé.
+
+Le code doit être modulaire, propre, documenté, compatible Flutter Desktop et facilement réutilisable.
+ on peut implémenter ça en fonction de l'avancement de notre projet actuel sans casser les autres fonctionnement?
