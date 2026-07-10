@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/database_service.dart';
 import '../services/dossier_crypto_service.dart';
+import '../utils/app_constants.dart';
 import 'recovery_key_display_page.dart';
 
 class NewFileWizardPage extends StatefulWidget {
@@ -91,9 +92,9 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
   Future<void> _selectFile() async {
     final result = await FilePicker.platform.saveFile(
       dialogTitle: 'Créer un nouveau fichier comptable',
-      fileName: 'comptabilite.db',
+      fileName: 'comptabilite$databaseExtension',
       type: FileType.custom,
-      allowedExtensions: ['db'],
+      allowedExtensions: [databaseExtensionNoDot],
     );
 
     if (result != null) {

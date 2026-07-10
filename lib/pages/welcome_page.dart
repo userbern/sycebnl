@@ -3,13 +3,19 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../services/app_config_service.dart';
 import '../services/database_service.dart';
+import '../utils/app_constants.dart';
 import 'new_file_wizard_page.dart';
 import 'password_login_page.dart';
 import 'home_page.dart';
 import '../models/user_session.dart';
 
 class WelcomePage extends StatefulWidget {
-  const WelcomePage({super.key});
+  /// Chemin d'un dossier comptable (.syca) à ouvrir automatiquement au
+  /// démarrage, ex. lorsque l'application est lancée par double-clic sur un
+  /// fichier associé (cf. `FileAssociationService`).
+  final String? initialFilePath;
+
+  const WelcomePage({super.key, this.initialFilePath});
 
   @override
   State<WelcomePage> createState() => _WelcomePageState();
@@ -23,6 +29,11 @@ class _WelcomePageState extends State<WelcomePage> {
   void initState() {
     super.initState();
     _loadRecentFiles();
+    if (widget.initialFilePath != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openFile(widget.initialFilePath!);
+      });
+    }
   }
 
   Future<void> _loadRecentFiles() async {
@@ -47,7 +58,7 @@ class _WelcomePageState extends State<WelcomePage> {
   Future<void> _openExistingFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['db'],
+      allowedExtensions: [databaseExtensionNoDot],
       dialogTitle: 'Ouvrir un fichier comptable',
     );
 
@@ -109,7 +120,7 @@ class _WelcomePageState extends State<WelcomePage> {
 
     await AppConfigService.addRecentFile(
       filePath: filePath,
-      fileName: fileName.replaceAll('.db', ''),
+      fileName: fileName.replaceAll(databaseExtension, ''),
       hasPassword: requiresPassword,
     );
 

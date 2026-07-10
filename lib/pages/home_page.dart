@@ -21,6 +21,7 @@ import 'saisie_ecriture_page.dart';
 import 'balance_comptes_page.dart';
 import 'permissions_page.dart';
 import 'dossier_security_page.dart';
+import '../widgets/app_logo.dart';
 import 'interrogations_lettrages_page.dart';
 import 'liste_exercices_page.dart';
 import '../models/saisie_comptable.dart';
@@ -594,62 +595,42 @@ class _HomePageState extends State<HomePage> {
                         bottom: BorderSide(color: Colors.blue.shade200),
                       ),
                     ),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        CircleAvatar(
-                          backgroundColor: Colors.blue,
-                          radius: 16,
-                          child: const Icon(
-                            Icons.business,
-                            color: Colors.white,
-                            size: 16,
+                        const AppLogo(size: 40),
+                        const SizedBox(height: 8),
+                        Text(
+                          entiteName,
+                          style: TextStyle(
+                            color: Colors.blue.shade900,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
                           ),
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                entiteName,
-                                style: TextStyle(
-                                  color: Colors.blue.shade900,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                        if (_exercices.isNotEmpty &&
+                            _activeExerciceId != null)
+                          Container(
+                            margin: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              'Exercice: ${_exercices.firstWhere((e) => e['id'] == _activeExerciceId, orElse: () => {'code': 'N/A'})['code']}',
+                              style: TextStyle(
+                                color: Colors.blue.shade400,
+                                fontSize: 9,
                               ),
-                              if (_exercices.isNotEmpty &&
-                                  _activeExerciceId != null)
-                                Container(
-                                  margin: const EdgeInsets.only(top: 2),
-                                  child: Text(
-                                    'Exercice: ${_exercices.firstWhere((e) => e['id'] == _activeExerciceId, orElse: () => {'code': 'N/A'})['code']}',
-                                    style: TextStyle(
-                                      color: Colors.blue.shade400,
-                                      fontSize: 9,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                            ],
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   )
                 else
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: CircleAvatar(
-                      backgroundColor: Colors.blue,
-                      radius: 20,
-                      child: const Icon(
-                        Icons.business,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: AppLogo(size: 32),
                   ),
                 // Menu items
                 Expanded(

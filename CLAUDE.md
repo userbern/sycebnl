@@ -1,83 +1,56 @@
-Règles générales
+Implémente un système de fichier comptable professionnel sous Flutter Desktop (Windows).
 
-- Modifier uniquement les fichiers nécessaires.
-- Éviter les refactorings globaux sauf s'ils sont explicitement demandés.
-- Ne jamais casser les fonctionnalités existantes.
-- Conserver les noms des classes, méthodes et variables lorsqu'il n'est pas nécessaire de les modifier.
-- Réutiliser les widgets, services et composants existants avant d'en créer de nouveaux.
-- Respecter l'architecture actuelle.
-- Éviter les duplications de code.
-- Préférer une solution simple et maintenable.
-- Toujours vérifier les impacts des modifications sur le reste du projet.
+OBJECTIF
 
-Architecture
+L'utilisateur ne doit jamais manipuler un fichier ".db".
 
-Avant de créer un nouveau fichier ou une nouvelle classe :
+À la place, utiliser une extension personnalisée :
 
-- rechercher si un composant similaire existe déjà ;
-- privilégier la réutilisation ;
-- respecter l'organisation actuelle des dossiers.
+.syca
 
-Ne pas déplacer des fichiers sans demande explicite.
+(ou créer une constante permettant de la modifier facilement).
 
-Avant de coder
+En interne, le fichier reste une base SQLite valide.
 
-Commencer par comprendre le problème.
+À FAIRE
 
-S'il manque des informations importantes, les demander avant de proposer une solution.
+1. Créer une classe AppDatabase qui ouvre un fichier ".sya" avec sqlite3/sqflite_common_ffi.
 
-Ne jamais faire d'hypothèses sur le fonctionnement métier.
+2. Toutes les opérations SQLite doivent fonctionner normalement malgré l'extension ".syca".
 
-Quand une modification est demandée :
+3. Remplacer partout dans le projet les références ".db" visibles par ".syca".
 
-. Identifier les fichiers concernés.
-. Expliquer brièvement la solution.
-. Modifier uniquement ce qui est nécessaire.
-. Ne pas modifier d'autres parties du projet.
+4. Lors de la création d'un nouveau dossier comptable :
 
- À éviter
+- demander le nom de l'entreprise
+- créer automatiquement :
 
-- Refactoring massif.
-- Renommage inutile.
-- Création de nouveaux dossiers sans raison.
-- Duplication de logique.
-- Modification de plusieurs modules alors qu'un seul est demandé.
-- Ajout de dépendances inutiles.
+NomEntreprise.syca
 
-TAF:
-Implémente un module **Sécurité du dossier comptable** en Flutter Desktop.
+5. Lors de l'ouverture d'un dossier :
 
-### Fonctionnement
+- filtrer uniquement les fichiers ".syca".
 
-* Lors de la création d'un dossier comptable, l'utilisateur choisit un mot de passe.
-* Les données du dossier doivent être chiffrées (AES-256-GCM).
-* Le mot de passe ne doit jamais être stocké en clair (utiliser Argon2id ou PBKDF2).
-* Générer un **ID unique du dossier** (UUID).
-* Générer une **clé de récupération unique** au format lisible (ex. XXXX-XXXX-XXXX-XXXX).
-* Afficher cette clé une seule fois après la création du dossier avec les options Copier, Imprimer et Exporter en PDF.
-* Ajouter un bouton **« Mot de passe oublié »** sur l'écran d'ouverture.
+6. Ajouter une constante :
 
-### Récupération
+const databaseExtension = ".syca";
 
-Si l'utilisateur possède sa clé de récupération :
+afin de pouvoir changer facilement l'extension.
 
-* vérifier la clé ;
-* autoriser immédiatement la création d'un nouveau mot de passe ;
-* conserver toutes les données.
+7. Sous Windows :
 
-### Assistance par l'éditeur
+Configurer le projet afin que l'extension ".syca" soit associée à l'application.
 
-Prévoir une architecture permettant à l'éditeur de déverrouiller **un seul dossier à la fois** à l'aide d'un code de récupération généré à partir de l'ID du dossier. **Ne pas intégrer de login ou de mot de passe maître universel dans l'application**, ni de clé permettant d'ouvrir tous les dossiers.
+Le double-clic sur un fichier ".syca" doit ouvrir automatiquement l'application puis charger ce dossier comptable.
 
-### Interface
+8. Utiliser le logo officiel de l'application comme icône des fichiers ".syca".
 
-Ajouter une section **Sécurité** contenant :
+9. Ajouter les fonctions :
 
-* Modifier le mot de passe.
-* Afficher l'ID du dossier.
-* Afficher ou régénérer la clé de récupération.
-* Exporter la clé en PDF.
-* Copier la clé.
+- createAccountingFile()
+- openAccountingFile()
+- isAccountingFile()
 
-Le code doit être modulaire, propre, documenté, compatible Flutter Desktop et facilement réutilisable.
- on peut implémenter ça en fonction de l'avancement de notre projet actuel sans casser les autres fonctionnement?
+10. Le code doit être modulaire, documenté et compatible Flutter Desktop Windows.
+
+Ne modifier que les parties nécessaires sans casser l'architecture existante.

@@ -4,14 +4,17 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
 import 'dart:io';
 import 'services/app_config_service.dart';
+import 'services/app_database.dart';
 import 'services/database_service.dart';
 import 'services/dossier_crypto_service.dart';
-import 'pages/welcome_page.dart';
+import 'services/export_service.dart';
+import 'services/file_association_service.dart';
+import 'pages/splash_page.dart';
 
 bool get _isDesktop =>
     Platform.isWindows || Platform.isLinux || Platform.isMacOS;
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialiser SQLite FFI pour les plateformes desktop (Windows, Linux, macOS)
@@ -31,11 +34,25 @@ Future<void> main() async {
   // interrompue (crash) du module Sécurité du dossier comptable.
   await DossierCryptoService.cleanupStaleTempFiles();
 
-  runApp(const MyApp());
+  // Précharge le logo officiel pour les en-têtes des exports PDF.
+  await ExportService.preloadLogo();
+
+  // Associe l'extension .syca à l'application (double-clic ouvre le dossier).
+  await FileAssociationService.registerIfNeeded();
+
+  // Si l'app a été lancée par double-clic sur un dossier comptable, son
+  // chemin arrive en argument de ligne de commande.
+  final launchFilePath = args.isNotEmpty && AppDatabase.isAccountingFile(args.first)
+      ? args.first
+      : null;
+
+  runApp(MyApp(initialFilePath: launchFilePath));
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  final String? initialFilePath;
+
+  const MyApp({super.key, this.initialFilePath});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -116,7 +133,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
       ],
       supportedLocales: const [Locale('fr', 'FR'), Locale('en', 'US')],
       locale: const Locale('fr', 'FR'),
-      home: const WelcomePage(),
+      home: SplashPage(initialFilePath: widget.initialFilePath),
       debugShowCheckedModeBanner: false,
     );
   }

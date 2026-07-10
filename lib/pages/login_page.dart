@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service_local.dart';
 import '../models/user_session.dart';
 import '../utils/form_enter_shortcut.dart';
+import '../widgets/app_logo.dart';
 import 'home_page.dart';
 import 'database_setup_page.dart';
 
@@ -113,11 +114,7 @@ class _LoginPageState extends State<LoginPage> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(
-                        Icons.calculate,
-                        size: 64,
-                        color: Colors.indigo.shade700,
-                      ),
+                      const AppLogo(size: 64),
                       const SizedBox(height: 16),
                       const Text(
                         'SYCEBNL Accounting',

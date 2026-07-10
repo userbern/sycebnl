@@ -1,12 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:excel/excel.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
+import '../widgets/app_logo.dart';
 
 class ExportService {
+  static Uint8List? _logoBytes;
+
+  /// Précharge le logo officiel en mémoire pour les en-têtes PDF (voir
+  /// [_pdfEntiteHeader]). À appeler une fois au démarrage de l'application
+  /// (main.dart) : les exports PDF sont synchrones vis-à-vis du logo une
+  /// fois celui-ci chargé.
+  static Future<void> preloadLogo() async {
+    if (_logoBytes != null) return;
+    try {
+      final data = await rootBundle.load(AppLogo.assetPath);
+      _logoBytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    } catch (_) {
+      _logoBytes = null;
+    }
+  }
   /// Génère et sauvegarde un PDF de la balance des résultats avec le même layout que l'interface
   static Future<void> generateAndPrintPDF({
     required String title,
@@ -3040,21 +3057,37 @@ class ExportService {
     return text;
   }
 
-  /// En-tête simple affichant la dénomination sociale en haut d'un PDF.
+  /// En-tête affichant le logo officiel et la dénomination sociale en haut
+  /// d'un PDF. Le logo est chargé une seule fois via [preloadLogo].
   static pw.Widget _pdfEntiteHeader(String? entiteNom) {
-    if (entiteNom == null || entiteNom.isEmpty) {
-      return pw.SizedBox();
+    final logoBytes = _logoBytes;
+    final children = <pw.Widget>[];
+
+    if (logoBytes != null) {
+      children.add(
+        pw.Container(
+          height: 36,
+          alignment: pw.Alignment.centerLeft,
+          child: pw.Image(pw.MemoryImage(logoBytes), fit: pw.BoxFit.contain),
+        ),
+      );
+      children.add(pw.SizedBox(height: 4));
     }
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
+
+    if (entiteNom != null && entiteNom.isNotEmpty) {
+      children.add(
         pw.Text(
           'Dénomination sociale : $entiteNom',
           style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
         ),
-        pw.SizedBox(height: 4),
-      ],
-    );
+      );
+      children.add(pw.SizedBox(height: 4));
+    }
+
+    if (children.isEmpty) {
+      return pw.SizedBox();
+    }
+    return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: children);
   }
 
   /// Pied de page commun affiché en bas de chaque PDF exporté.

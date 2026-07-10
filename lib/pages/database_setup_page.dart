@@ -6,6 +6,7 @@ import 'dart:io';
 import '../services/database_service.dart';
 import '../services/dossier_crypto_service.dart';
 import '../models/user_session.dart';
+import '../utils/app_constants.dart';
 import 'login_page.dart';
 import 'password_login_page.dart';
 import 'home_page.dart';
@@ -103,13 +104,13 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
       }
 
       // Retourner le chemin complet vers la base de données
-      return path.join(sycebnlDir.path, 'sycebnl_accounting.db');
+      return path.join(sycebnlDir.path, 'sycebnl_accounting$databaseExtension');
     } catch (e) {
       // En cas d'erreur, utiliser le répertoire courant
       return path.join(
         Directory.current.path,
         'SYCEBNL',
-        'sycebnl_accounting.db',
+        'sycebnl_accounting$databaseExtension',
       );
     }
   }
@@ -120,9 +121,9 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
         // Sélectionner un emplacement pour créer une nouvelle base
         final result = await FilePicker.platform.saveFile(
           dialogTitle: 'Choisir l\'emplacement du nouveau fichier comptable',
-          fileName: 'sycebnl_accounting.db',
+          fileName: 'sycebnl_accounting$databaseExtension',
           type: FileType.custom,
-          allowedExtensions: ['db'],
+          allowedExtensions: [databaseExtensionNoDot],
         );
 
         if (result != null) {
@@ -135,7 +136,7 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
         final result = await FilePicker.platform.pickFiles(
           dialogTitle: 'Sélectionner un fichier comptable existant',
           type: FileType.custom,
-          allowedExtensions: ['db'],
+          allowedExtensions: [databaseExtensionNoDot],
         );
 
         if (result != null && result.files.single.path != null) {

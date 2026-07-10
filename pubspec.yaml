@@ -40,16 +40,26 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  # Génération de l'icône Windows à partir du logo officiel :
+  # `dart run flutter_launcher_icons` (à relancer si le PNG est remplacé)
+  flutter_launcher_icons: ^0.14.3
 
+flutter_launcher_icons:
+  image_path: "assets/images/logo.png"
+  windows:
+    generate: true
+    image_path: "assets/images/logo.png"
+    icon_size: 256
 
 flutter:
 
-  
+
   uses-material-design: true
 
-  
+
   assets:
     - "lib/utils/PLAN_SYCEBNL Excel_Version actualise.xlsx"
+    - "assets/images/logo.png"
 
   # fonts:
   #   - family: Schyler
