@@ -763,7 +763,9 @@ class _ProjetDialogState extends State<_ProjetDialog> {
   late TextEditingController _designationController;
   late TextEditingController _dateDebutController;
   late TextEditingController _dateFinController;
-  late TextEditingController _bailleurSearchController;
+  // This controller is owned by Autocomplete. Keep only a reference so the
+  // field can be cleared after a selection; do not dispose it here.
+  TextEditingController? _bailleurSearchController;
   List<Map<String, dynamic>> _availableBailleurs = [];
   List<Map<String, dynamic>> _selectedBailleurs = [];
   bool _isSaving = false;
@@ -787,8 +789,6 @@ class _ProjetDialogState extends State<_ProjetDialog> {
     _dateFinController = TextEditingController(
       text: widget.projet?['date_fin'] ?? '',
     );
-    _bailleurSearchController = TextEditingController();
-
     // Initialiser les dropdowns de date
     final debutDate =
         _dateDebutController.text.isNotEmpty
@@ -884,7 +884,6 @@ class _ProjetDialogState extends State<_ProjetDialog> {
     _designationController.dispose();
     _dateDebutController.dispose();
     _dateFinController.dispose();
-    _bailleurSearchController.dispose();
     super.dispose();
   }
 
@@ -1171,7 +1170,7 @@ class _ProjetDialogState extends State<_ProjetDialog> {
       ) {
         _bailleurSearchController = textEditingController;
         return TextFormField(
-          controller: _bailleurSearchController,
+          controller: textEditingController,
           focusNode: focusNode,
           decoration: InputDecoration(
             labelText: 'Sélectionner un bailleur',
@@ -1190,7 +1189,7 @@ class _ProjetDialogState extends State<_ProjetDialog> {
         if (!_selectedBailleurs.any((b) => b['id'] == selection['id'])) {
           setState(() {
             _selectedBailleurs.add(selection);
-            _bailleurSearchController.clear();
+            _bailleurSearchController?.clear();
           });
         }
       },

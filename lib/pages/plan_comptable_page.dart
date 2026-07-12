@@ -1070,7 +1070,7 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
           icon: const Icon(Icons.upload_file, size: 16, color: Colors.white),
           label: const Text('Importer'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.purple.shade600,
+            backgroundColor: Colors.teal.shade700,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             textStyle: const TextStyle(fontSize: 13),

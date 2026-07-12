@@ -1508,7 +1508,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                   onSuccess: _loadData,
                 ),
             icon: const Icon(Icons.upload_file, size: 16, color: Colors.white),
-            label: const Text('Importer Excel'),
+            label: const Text('Importer'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.teal.shade700,
               foregroundColor: Colors.white,
