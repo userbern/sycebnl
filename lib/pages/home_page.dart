@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:sycebnl_accounting/widgets/app_icon.dart';
+import 'package:sycebnl_accounting/widgets/company_header_card.dart';
 import '../services/database_service.dart';
 import '../models/user_session.dart';
 import 'entite_identification_page.dart';
@@ -587,50 +589,20 @@ class _HomePageState extends State<HomePage> {
                 ),
                 // Entity info compact
                 if (!_isSidebarCollapsed)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade100,
-                      border: Border(
-                        bottom: BorderSide(color: Colors.blue.shade200),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const AppLogo(size: 40),
-                        const SizedBox(height: 8),
-                        Text(
-                          entiteName,
-                          style: TextStyle(
-                            color: Colors.blue.shade900,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (_exercices.isNotEmpty &&
-                            _activeExerciceId != null)
-                          Container(
-                            margin: const EdgeInsets.only(top: 2),
-                            child: Text(
-                              'Exercice: ${_exercices.firstWhere((e) => e['id'] == _activeExerciceId, orElse: () => {'code': 'N/A'})['code']}',
-                              style: TextStyle(
-                                color: Colors.blue.shade400,
-                                fontSize: 9,
-                              ),
-                              textAlign: TextAlign.center,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                      ],
-                    ),
+                  CompanyHeaderCard(
+                    companyName: entiteName,
+                    exerciceCode:
+                        _exercices.isNotEmpty && _activeExerciceId != null
+                            ? _exercices.firstWhere(
+                              (e) => e['id'] == _activeExerciceId,
+                              orElse: () => {'code': 'N/A'},
+                            )['code']?.toString()
+                            : null,
                   )
                 else
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
-                    child: AppLogo(size: 32),
+                    child: AppIcon(size: 32),
                   ),
                 // Menu items
                 Expanded(

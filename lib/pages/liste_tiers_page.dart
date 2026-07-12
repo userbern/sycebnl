@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../services/import_service.dart';
 import '../services/database_service.dart';
 import '../models/tiers.dart';
 import '../models/compte.dart';
@@ -32,11 +33,17 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
 
   // Permissions
   bool get _canCreate =>
-      widget.userSession == null ? true : widget.userSession!.canCreate('liste_tiers');
+      widget.userSession == null
+          ? true
+          : widget.userSession!.canCreate('liste_tiers');
   bool get _canModify =>
-      widget.userSession == null ? true : widget.userSession!.canModify('liste_tiers');
+      widget.userSession == null
+          ? true
+          : widget.userSession!.canModify('liste_tiers');
   bool get _canDelete =>
-      widget.userSession == null ? true : widget.userSession!.canDelete('liste_tiers');
+      widget.userSession == null
+          ? true
+          : widget.userSession!.canDelete('liste_tiers');
 
   late FocusNode _focusNode;
 
@@ -64,10 +71,11 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
 
     if (_searchQuery.isNotEmpty) {
       final query = _searchQuery.toLowerCase();
-      filtered = filtered.where((tiers) {
-        return tiers.numeroCompte.toLowerCase().contains(query) ||
-            tiers.intitule.toLowerCase().contains(query);
-      }).toList();
+      filtered =
+          filtered.where((tiers) {
+            return tiers.numeroCompte.toLowerCase().contains(query) ||
+                tiers.intitule.toLowerCase().contains(query);
+          }).toList();
     }
 
     if (_selectedType != null) {
@@ -132,9 +140,8 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
     if (numeroCompte.isEmpty) return '';
     for (final compte in _comptes) {
       if (compte.numeroCompte == numeroCompte) {
-        final displayIntitule = compte.intitule.isEmpty
-            ? compte.nature.toLabel()
-            : compte.intitule;
+        final displayIntitule =
+            compte.intitule.isEmpty ? compte.nature.toLabel() : compte.intitule;
         return '${compte.numeroCompte} - $displayIntitule';
       }
     }
@@ -148,15 +155,17 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setState) {
-            final filtered = _comptes.where((compte) {
-              if (query.isEmpty) return true;
-              final q = query.toLowerCase();
-              final displayIntitule = compte.intitule.isEmpty
-                  ? compte.nature.toLabel()
-                  : compte.intitule;
-              return compte.numeroCompte.toLowerCase().contains(q) ||
-                  displayIntitule.toLowerCase().contains(q);
-            }).toList();
+            final filtered =
+                _comptes.where((compte) {
+                  if (query.isEmpty) return true;
+                  final q = query.toLowerCase();
+                  final displayIntitule =
+                      compte.intitule.isEmpty
+                          ? compte.nature.toLabel()
+                          : compte.intitule;
+                  return compte.numeroCompte.toLowerCase().contains(q) ||
+                      displayIntitule.toLowerCase().contains(q);
+                }).toList();
             return AlertDialog(
               title: const Text('Sélectionner un compte collectif'),
               content: SizedBox(
@@ -178,28 +187,31 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                     ),
                     const SizedBox(height: 12),
                     Expanded(
-                      child: filtered.isEmpty
-                          ? const Center(child: Text('Aucun compte trouvé'))
-                          : ListView.builder(
-                              itemCount: filtered.length,
-                              itemBuilder: (context, index) {
-                                final compte = filtered[index];
-                                final displayIntitule = compte.intitule.isEmpty
-                                    ? compte.nature.toLabel()
-                                    : compte.intitule;
-                                return ListTile(
-                                  selected:
-                                      compte.numeroCompte == currentValue,
-                                  title: Text(
-                                    '${compte.numeroCompte} - $displayIntitule',
-                                  ),
-                                  onTap: () => Navigator.pop(
-                                    context,
-                                    compte.numeroCompte,
-                                  ),
-                                );
-                              },
-                            ),
+                      child:
+                          filtered.isEmpty
+                              ? const Center(child: Text('Aucun compte trouvé'))
+                              : ListView.builder(
+                                itemCount: filtered.length,
+                                itemBuilder: (context, index) {
+                                  final compte = filtered[index];
+                                  final displayIntitule =
+                                      compte.intitule.isEmpty
+                                          ? compte.nature.toLabel()
+                                          : compte.intitule;
+                                  return ListTile(
+                                    selected:
+                                        compte.numeroCompte == currentValue,
+                                    title: Text(
+                                      '${compte.numeroCompte} - $displayIntitule',
+                                    ),
+                                    onTap:
+                                        () => Navigator.pop(
+                                          context,
+                                          compte.numeroCompte,
+                                        ),
+                                  );
+                                },
+                              ),
                     ),
                   ],
                 ),
@@ -273,8 +285,12 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
 
   void _showTiersDialog({Tiers? tiers}) {
     final isEdit = tiers != null;
-    final numeroController = TextEditingController(text: tiers?.numeroCompte ?? '');
-    final intituleController = TextEditingController(text: tiers?.intitule ?? '');
+    final numeroController = TextEditingController(
+      text: tiers?.numeroCompte ?? '',
+    );
+    final intituleController = TextEditingController(
+      text: tiers?.intitule ?? '',
+    );
     final nifController = TextEditingController(text: tiers?.nif ?? '');
     final adresseController = TextEditingController(text: tiers?.adresse ?? '');
 
@@ -322,17 +338,23 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                           icon: Icons.numbers,
                           enabled: !isEdit,
                           autofocus: !isEdit,
-                          onChanged: !isEdit
-                              ? (value) {
-                                  final compteCollectif = _findCompteByNumero(value);
-                                  final tiersType = _getTypeFromCompteNumber(value);
-                                  setDialogState(() {
-                                    selectedCompteCollectif =
-                                        compteCollectif?.numeroCompte ?? '';
-                                    if (tiersType != null) selectedType = tiersType;
-                                  });
-                                }
-                              : null,
+                          onChanged:
+                              !isEdit
+                                  ? (value) {
+                                    final compteCollectif = _findCompteByNumero(
+                                      value,
+                                    );
+                                    final tiersType = _getTypeFromCompteNumber(
+                                      value,
+                                    );
+                                    setDialogState(() {
+                                      selectedCompteCollectif =
+                                          compteCollectif?.numeroCompte ?? '';
+                                      if (tiersType != null)
+                                        selectedType = tiersType;
+                                    });
+                                  }
+                                  : null,
                         ),
                         const SizedBox(height: 16),
                         _buildDialogTextField(
@@ -351,45 +373,59 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade400),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade400,
+                              ),
                             ),
                             disabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade300,
+                              ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+                              borderSide: BorderSide(
+                                color: Colors.blue.shade400,
+                                width: 2,
+                              ),
                             ),
                             filled: true,
-                            fillColor: isEdit ? Colors.grey.shade200 : Colors.grey.shade50,
+                            fillColor:
+                                isEdit
+                                    ? Colors.grey.shade200
+                                    : Colors.grey.shade50,
                           ),
-                          items: TypeTiers.values.map((type) {
-                            return DropdownMenuItem(
-                              value: type,
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: _getTypeColor(type),
-                                    ),
+                          items:
+                              TypeTiers.values.map((type) {
+                                return DropdownMenuItem(
+                                  value: type,
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: _getTypeColor(type),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(type.toLabel()),
+                                    ],
                                   ),
-                                  const SizedBox(width: 8),
-                                  Text(type.toLabel()),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: isEdit
-                              ? null
-                              : (value) {
-                                  if (value != null) {
-                                    setDialogState(() => selectedType = value);
-                                  }
-                                },
+                                );
+                              }).toList(),
+                          onChanged:
+                              isEdit
+                                  ? null
+                                  : (value) {
+                                    if (value != null) {
+                                      setDialogState(
+                                        () => selectedType = value,
+                                      );
+                                    }
+                                  },
                         ),
                         const SizedBox(height: 16),
                         Row(
@@ -397,34 +433,43 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                             Expanded(
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(12),
-                                onTap: isEdit
-                                    ? null
-                                    : () async {
-                                        final result =
-                                            await _showCompteCollectifSearchDialog(
-                                          selectedCompteCollectif,
-                                        );
-                                        if (result != null) {
-                                          setDialogState(
-                                            () => selectedCompteCollectif = result,
-                                          );
-                                        }
-                                      },
+                                onTap:
+                                    isEdit
+                                        ? null
+                                        : () async {
+                                          final result =
+                                              await _showCompteCollectifSearchDialog(
+                                                selectedCompteCollectif,
+                                              );
+                                          if (result != null) {
+                                            setDialogState(
+                                              () =>
+                                                  selectedCompteCollectif =
+                                                      result,
+                                            );
+                                          }
+                                        },
                                 child: InputDecorator(
                                   decoration: InputDecoration(
                                     labelText: 'Compte collectif *',
                                     prefixIcon: const Icon(Icons.account_tree),
-                                    suffixIcon: const Icon(Icons.arrow_drop_down),
+                                    suffixIcon: const Icon(
+                                      Icons.arrow_drop_down,
+                                    ),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(color: Colors.grey.shade400),
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade400,
+                                      ),
                                     ),
                                     disabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(color: Colors.grey.shade300),
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                      ),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
@@ -435,10 +480,14 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                     ),
                                     filled: true,
                                     fillColor:
-                                        isEdit ? Colors.grey.shade200 : Colors.grey.shade50,
+                                        isEdit
+                                            ? Colors.grey.shade200
+                                            : Colors.grey.shade50,
                                   ),
                                   child: Text(
-                                    _compteCollectifLabel(selectedCompteCollectif),
+                                    _compteCollectifLabel(
+                                      selectedCompteCollectif,
+                                    ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -448,23 +497,26 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                             IconButton(
                               icon: Icon(
                                 Icons.add_circle,
-                                color: isEdit
-                                    ? Colors.grey.shade400
-                                    : Colors.blue.shade700,
+                                color:
+                                    isEdit
+                                        ? Colors.grey.shade400
+                                        : Colors.blue.shade700,
                               ),
                               tooltip: 'Créer un nouveau compte',
-                              onPressed: isEdit
-                                  ? null
-                                  : () {
-                                      _showCompteDialogInlined(
-                                        setDialogState: setDialogState,
-                                        onCompteCreated: (numeroCompte) {
-                                          setDialogState(() {
-                                            selectedCompteCollectif = numeroCompte;
-                                          });
-                                        },
-                                      );
-                                    },
+                              onPressed:
+                                  isEdit
+                                      ? null
+                                      : () {
+                                        _showCompteDialogInlined(
+                                          setDialogState: setDialogState,
+                                          onCompteCreated: (numeroCompte) {
+                                            setDialogState(() {
+                                              selectedCompteCollectif =
+                                                  numeroCompte;
+                                            });
+                                          },
+                                        );
+                                      },
                             ),
                           ],
                         ),
@@ -498,7 +550,9 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                             selectedCompteCollectif.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Veuillez remplir tous les champs obligatoires'),
+                              content: Text(
+                                'Veuillez remplir tous les champs obligatoires',
+                              ),
                               backgroundColor: Colors.orange,
                             ),
                           );
@@ -510,8 +564,12 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                             intituleController.text,
                             selectedType.toDbString(),
                             selectedCompteCollectif,
-                            nifController.text.isEmpty ? null : nifController.text,
-                            adresseController.text.isEmpty ? null : adresseController.text,
+                            nifController.text.isEmpty
+                                ? null
+                                : nifController.text,
+                            adresseController.text.isEmpty
+                                ? null
+                                : adresseController.text,
                           );
                           numeroController.clear();
                           intituleController.clear();
@@ -555,7 +613,9 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                           selectedCompteCollectif.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Veuillez remplir tous les champs obligatoires'),
+                            content: Text(
+                              'Veuillez remplir tous les champs obligatoires',
+                            ),
                             backgroundColor: Colors.orange,
                           ),
                         );
@@ -569,8 +629,12 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                             intituleController.text,
                             selectedType.toDbString(),
                             selectedCompteCollectif,
-                            nifController.text.isEmpty ? null : nifController.text,
-                            adresseController.text.isEmpty ? null : adresseController.text,
+                            nifController.text.isEmpty
+                                ? null
+                                : nifController.text,
+                            adresseController.text.isEmpty
+                                ? null
+                                : adresseController.text,
                           );
                         } else {
                           await DatabaseService.createTiers(
@@ -578,8 +642,12 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                             intituleController.text,
                             selectedType.toDbString(),
                             selectedCompteCollectif,
-                            nifController.text.isEmpty ? null : nifController.text,
-                            adresseController.text.isEmpty ? null : adresseController.text,
+                            nifController.text.isEmpty
+                                ? null
+                                : nifController.text,
+                            adresseController.text.isEmpty
+                                ? null
+                                : adresseController.text,
                           );
                         }
                         await _loadData();
@@ -588,7 +656,9 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                isEdit ? 'Tiers modifié avec succès' : 'Tiers ajouté avec succès',
+                                isEdit
+                                    ? 'Tiers modifié avec succès'
+                                    : 'Tiers ajouté avec succès',
                               ),
                               backgroundColor: Colors.green,
                             ),
@@ -605,7 +675,10 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                         }
                       }
                     },
-                    icon: Icon(isEdit ? Icons.save : Icons.check, color: Colors.white),
+                    icon: Icon(
+                      isEdit ? Icons.save : Icons.check,
+                      color: Colors.white,
+                    ),
                     label: Text(isEdit ? 'Enregistrer' : 'Ajouter'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue.shade700,
@@ -669,7 +742,8 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                 keyboardType: TextInputType.number,
                                 autofocus: true,
                                 validator: (value) {
-                                  if (value == null || value.trim().isEmpty) return 'Champ requis';
+                                  if (value == null || value.trim().isEmpty)
+                                    return 'Champ requis';
                                   if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
                                     return 'Seuls les chiffres sont autorisés';
                                   }
@@ -677,7 +751,8 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                 },
                                 onChanged: (value) {
                                   setCompteDialogState(() {
-                                    calculatedNature = calculateNatureFromNumeroCompte(value);
+                                    calculatedNature =
+                                        calculateNatureFromNumeroCompte(value);
                                   });
                                 },
                               ),
@@ -690,7 +765,8 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                 label: 'Intitulé *',
                                 icon: Icons.title,
                                 validator: (value) {
-                                  if (value == null || value.trim().isEmpty) return 'Champ requis';
+                                  if (value == null || value.trim().isEmpty)
+                                    return 'Champ requis';
                                   return null;
                                 },
                               ),
@@ -711,25 +787,33 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.grey.shade400),
+                                    borderSide: BorderSide(
+                                      color: Colors.grey.shade400,
+                                    ),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+                                    borderSide: BorderSide(
+                                      color: Colors.blue.shade400,
+                                      width: 2,
+                                    ),
                                   ),
                                   filled: true,
                                   fillColor: Colors.grey.shade50,
                                 ),
                                 dropdownColor: Colors.white,
-                                items: TypeCompte.values.map((type) {
-                                  return DropdownMenuItem(
-                                    value: type,
-                                    child: Text(type.toLabel()),
-                                  );
-                                }).toList(),
+                                items:
+                                    TypeCompte.values.map((type) {
+                                      return DropdownMenuItem(
+                                        value: type,
+                                        child: Text(type.toLabel()),
+                                      );
+                                    }).toList(),
                                 onChanged: (value) {
                                   if (value != null) {
-                                    setCompteDialogState(() => selectedType = value);
+                                    setCompteDialogState(
+                                      () => selectedType = value,
+                                    );
                                   }
                                 },
                               ),
@@ -739,29 +823,33 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                               child: Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: calculatedNature != null
-                                      ? Colors.blue.shade50
-                                      : Colors.grey.shade100,
+                                  color:
+                                      calculatedNature != null
+                                          ? Colors.blue.shade50
+                                          : Colors.grey.shade100,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: calculatedNature != null
-                                        ? Colors.blue.shade300
-                                        : Colors.grey.shade300,
+                                    color:
+                                        calculatedNature != null
+                                            ? Colors.blue.shade300
+                                            : Colors.grey.shade300,
                                   ),
                                 ),
                                 child: Row(
                                   children: [
                                     Icon(
                                       Icons.info_outline,
-                                      color: calculatedNature != null
-                                          ? Colors.blue.shade400
-                                          : Colors.grey.shade600,
+                                      color:
+                                          calculatedNature != null
+                                              ? Colors.blue.shade400
+                                              : Colors.grey.shade600,
                                       size: 20,
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Text(
@@ -772,12 +860,14 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                                             ),
                                           ),
                                           Text(
-                                            calculatedNature?.toLabel() ?? 'Auto',
+                                            calculatedNature?.toLabel() ??
+                                                'Auto',
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
-                                              color: calculatedNature != null
-                                                  ? Colors.blue.shade900
-                                                  : Colors.grey.shade600,
+                                              color:
+                                                  calculatedNature != null
+                                                      ? Colors.blue.shade900
+                                                      : Colors.grey.shade600,
                                             ),
                                           ),
                                         ],
@@ -805,7 +895,9 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                           ),
                           value: liaisonTiers,
                           onChanged: (value) {
-                            setCompteDialogState(() => liaisonTiers = value ?? false);
+                            setCompteDialogState(
+                              () => liaisonTiers = value ?? false,
+                            );
                           },
                           controlAffinity: ListTileControlAffinity.leading,
                           shape: RoundedRectangleBorder(
@@ -847,9 +939,10 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                           type: selectedType.toDbString(),
                           nature: calculatedNature!.toDbString(),
                           liaisonTiers: liaisonTiers,
-                          description: descriptionController.text.trim().isEmpty
-                              ? null
-                              : descriptionController.text.trim(),
+                          description:
+                              descriptionController.text.trim().isEmpty
+                                  ? null
+                                  : descriptionController.text.trim(),
                         );
                         await _loadData();
                         if (context.mounted) {
@@ -1007,7 +1100,10 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
         ),
         filled: true,
         fillColor: enabled ? Colors.grey.shade50 : Colors.grey.shade200,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
       ),
       keyboardType: keyboardType,
       maxLines: maxLines,
@@ -1049,7 +1145,10 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
         ),
         filled: true,
         fillColor: enabled ? Colors.grey.shade50 : Colors.grey.shade200,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
       ),
     );
   }
@@ -1057,51 +1156,54 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
   Future<void> _deleteTiers(Tiers tiers) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Confirmer la suppression'),
-          ],
-        ),
-        content: RichText(
-          text: TextSpan(
-            style: DefaultTextStyle.of(context).style,
-            children: [
-              const TextSpan(text: 'Êtes-vous sûr de vouloir supprimer le tiers '),
-              TextSpan(
-                text: "'${tiers.intitule}'",
-                style: const TextStyle(fontWeight: FontWeight.bold),
+      builder:
+          (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('Confirmer la suppression'),
+              ],
+            ),
+            content: RichText(
+              text: TextSpan(
+                style: DefaultTextStyle.of(context).style,
+                children: [
+                  const TextSpan(
+                    text: 'Êtes-vous sûr de vouloir supprimer le tiers ',
+                  ),
+                  TextSpan(
+                    text: "'${tiers.intitule}'",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const TextSpan(text: ' ('),
+                  TextSpan(
+                    text: tiers.numeroCompte,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const TextSpan(text: ') ?'),
+                ],
               ),
-              const TextSpan(text: ' ('),
-              TextSpan(
-                text: tiers.numeroCompte,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.bold,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context, true),
+                icon: const Icon(Icons.delete_forever),
+                label: const Text('Supprimer'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
                 ),
               ),
-              const TextSpan(text: ') ?'),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pop(context, true),
-            icon: const Icon(Icons.delete_forever),
-            label: const Text('Supprimer'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
     );
 
     if (confirm == true) {
@@ -1171,11 +1273,16 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                       ),
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: color.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: color.withValues(alpha: 0.35)),
+                          border: Border.all(
+                            color: color.withValues(alpha: 0.35),
+                          ),
                         ),
                         child: Text(
                           tiers.type.toLabel(),
@@ -1197,7 +1304,10 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                     const SizedBox(height: 2),
                     Text(
                       'Compte collectif : ${tiers.compteCollectif}',
-                      style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey.shade500,
+                      ),
                     ),
                   ],
                 ],
@@ -1206,20 +1316,36 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (_canModify) IconButton(
-                  icon: Icon(Icons.edit, size: 16, color: Colors.blue.shade700),
-                  onPressed: () => _showTiersDialog(tiers: tiers),
-                  tooltip: 'Modifier',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                ),
-                if (_canDelete) IconButton(
-                  icon: Icon(Icons.delete, size: 16, color: Colors.red.shade700),
-                  onPressed: () => _deleteTiers(tiers),
-                  tooltip: 'Supprimer',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                ),
+                if (_canModify)
+                  IconButton(
+                    icon: Icon(
+                      Icons.edit,
+                      size: 16,
+                      color: Colors.blue.shade700,
+                    ),
+                    onPressed: () => _showTiersDialog(tiers: tiers),
+                    tooltip: 'Modifier',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                  ),
+                if (_canDelete)
+                  IconButton(
+                    icon: Icon(
+                      Icons.delete,
+                      size: 16,
+                      color: Colors.red.shade700,
+                    ),
+                    onPressed: () => _deleteTiers(tiers),
+                    tooltip: 'Supprimer',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                  ),
               ],
             ),
           ],
@@ -1315,6 +1441,7 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                 },
               ),
               const SizedBox(height: 20),
+              
 
               // Filtres
               _buildFilterBar(),
@@ -1326,38 +1453,39 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
 
               // Contenu principal
               Expanded(
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _filteredTiers.isEmpty
+                child:
+                    _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _filteredTiers.isEmpty
                         ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.people_outline,
-                                  size: 80,
-                                  color: Colors.grey.shade300,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  _searchQuery.isEmpty
-                                      ? 'Aucun tiers dans le plan'
-                                      : 'Aucun tiers trouvé',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : Column(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Expanded(child: _buildMainContent()),
-                              const SizedBox(height: 12),
-                              _buildPaginationControls(),
+                              Icon(
+                                Icons.people_outline,
+                                size: 80,
+                                color: Colors.grey.shade300,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _searchQuery.isEmpty
+                                    ? 'Aucun tiers dans le plan'
+                                    : 'Aucun tiers trouvé',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
                             ],
                           ),
+                        )
+                        : Column(
+                          children: [
+                            Expanded(child: _buildMainContent()),
+                            const SizedBox(height: 12),
+                            _buildPaginationControls(),
+                          ],
+                        ),
               ),
             ],
           ),
@@ -1372,14 +1500,36 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
       runSpacing: 8,
       alignment: WrapAlignment.end,
       children: [
+        if (_canCreate)
+          ElevatedButton.icon(
+            onPressed:
+                () => ImportService.importTiers(
+                  context: context,
+                  onSuccess: _loadData,
+                ),
+            icon: const Icon(Icons.upload_file, size: 16, color: Colors.white),
+            label: const Text('Importer Excel'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade700,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              textStyle: const TextStyle(fontSize: 13),
+            ),
+          ),
         ElevatedButton.icon(
           onPressed: () {
-            final tiersList = _filteredTiers.map((t) => {
-              'numeroCompte': t.numeroCompte,
-              'intitule': t.intitule,
-              'type': t.type.toLabel(),
-              'nif': t.nif ?? '',
-            }).toList();
+            final tiersList =
+                _filteredTiers
+                    .map(
+                      (t) => {
+                        'numeroCompte': t.numeroCompte,
+                        'intitule': t.intitule,
+                        'type': t.type.toLabel(),
+                        'nif': t.nif ?? '',
+                        'compteCollectif': t.compteCollectif,
+                      },
+                    )
+                    .toList();
             ExportService.exportTiersPDF(
               tiers: tiersList,
               context: context,
@@ -1397,12 +1547,18 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
         ),
         ElevatedButton.icon(
           onPressed: () {
-            final tiersList = _filteredTiers.map((t) => {
-              'numeroCompte': t.numeroCompte,
-              'intitule': t.intitule,
-              'type': t.type.toLabel(),
-              'nif': t.nif ?? '',
-            }).toList();
+            final tiersList =
+                _filteredTiers
+                    .map(
+                      (t) => {
+                        'numeroCompte': t.numeroCompte,
+                        'intitule': t.intitule,
+                        'type': t.type.toLabel(),
+                        'nif': t.nif ?? '',
+                        'compteCollectif': t.compteCollectif,
+                      },
+                    )
+                    .toList();
             ExportService.exportTiersExcel(tiers: tiersList, context: context);
           },
           icon: const Icon(Icons.table_chart, size: 16, color: Colors.white),
@@ -1414,19 +1570,23 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
             textStyle: const TextStyle(fontSize: 13),
           ),
         ),
-        if (_canCreate) ElevatedButton.icon(
-          onPressed: () => _showTiersDialog(),
-          icon: const Icon(Icons.add, size: 18, color: Colors.white),
-          label: const Text('Nouveau tiers'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue.shade700,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            elevation: 3,
-            shadowColor: Colors.blue.shade200,
+        if (_canCreate)
+          ElevatedButton.icon(
+            onPressed: () => _showTiersDialog(),
+            icon: const Icon(Icons.add, size: 18, color: Colors.white),
+            label: const Text('Nouveau tiers'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              textStyle: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+              elevation: 3,
+              shadowColor: Colors.blue.shade200,
+            ),
           ),
-        ),
       ],
     );
   }
@@ -1513,7 +1673,10 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
         ),
         filled: true,
         fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
       ),
     );
   }
@@ -1529,9 +1692,10 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
         prefixIcon: Icon(
           Icons.circle,
           size: 10,
-          color: _selectedType != null
-              ? _getTypeColor(_selectedType!)
-              : Colors.grey.shade400,
+          color:
+              _selectedType != null
+                  ? _getTypeColor(_selectedType!)
+                  : Colors.grey.shade400,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -1547,7 +1711,10 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
         ),
         filled: true,
         fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 10,
+        ),
       ),
       items: [
         const DropdownMenuItem(
@@ -1609,7 +1776,10 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
         ),
         filled: true,
         fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 10,
+        ),
       ),
       items: const [
         DropdownMenuItem(
@@ -1650,13 +1820,17 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: hasActiveFilter ? Colors.blue.shade300 : Colors.grey.shade300,
+                color:
+                    hasActiveFilter
+                        ? Colors.blue.shade300
+                        : Colors.grey.shade300,
               ),
             ),
             child: Icon(
               Icons.clear,
               size: 18,
-              color: hasActiveFilter ? Colors.blue.shade600 : Colors.grey.shade500,
+              color:
+                  hasActiveFilter ? Colors.blue.shade600 : Colors.grey.shade500,
             ),
           ),
         ),
@@ -1718,7 +1892,8 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
         if (isMobile) {
           return ListView.builder(
             itemCount: _paginatedTiers.length,
-            itemBuilder: (context, index) => _buildMobileCard(_paginatedTiers[index]),
+            itemBuilder:
+                (context, index) => _buildMobileCard(_paginatedTiers[index]),
           );
         }
 
@@ -1742,26 +1917,45 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
               scrollDirection: Axis.vertical,
               child: LayoutBuilder(
                 builder: (context, innerConstraints) {
-                  final double tableWidth = innerConstraints.maxWidth.isFinite
-                      ? innerConstraints.maxWidth
-                      : (MediaQuery.of(context).size.width - 48);
-                  final double colSpacing = (tableWidth * 0.015).clamp(6, 28).toDouble();
+                  final double tableWidth =
+                      innerConstraints.maxWidth.isFinite
+                          ? innerConstraints.maxWidth
+                          : (MediaQuery.of(context).size.width - 48);
+                  final double colSpacing =
+                      (tableWidth * 0.015).clamp(6, 28).toDouble();
 
                   double clampW(double val, double min, double maxFactor) {
-                    return val.clamp(min, math.max(min, tableWidth * maxFactor));
+                    return val.clamp(
+                      min,
+                      math.max(min, tableWidth * maxFactor),
+                    );
                   }
 
                   final double numWidth = clampW(tableWidth * 0.14, 100, 0.18);
-                  final double intituleWidth = clampW(tableWidth * 0.26, 140, 0.34);
+                  final double intituleWidth = clampW(
+                    tableWidth * 0.26,
+                    140,
+                    0.34,
+                  );
                   final double typeWidth = clampW(tableWidth * 0.16, 110, 0.22);
-                  final double collectifWidth = clampW(tableWidth * 0.18, 110, 0.24);
+                  final double collectifWidth = clampW(
+                    tableWidth * 0.18,
+                    110,
+                    0.24,
+                  );
                   final double nifWidth = clampW(tableWidth * 0.12, 80, 0.16);
-                  final double actionsWidth = clampW(tableWidth * 0.08, 60, 0.12);
+                  final double actionsWidth = clampW(
+                    tableWidth * 0.08,
+                    60,
+                    0.12,
+                  );
 
                   return SizedBox(
                     width: tableWidth,
                     child: DataTable(
-                      headingRowColor: WidgetStateProperty.all(Colors.blue.shade700),
+                      headingRowColor: WidgetStateProperty.all(
+                        Colors.blue.shade700,
+                      ),
                       headingRowHeight: 22,
                       headingTextStyle: const TextStyle(
                         color: Colors.white,
@@ -1775,9 +1969,18 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                       horizontalMargin: 12,
                       dividerThickness: 0.5,
                       border: TableBorder(
-                        horizontalInside: BorderSide(color: Colors.grey.shade200, width: 1),
-                        verticalInside: BorderSide(color: Colors.grey.shade200, width: 1),
-                        bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+                        horizontalInside: BorderSide(
+                          color: Colors.grey.shade200,
+                          width: 1,
+                        ),
+                        verticalInside: BorderSide(
+                          color: Colors.grey.shade200,
+                          width: 1,
+                        ),
+                        bottom: BorderSide(
+                          color: Colors.grey.shade200,
+                          width: 1,
+                        ),
                       ),
                       columns: const [
                         DataColumn(label: Text('N° Compte')),
@@ -1787,144 +1990,157 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                         DataColumn(label: Text('NIF')),
                         DataColumn(label: Text('Actions')),
                       ],
-                      rows: _paginatedTiers.map((tiers) {
-                        final color = _getTypeColor(tiers.type);
+                      rows:
+                          _paginatedTiers.map((tiers) {
+                            final color = _getTypeColor(tiers.type);
 
-                        return DataRow(
-                          color: WidgetStateProperty.resolveWith<Color?>((states) {
-                            if (states.contains(WidgetState.hovered)) {
-                              return Colors.blue.shade50;
-                            }
-                            return Colors.white;
-                          }),
-                          cells: [
-                            // N° Compte
-                            DataCell(
-                              SizedBox(
-                                width: numWidth,
-                                child: Text(
-                                  tiers.numeroCompte,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontFamily: 'monospace',
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // Intitulé
-                            DataCell(
-                              SizedBox(
-                                width: intituleWidth,
-                                child: Text(
-                                  tiers.intitule,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey.shade800,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // Type avec point coloré
-                            DataCell(
-                              SizedBox(
-                                width: typeWidth,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: color,
+                            return DataRow(
+                              color: WidgetStateProperty.resolveWith<Color?>((
+                                states,
+                              ) {
+                                if (states.contains(WidgetState.hovered)) {
+                                  return Colors.blue.shade50;
+                                }
+                                return Colors.white;
+                              }),
+                              cells: [
+                                // N° Compte
+                                DataCell(
+                                  SizedBox(
+                                    width: numWidth,
+                                    child: Text(
+                                      tiers.numeroCompte,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontFamily: 'monospace',
+                                        fontSize: 11,
                                       ),
                                     ),
-                                    const SizedBox(width: 5),
-                                    Flexible(
-                                      child: Text(
-                                        tiers.type.toLabel(),
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: color,
+                                  ),
+                                ),
+                                // Intitulé
+                                DataCell(
+                                  SizedBox(
+                                    width: intituleWidth,
+                                    child: Text(
+                                      tiers.intitule,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade800,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Type avec point coloré
+                                DataCell(
+                                  SizedBox(
+                                    width: typeWidth,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: color,
+                                          ),
                                         ),
-                                      ),
+                                        const SizedBox(width: 5),
+                                        Flexible(
+                                          child: Text(
+                                            tiers.type.toLabel(),
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: color,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            // Compte collectif
-                            DataCell(
-                              SizedBox(
-                                width: collectifWidth,
-                                child: Text(
-                                  tiers.compteCollectif,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontFamily: 'monospace',
-                                    color: Colors.grey.shade700,
                                   ),
                                 ),
-                              ),
-                            ),
-                            // NIF
-                            DataCell(
-                              SizedBox(
-                                width: nifWidth,
-                                child: Text(
-                                  tiers.nif ?? '—',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: tiers.nif != null
-                                        ? Colors.grey.shade800
-                                        : Colors.grey.shade400,
+                                // Compte collectif
+                                DataCell(
+                                  SizedBox(
+                                    width: collectifWidth,
+                                    child: Text(
+                                      tiers.compteCollectif,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontFamily: 'monospace',
+                                        color: Colors.grey.shade700,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                            // Actions
-                            DataCell(
-                              SizedBox(
-                                width: actionsWidth,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit, size: 15),
-                                      color: Colors.blue.shade700,
-                                      onPressed: () => _showTiersDialog(tiers: tiers),
-                                      tooltip: 'Modifier',
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(
-                                        minWidth: 24,
-                                        minHeight: 24,
+                                // NIF
+                                DataCell(
+                                  SizedBox(
+                                    width: nifWidth,
+                                    child: Text(
+                                      tiers.nif ?? '—',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color:
+                                            tiers.nif != null
+                                                ? Colors.grey.shade800
+                                                : Colors.grey.shade400,
                                       ),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, size: 15),
-                                      color: Colors.red.shade700,
-                                      onPressed: () => _deleteTiers(tiers),
-                                      tooltip: 'Supprimer',
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(
-                                        minWidth: 24,
-                                        minHeight: 24,
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ],
-                        );
-                      }).toList(),
+                                // Actions
+                                DataCell(
+                                  SizedBox(
+                                    width: actionsWidth,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.edit,
+                                            size: 15,
+                                          ),
+                                          color: Colors.blue.shade700,
+                                          onPressed:
+                                              () => _showTiersDialog(
+                                                tiers: tiers,
+                                              ),
+                                          tooltip: 'Modifier',
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(
+                                            minWidth: 24,
+                                            minHeight: 24,
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.delete,
+                                            size: 15,
+                                          ),
+                                          color: Colors.red.shade700,
+                                          onPressed: () => _deleteTiers(tiers),
+                                          tooltip: 'Supprimer',
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(
+                                            minWidth: 24,
+                                            minHeight: 24,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
                     ),
                   );
                 },
@@ -2007,7 +2223,9 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                       decoration: InputDecoration(
                         labelText: 'Page',
                         labelStyle: const TextStyle(fontSize: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         filled: true,
                         fillColor: Colors.white,
                         contentPadding: const EdgeInsets.symmetric(
@@ -2019,7 +2237,10 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                         totalPages,
                         (index) => DropdownMenuItem(
                           value: index + 1,
-                          child: Text('${index + 1}', style: const TextStyle(fontSize: 13)),
+                          child: Text(
+                            '${index + 1}',
+                            style: const TextStyle(fontSize: 13),
+                          ),
                         ),
                       ),
                       onChanged: (value) {
@@ -2036,7 +2257,9 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                       decoration: InputDecoration(
                         labelText: 'Par page',
                         labelStyle: const TextStyle(fontSize: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         filled: true,
                         fillColor: Colors.white,
                         contentPadding: const EdgeInsets.symmetric(
@@ -2044,12 +2267,18 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                           vertical: 8,
                         ),
                       ),
-                      items: [5, 10, 15, 20, 50]
-                          .map((value) => DropdownMenuItem(
-                                value: value,
-                                child: Text('$value', style: const TextStyle(fontSize: 13)),
-                              ))
-                          .toList(),
+                      items:
+                          [5, 10, 15, 20, 50]
+                              .map(
+                                (value) => DropdownMenuItem(
+                                  value: value,
+                                  child: Text(
+                                    '$value',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                              )
+                              .toList(),
                       onChanged: (value) {
                         if (value != null) {
                           setState(() {

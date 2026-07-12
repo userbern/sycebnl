@@ -4,6 +4,7 @@ import 'dart:io';
 import '../services/app_config_service.dart';
 import '../services/database_service.dart';
 import '../utils/app_constants.dart';
+import '../widgets/app_icon.dart';
 import 'new_file_wizard_page.dart';
 import 'password_login_page.dart';
 import 'home_page.dart';
@@ -188,11 +189,7 @@ class _WelcomePageState extends State<WelcomePage> {
                       // En-tête
                       Row(
                         children: [
-                          Icon(
-                            Icons.account_balance,
-                            size: 48,
-                            color: Colors.blue,
-                          ),
+                          const AppIcon(size: 48),
                           const SizedBox(width: 16),
                           Text(
                             'SYCEBNL ACCOUNTING',
@@ -313,11 +310,7 @@ class _WelcomePageState extends State<WelcomePage> {
                                     return Card(
                                       margin: const EdgeInsets.only(bottom: 8),
                                       child: ListTile(
-                                        leading: Icon(
-                                          Icons.description,
-                                          size: 36,
-                                          color: Colors.blue,
-                                        ),
+                                        leading: const AppIcon(size: 36),
                                         title: Text(
                                           file['file_name'] as String,
                                           style: const TextStyle(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sycebnl_accounting/widgets/app_icon.dart';
 import '../services/auth_service_local.dart';
 import '../models/user_session.dart';
 import '../utils/form_enter_shortcut.dart';
@@ -114,7 +115,7 @@ class _LoginPageState extends State<LoginPage> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const AppLogo(size: 64),
+                      const AppIcon(size: 64),
                       const SizedBox(height: 16),
                       const Text(
                         'SYCEBNL Accounting',

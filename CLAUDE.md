@@ -1,56 +1,18 @@
-Implémente un système de fichier comptable professionnel sous Flutter Desktop (Windows).
+Améliorer l'import Excel du plan tiers.
 
-OBJECTIF
+Actuellement, l'import du plan tiers ne récupère que les informations du tiers. Je souhaite qu'il prenne également en compte le compte du plan comptable auquel le tiers est rattaché.
 
-L'utilisateur ne doit jamais manipuler un fichier ".db".
+Modifications à apporter
+Ajouter dans le modèle Excel une colonne dédiée au compte comptable (par exemple : Compte comptable ou Numéro de compte).
+Lors de l'import :
+lire cette colonne ;
+rechercher le compte correspondant dans le plan comptable à partir de son numéro ;
+associer automatiquement ce compte au tiers créé ou mis à jour.
+Si le compte indiqué n'existe pas dans le plan comptable :
+ne pas créer le tiers concerné ;
+afficher une erreur explicite indiquant le numéro de ligne, le compte introuvable et la raison de l'échec.
+Vérifier que le compte est bien un compte autorisé à être associé à un tiers (selon les règles métier de l'application). Si ce n'est pas le cas, afficher un message d'erreur explicite.
+Si le fichier contient plusieurs lignes en erreur, toutes les erreurs doivent être listées afin que l'utilisateur puisse les corriger en une seule fois.
+Mettre à jour le modèle Excel d'import ainsi que la documentation de l'écran pour indiquer que la colonne Compte comptable est désormais obligatoire.
 
-À la place, utiliser une extension personnalisée :
-
-.syca
-
-(ou créer une constante permettant de la modifier facilement).
-
-En interne, le fichier reste une base SQLite valide.
-
-À FAIRE
-
-1. Créer une classe AppDatabase qui ouvre un fichier ".sya" avec sqlite3/sqflite_common_ffi.
-
-2. Toutes les opérations SQLite doivent fonctionner normalement malgré l'extension ".syca".
-
-3. Remplacer partout dans le projet les références ".db" visibles par ".syca".
-
-4. Lors de la création d'un nouveau dossier comptable :
-
-- demander le nom de l'entreprise
-- créer automatiquement :
-
-NomEntreprise.syca
-
-5. Lors de l'ouverture d'un dossier :
-
-- filtrer uniquement les fichiers ".syca".
-
-6. Ajouter une constante :
-
-const databaseExtension = ".syca";
-
-afin de pouvoir changer facilement l'extension.
-
-7. Sous Windows :
-
-Configurer le projet afin que l'extension ".syca" soit associée à l'application.
-
-Le double-clic sur un fichier ".syca" doit ouvrir automatiquement l'application puis charger ce dossier comptable.
-
-8. Utiliser le logo officiel de l'application comme icône des fichiers ".syca".
-
-9. Ajouter les fonctions :
-
-- createAccountingFile()
-- openAccountingFile()
-- isAccountingFile()
-
-10. Le code doit être modulaire, documenté et compatible Flutter Desktop Windows.
-
-Ne modifier que les parties nécessaires sans casser l'architecture existante.
+L'objectif est qu'après l'import, chaque tiers soit directement rattaché à son compte du plan comptable, sans qu'une association manuelle soit nécessaire.
