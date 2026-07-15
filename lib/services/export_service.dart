@@ -82,6 +82,8 @@ class ExportService {
     required String typeEtat,
     required DateTime dateDebut,
     required DateTime dateFin,
+    double soldeOuvertureDebit = 0.0,
+    double soldeOuvertureCredit = 0.0,
   }) async {
     try {
       final pdfData = await _generatePDF(
@@ -96,6 +98,8 @@ class ExportService {
         typeEtat: typeEtat,
         dateDebut: dateDebut,
         dateFin: dateFin,
+        soldeOuvertureDebit: soldeOuvertureDebit,
+        soldeOuvertureCredit: soldeOuvertureCredit,
       );
 
       if (context.mounted) {
@@ -149,6 +153,8 @@ class ExportService {
     String typeEtat = 'general',
     DateTime? dateDebut,
     DateTime? dateFin,
+    double soldeOuvertureDebit = 0.0,
+    double soldeOuvertureCredit = 0.0,
   }) async {
     final pdf = pw.Document();
 
@@ -163,7 +169,7 @@ class ExportService {
             // Titre
             pw.Center(
               child: pw.Text(
-                'RÉSULTATS DE LA BALANCE',
+                title,
                 style: pw.TextStyle(
                   fontSize: 14,
                   fontWeight: pw.FontWeight.bold,
@@ -274,7 +280,11 @@ class ExportService {
             pw.SizedBox(height: 12),
 
             // Tableau des comptes
-            _buildBalanceTable(comptes),
+            _buildBalanceTable(
+              comptes,
+              soldeOuvertureDebit: soldeOuvertureDebit,
+              soldeOuvertureCredit: soldeOuvertureCredit,
+            ),
           ];
         },
       ),
@@ -335,7 +345,11 @@ class ExportService {
   }
 
   /// Construit le tableau de balance avec le layout exact
-  static pw.Widget _buildBalanceTable(List<Map<String, dynamic>> comptes) {
+  static pw.Widget _buildBalanceTable(
+    List<Map<String, dynamic>> comptes, {
+    double soldeOuvertureDebit = 0.0,
+    double soldeOuvertureCredit = 0.0,
+  }) {
     final comptesBilan =
         comptes.where((c) {
           final numero = c['numero']?.toString() ?? '';
@@ -509,6 +523,8 @@ class ExportService {
               ],
             ),
           ),
+          // Ligne solde d'ouverture (exercice précédent)
+          _buildSoldeOuvertureRow(soldeOuvertureDebit, soldeOuvertureCredit),
           // Lignes de données
           ...comptes.map((compte) {
             return pw.Container(
@@ -586,11 +602,80 @@ class ExportService {
     );
   }
 
+  static pw.Widget _buildSoldeOuvertureRow(
+    double soldeOuvertureDebit,
+    double soldeOuvertureCredit,
+  ) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        color: PdfColors.teal50,
+        border: pw.Border(
+          bottom: const pw.BorderSide(color: PdfColors.black, width: 0.5),
+        ),
+      ),
+      child: pw.Row(
+        children: [
+          pw.Expanded(
+            flex: 1,
+            child: pw.Container(
+              padding: const pw.EdgeInsets.all(3),
+              decoration: pw.BoxDecoration(
+                border: pw.Border(
+                  right: const pw.BorderSide(
+                    color: PdfColors.black,
+                    width: 0.5,
+                  ),
+                ),
+              ),
+              child: pw.Text(''),
+            ),
+          ),
+          pw.Expanded(
+            flex: 2,
+            child: pw.Container(
+              padding: const pw.EdgeInsets.all(3),
+              decoration: pw.BoxDecoration(
+                border: pw.Border(
+                  right: const pw.BorderSide(
+                    color: PdfColors.black,
+                    width: 0.5,
+                  ),
+                ),
+              ),
+              child: pw.Text(
+                "Solde d'ouverture",
+                style: pw.TextStyle(
+                  fontSize: 8,
+                  fontStyle: pw.FontStyle.italic,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          _buildSummaryValueCell(_formatNumber(soldeOuvertureDebit)),
+          _buildSummaryValueCell(_formatNumber(soldeOuvertureCredit)),
+          _buildSummaryValueCell(''),
+          _buildSummaryValueCell(''),
+          _buildSummaryValueCell(''),
+          _buildSummaryValueCell('', hasRightBorder: false),
+        ],
+      ),
+    );
+  }
+
   static pw.Widget _buildTotalSummaryRow({
     required String label,
     required List<Map<String, dynamic>> comptes,
     bool isTotalBalance = false,
   }) {
+    final ouvertureDebit = comptes.fold<double>(
+      0.0,
+      (sum, c) => sum + ((c['ouvertureDebit'] as num?)?.toDouble() ?? 0.0),
+    );
+    final ouvertureCredit = comptes.fold<double>(
+      0.0,
+      (sum, c) => sum + ((c['ouvertureCredit'] as num?)?.toDouble() ?? 0.0),
+    );
     final mouvementDebit = comptes.fold<double>(
       0.0,
       (sum, c) => sum + ((c['mouvementDebit'] as num?)?.toDouble() ?? 0.0),
@@ -599,6 +684,28 @@ class ExportService {
       0.0,
       (sum, c) => sum + ((c['mouvementCredit'] as num?)?.toDouble() ?? 0.0),
     );
+    double soldeClotureDebit;
+    double soldeClotureCredit;
+    if (isTotalBalance) {
+      // TOTAL DE LA BALANCE (SYSCEBNL) : somme des soldes débiteurs et des
+      // soldes créditeurs de tous les comptes affichés, sans recalcul ni
+      // recopie des mouvements.
+      soldeClotureDebit = comptes.fold<double>(
+        0.0,
+        (sum, c) => sum + ((c['soldeDebit'] as num?)?.toDouble() ?? 0.0),
+      );
+      soldeClotureCredit = comptes.fold<double>(
+        0.0,
+        (sum, c) => sum + ((c['soldeCredit'] as num?)?.toDouble() ?? 0.0),
+      );
+    } else {
+      // COMPTES DU BILAN / COMPTES DE GESTION : solde de clôture de la
+      // section par différence des mouvements, comme pour un compte
+      // individuel (un seul côté non nul).
+      final net = mouvementDebit - mouvementCredit;
+      soldeClotureDebit = net > 0 ? net : 0.0;
+      soldeClotureCredit = net < 0 ? -net : 0.0;
+    }
 
     return pw.Container(
       decoration: pw.BoxDecoration(
@@ -631,15 +738,13 @@ class ExportService {
               ),
             ),
           ),
-          _buildSummaryValueCell(''),
-          _buildSummaryValueCell(''),
+          _buildSummaryValueCell(_formatNumber(ouvertureDebit)),
+          _buildSummaryValueCell(_formatNumber(ouvertureCredit)),
           _buildSummaryValueCell(_formatNumber(mouvementDebit)),
           _buildSummaryValueCell(_formatNumber(mouvementCredit)),
+          _buildSummaryValueCell(_formatNumber(soldeClotureDebit)),
           _buildSummaryValueCell(
-            isTotalBalance ? '/' : _formatNumber(mouvementDebit),
-          ),
-          _buildSummaryValueCell(
-            isTotalBalance ? '/' : _formatNumber(mouvementCredit),
+            _formatNumber(soldeClotureCredit),
             hasRightBorder: false,
           ),
         ],
@@ -791,10 +896,10 @@ class ExportService {
 
   static List<pw.Widget> _buildDataColumns(Map<String, dynamic> compte) {
     final values = [
-      '-', // Solde débit (ouverture)
-      '-', // Solde crédit (ouverture)
-      _formatNumber(compte['soldeDebit'] ?? 0),
-      _formatNumber(compte['soldeCredit'] ?? 0),
+      _formatNumber(compte['ouvertureDebit'] ?? 0),
+      _formatNumber(compte['ouvertureCredit'] ?? 0),
+      _formatNumber(compte['mouvementDebit'] ?? 0),
+      _formatNumber(compte['mouvementCredit'] ?? 0),
       _formatNumber(compte['soldeDebit'] ?? 0),
       _formatNumber(compte['soldeCredit'] ?? 0),
     ];
@@ -844,6 +949,8 @@ class ExportService {
     required List<Map<String, dynamic>> comptes,
     required Map<String, dynamic>? totals,
     required BuildContext context,
+    double soldeOuvertureDebit = 0.0,
+    double soldeOuvertureCredit = 0.0,
   }) async {
     try {
       final excel = Excel.createExcel();
@@ -942,8 +1049,8 @@ class ExportService {
       final headers = [
         'N° Compte',
         'Intitulé',
-        'Solde Débit',
-        'Solde Crédit',
+        'Solde Ouverture Débit',
+        'Solde Ouverture Crédit',
         'Mouvement Débit',
         'Mouvement Crédit',
         'Solde Clôture Débit',
@@ -955,14 +1062,29 @@ class ExportService {
       }
       row += 1;
 
+      setCell(row, 0, '', style: dataTextStyle);
+      setCell(row, 1, "Solde d'ouverture", style: summaryStyle);
+      setCell(row, 2, soldeOuvertureDebit, style: summaryStyle);
+      setCell(row, 3, soldeOuvertureCredit, style: summaryStyle);
+      setCell(row, 4, '', style: summaryStyle);
+      setCell(row, 5, '', style: summaryStyle);
+      setCell(row, 6, '', style: summaryStyle);
+      setCell(row, 7, '', style: summaryStyle);
+      row += 1;
+
       for (final compte in comptes) {
         setCell(row, 0, compte['numero'] ?? '-', style: dataTextStyle);
         setCell(row, 1, compte['intitule'] ?? '-', style: dataTextStyle);
-        setCell(row, 2, toDouble(compte['soldeDebit']), style: dataNumberStyle);
+        setCell(
+          row,
+          2,
+          toDouble(compte['ouvertureDebit']),
+          style: dataNumberStyle,
+        );
         setCell(
           row,
           3,
-          toDouble(compte['soldeCredit']),
+          toDouble(compte['ouvertureCredit']),
           style: dataNumberStyle,
         );
         setCell(
@@ -977,16 +1099,11 @@ class ExportService {
           toDouble(compte['mouvementCredit']),
           style: dataNumberStyle,
         );
-        setCell(
-          row,
-          6,
-          toDouble(compte['soldeClotureDebit']),
-          style: dataNumberStyle,
-        );
+        setCell(row, 6, toDouble(compte['soldeDebit']), style: dataNumberStyle);
         setCell(
           row,
           7,
-          toDouble(compte['soldeClotureCredit']),
+          toDouble(compte['soldeCredit']),
           style: dataNumberStyle,
         );
         row += 1;
@@ -1007,17 +1124,60 @@ class ExportService {
         }).toList();
       }
 
-      List<dynamic> summaryRow(String label, List<Map<String, dynamic>> rows) {
-        final debit = rows.fold<double>(
+      List<dynamic> summaryRow(
+        String label,
+        List<Map<String, dynamic>> rows, {
+        bool isTotalBalance = false,
+      }) {
+        final ouvertureDebit = rows.fold<double>(
+          0.0,
+          (sum, row) => sum + toDouble(row['ouvertureDebit']),
+        );
+        final ouvertureCredit = rows.fold<double>(
+          0.0,
+          (sum, row) => sum + toDouble(row['ouvertureCredit']),
+        );
+        final mouvementDebit = rows.fold<double>(
           0.0,
           (sum, row) => sum + toDouble(row['mouvementDebit']),
         );
-        final credit = rows.fold<double>(
+        final mouvementCredit = rows.fold<double>(
           0.0,
           (sum, row) => sum + toDouble(row['mouvementCredit']),
         );
+        double soldeClotureDebit;
+        double soldeClotureCredit;
+        if (isTotalBalance) {
+          // TOTAL DE LA BALANCE (SYSCEBNL) : somme des soldes débiteurs et
+          // des soldes créditeurs de tous les comptes affichés, sans
+          // recalcul ni recopie des mouvements.
+          soldeClotureDebit = rows.fold<double>(
+            0.0,
+            (sum, row) => sum + toDouble(row['soldeDebit']),
+          );
+          soldeClotureCredit = rows.fold<double>(
+            0.0,
+            (sum, row) => sum + toDouble(row['soldeCredit']),
+          );
+        } else {
+          // COMPTES DU BILAN / COMPTES DE GESTION : solde de clôture de la
+          // section par différence des mouvements, comme pour un compte
+          // individuel (un seul côté non nul).
+          final net = mouvementDebit - mouvementCredit;
+          soldeClotureDebit = net > 0 ? net : 0.0;
+          soldeClotureCredit = net < 0 ? -net : 0.0;
+        }
 
-        return [label, '', '', '', debit, credit, debit, credit];
+        return [
+          label,
+          '',
+          ouvertureDebit,
+          ouvertureCredit,
+          mouvementDebit,
+          mouvementCredit,
+          soldeClotureDebit,
+          soldeClotureCredit,
+        ];
       }
 
       final comptesBilan = filterByClass(1, 5);
@@ -1042,7 +1202,7 @@ class ExportService {
       final summaryRows = [
         summaryRow('COMPTES DU BILAN', comptesBilan),
         summaryRow('COMPTES DE GESTION', comptesGestion),
-        summaryRow('TOTAL DE LA BALANCE', comptes),
+        summaryRow('TOTAL DE LA BALANCE', comptes, isTotalBalance: true),
       ];
 
       for (final values in summaryRows) {

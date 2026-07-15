@@ -543,7 +543,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
               ? AppBar(
                 iconTheme: const IconThemeData(color: Colors.white),
                 title: const Text(
-                  'Résultats de la Balance',
+                  'Balance Générale des Comptes',
                   style: TextStyle(color: Colors.white),
                 ),
                 backgroundColor: Colors.blue.shade700,
@@ -602,7 +602,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                 child: Column(
                   children: [
                     Text(
-                      'RÉSULTATS DE LA BALANCE',
+                      'BALANCE GÉNÉRALE DES COMPTES',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -941,20 +941,25 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
       0.0, (s, c) => s + (c['mouvementDebit'] as double? ?? 0));
     final mC = comptes.fold<double>(
       0.0, (s, c) => s + (c['mouvementCredit'] as double? ?? 0));
-    final sD = comptes.fold<double>(
-      0.0, (s, c) => s + (c['soldeDebit'] as double? ?? 0));
-    final sC = comptes.fold<double>(
-      0.0, (s, c) => s + (c['soldeCredit'] as double? ?? 0));
 
-    final diag = _cell(
-      '',
-      child: Center(
-        child: CustomPaint(
-          size: const Size(40, 16),
-          painter: _DiagonalLinePainter(),
-        ),
-      ),
-    );
+    double sD;
+    double sC;
+    if (isTotalBalance) {
+      // TOTAL DE LA BALANCE (SYSCEBNL) : somme des soldes débiteurs et des
+      // soldes créditeurs de tous les comptes affichés, sans les recalculer
+      // ni les recopier depuis les mouvements.
+      sD = comptes.fold<double>(
+        0.0, (s, c) => s + (c['soldeDebit'] as double? ?? 0));
+      sC = comptes.fold<double>(
+        0.0, (s, c) => s + (c['soldeCredit'] as double? ?? 0));
+    } else {
+      // COMPTES DU BILAN / COMPTES DE GESTION : solde de clôture de la
+      // section obtenu par différence des mouvements de la section,
+      // comme pour un compte individuel (un seul côté non nul).
+      final net = mD - mC;
+      sD = net > 0 ? net : 0.0;
+      sC = net < 0 ? -net : 0.0;
+    }
 
     return TableRow(
       decoration: BoxDecoration(color: Colors.blue.shade50),
@@ -969,14 +974,10 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
             align: TextAlign.right, bold: true, color: Colors.indigo),
         _cell(_formatMontant(mC),
             align: TextAlign.right, bold: true, color: Colors.indigo),
-        isTotalBalance
-            ? diag
-            : _cell(sD > 0 ? _formatMontant(sD) : '',
-                align: TextAlign.right, bold: true, color: Colors.indigo),
-        isTotalBalance
-            ? diag
-            : _cell(sC > 0 ? _formatMontant(sC) : '',
-                align: TextAlign.right, bold: true, color: Colors.indigo),
+        _cell(sD > 0 ? _formatMontant(sD) : '',
+            align: TextAlign.right, bold: true, color: Colors.indigo),
+        _cell(sC > 0 ? _formatMontant(sC) : '',
+            align: TextAlign.right, bold: true, color: Colors.indigo),
       ],
     );
   }
@@ -1052,7 +1053,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
   Future<void> _exportToPDF() async {
     try {
       await ExportService.previewPDF(
-        title: 'BALANCE DE VERIFICATION',
+        title: 'BALANCE GÉNÉRALE DES COMPTES',
         entityName: _entite?['denomination_sociale'] ?? 'Non spécifiée',
         periodInfo:
             'Période: ${widget.dateDebut.toString().split(' ')[0]} au ${widget.dateFin.toString().split(' ')[0]}',
@@ -1065,6 +1066,8 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         typeEtat: widget.typeEtat,
         dateDebut: widget.dateDebut,
         dateFin: widget.dateFin,
+        soldeOuvertureDebit: _soldeOuvertureDebit,
+        soldeOuvertureCredit: _soldeOuvertureCredit,
       );
     } catch (e) {
       if (mounted) {
@@ -1081,13 +1084,15 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
   Future<void> _exportToExcel() async {
     try {
       await ExportService.generateExcel(
-        title: 'BALANCE DE VERIFICATION',
+        title: 'BALANCE GÉNÉRALE DES COMPTES',
         entityName: _entite?['denomination_sociale'] ?? 'Non spécifiée',
         periodInfo:
             'Période: ${widget.dateDebut.toString().split(' ')[0]} au ${widget.dateFin.toString().split(' ')[0]}',
         comptes: _comptes,
         totals: null,
         context: context,
+        soldeOuvertureDebit: _soldeOuvertureDebit,
+        soldeOuvertureCredit: _soldeOuvertureCredit,
       );
     } catch (e) {
       if (mounted) {
@@ -1100,22 +1105,4 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
       }
     }
   }
-}
-
-// Custom Painter pour dessiner une ligne oblique
-class _DiagonalLinePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint =
-        Paint()
-          ..color = Colors.black
-          ..strokeWidth = 1.0
-          ..style = PaintingStyle.stroke;
-
-    // Dessiner une ligne de coin en bas à gauche vers le coin en haut à droite
-    canvas.drawLine(Offset(0, size.height), Offset(size.width, 0), paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
