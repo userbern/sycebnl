@@ -778,8 +778,6 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                               ),
                             ],
                           ),
-                          // Ligne solde d'ouverture exercice précédent
-                          _buildSoldeOuvertureTableRow(),
                           // Lignes des comptes
                           ..._comptes.asMap().entries.map((entry) {
                             final i = entry.key;
@@ -903,31 +901,6 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
     );
   }
 
-  TableRow _buildSoldeOuvertureTableRow() {
-    return TableRow(
-      decoration: BoxDecoration(color: Colors.teal.shade50),
-      children: [
-        _cell(''),
-        _cell("Solde d'ouverture", bold: true, italic: true),
-        _cell(
-          _soldeOuvertureDebit > 0 ? _formatMontant(_soldeOuvertureDebit) : '',
-          align: TextAlign.right,
-          color: Colors.teal.shade700,
-          bold: true,
-        ),
-        _cell(
-          _soldeOuvertureCredit > 0
-              ? _formatMontant(_soldeOuvertureCredit)
-              : '',
-          align: TextAlign.right,
-          color: Colors.teal.shade700,
-          bold: true,
-        ),
-        _cell(''), _cell(''), _cell(''), _cell(''),
-      ],
-    );
-  }
-
   TableRow _buildTotalTableRow(
     String label,
     List<Map<String, dynamic>> comptes, {
@@ -974,9 +947,9 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
             align: TextAlign.right, bold: true, color: Colors.indigo),
         _cell(_formatMontant(mC),
             align: TextAlign.right, bold: true, color: Colors.indigo),
-        _cell(sD > 0 ? _formatMontant(sD) : '',
+        _cell(!isTotalBalance && sD > 0 ? _formatMontant(sD) : '',
             align: TextAlign.right, bold: true, color: Colors.indigo),
-        _cell(sC > 0 ? _formatMontant(sC) : '',
+        _cell(!isTotalBalance && sC > 0 ? _formatMontant(sC) : '',
             align: TextAlign.right, bold: true, color: Colors.indigo),
       ],
     );

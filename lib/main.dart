@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -107,10 +108,32 @@ class _MyAppState extends State<MyApp> with WindowListener {
     );
 
     if (confirmer == true) {
+      if (context.mounted) {
+        unawaited(
+          showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder:
+                (context) => const AlertDialog(
+                  content: Row(
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      ),
+                      SizedBox(width: 16),
+                      Expanded(child: Text('Fermeture en cours…')),
+                    ],
+                  ),
+                ),
+          ),
+        );
+      }
+      if (DatabaseService.isConnected) {
+        await DatabaseService.database.close();
+      }
       if (DossierCryptoService.hasOpenEncryptedSession) {
-        if (DatabaseService.isConnected) {
-          await DatabaseService.database.close();
-        }
         await DossierCryptoService.closeOpenSessionAndReencrypt();
       }
       await windowManager.destroy();

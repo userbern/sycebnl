@@ -1177,11 +1177,12 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
               color: const Color(0xFFD8E7F1),
               bold: true,
             ),
-            _tableRow(
-              ['', '', '', 'Solde d\'ouverture', '', '', _formatAmount(group.openingBalance)],
-              color: const Color(0xFFEEF6FB),
-              bold: true,
-            ),
+            if (group.hasOpeningBalance)
+              _tableRow(
+                ['', '', '', 'Solde d\'ouverture', '', '', _formatAmount(group.openingBalance)],
+                color: const Color(0xFFEEF6FB),
+                bold: true,
+              ),
             ...group.rows.map(
               (row) => _tableRow([
                 row.dateComptable == null
@@ -1349,10 +1350,15 @@ class _CompteGroup {
 
   double get finalBalance => openingBalance + totalDebit - totalCredit;
 
+  bool get hasOpeningBalance =>
+      numeroCompte.isNotEmpty &&
+      ['1', '2', '3', '4', '5'].contains(numeroCompte[0]);
+
   Map<String, dynamic> toExportMap() => {
     'numero': numeroCompte,
     'intitule': intitule,
     'opening_balance': openingBalance,
+    'has_opening_balance': hasOpeningBalance,
     'total_debit': totalDebit,
     'total_credit': totalCredit,
     'final_balance': finalBalance,

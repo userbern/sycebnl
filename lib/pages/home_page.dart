@@ -51,6 +51,7 @@ class _HomePageState extends State<HomePage> {
   Completer<bool>? _saisieCompleter;
   int _journauxRefreshSeed = 0;
   int _selectionRefreshSeed = 0;
+  int _contentRefreshSeed = 0;
   bool _isSidebarCollapsed = false;
   final List<int> _pageHistory = [];
   static const List<_QuickAccessItem> _quickAccessItems = [
@@ -252,6 +253,12 @@ class _HomePageState extends State<HomePage> {
 
     _saisieCompleter?.complete(refresh);
     _saisieCompleter = null;
+  }
+
+  void _reloadCurrentPage() {
+    setState(() {
+      _contentRefreshSeed++;
+    });
   }
 
   void _showDatabaseInfo() {
@@ -536,6 +543,11 @@ class _HomePageState extends State<HomePage> {
             tooltip: 'Informations base de données',
           ),
           IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _reloadCurrentPage,
+            tooltip: 'Actualiser la page',
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
               Navigator.of(context).pushReplacementNamed('/');
@@ -647,7 +659,10 @@ class _HomePageState extends State<HomePage> {
           Expanded(
             child: Stack(
               children: [
-                _buildContentPage(),
+                KeyedSubtree(
+                  key: ValueKey(_contentRefreshSeed),
+                  child: _buildContentPage(),
+                ),
                 if (_canGoBack)
                   Positioned(
                     top: 8,
