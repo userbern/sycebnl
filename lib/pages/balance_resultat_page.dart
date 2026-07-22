@@ -713,6 +713,8 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                             ),
                             // Table pour les lignes de données
                             Table(
+                              defaultVerticalAlignment:
+                                  TableCellVerticalAlignment.middle,
                               border: TableBorder(
                                 horizontalInside: BorderSide(
                                   color: Colors.black,
@@ -795,42 +797,42 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                                   (c['ouvertureDebit'] as double? ?? 0) > 0
                                       ? _formatMontant(c['ouvertureDebit'])
                                       : '',
-                                  align: TextAlign.right,
+                                  align: TextAlign.center,
                                   color: Colors.indigo.shade700,
                                 ),
                                 _cell(
                                   (c['ouvertureCredit'] as double? ?? 0) > 0
                                       ? _formatMontant(c['ouvertureCredit'])
                                       : '',
-                                  align: TextAlign.right,
+                                  align: TextAlign.center,
                                   color: Colors.indigo.shade700,
                                 ),
                                 _cell(
                                   (c['mouvementDebit'] as double? ?? 0) > 0
                                       ? _formatMontant(c['mouvementDebit'])
                                       : '',
-                                  align: TextAlign.right,
+                                  align: TextAlign.center,
                                   color: Colors.indigo.shade700,
                                 ),
                                 _cell(
                                   (c['mouvementCredit'] as double? ?? 0) > 0
                                       ? _formatMontant(c['mouvementCredit'])
                                       : '',
-                                  align: TextAlign.right,
+                                  align: TextAlign.center,
                                   color: Colors.indigo.shade700,
                                 ),
                                 _cell(
                                   (c['soldeDebit'] as double? ?? 0) > 0
                                       ? _formatMontant(c['soldeDebit'])
                                       : '',
-                                  align: TextAlign.right,
+                                  align: TextAlign.center,
                                   color: Colors.indigo.shade700,
                                 ),
                                 _cell(
                                   (c['soldeCredit'] as double? ?? 0) > 0
                                       ? _formatMontant(c['soldeCredit'])
                                       : '',
-                                  align: TextAlign.right,
+                                  align: TextAlign.center,
                                   color: Colors.indigo.shade700,
                                 ),
                               ],
@@ -882,22 +884,24 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
     bool bold = false,
     bool italic = false,
     Color? color,
-    TextAlign align = TextAlign.left,
+    TextAlign align = TextAlign.center,
     Widget? child,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      child: child ??
-          Text(
-            text,
-            textAlign: align,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-              fontStyle: italic ? FontStyle.italic : FontStyle.normal,
-              color: color,
+      child: Center(
+        child: child ??
+            Text(
+              text,
+              textAlign: align,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+                fontStyle: italic ? FontStyle.italic : FontStyle.normal,
+                color: color,
+              ),
             ),
-          ),
+      ),
     );
   }
 
@@ -940,17 +944,17 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         _cell(label, bold: true),
         _cell(''),
         _cell(oD > 0 ? _formatMontant(oD) : '',
-            align: TextAlign.right, bold: true, color: Colors.indigo),
+            align: TextAlign.center, bold: true, color: Colors.indigo),
         _cell(oC > 0 ? _formatMontant(oC) : '',
-            align: TextAlign.right, bold: true, color: Colors.indigo),
+            align: TextAlign.center, bold: true, color: Colors.indigo),
         _cell(_formatMontant(mD),
-            align: TextAlign.right, bold: true, color: Colors.indigo),
+            align: TextAlign.center, bold: true, color: Colors.indigo),
         _cell(_formatMontant(mC),
-            align: TextAlign.right, bold: true, color: Colors.indigo),
+            align: TextAlign.center, bold: true, color: Colors.indigo),
         _cell(!isTotalBalance && sD > 0 ? _formatMontant(sD) : '',
-            align: TextAlign.right, bold: true, color: Colors.indigo),
+            align: TextAlign.center, bold: true, color: Colors.indigo),
         _cell(!isTotalBalance && sC > 0 ? _formatMontant(sC) : '',
-            align: TextAlign.right, bold: true, color: Colors.indigo),
+            align: TextAlign.center, bold: true, color: Colors.indigo),
       ],
     );
   }
@@ -990,9 +994,12 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
             flex: 3,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-              child: const Text(
-                'NATURE DU RESULTAT',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+              child: const Center(
+                child: Text(
+                  'NATURE DU RESULTAT',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                ),
               ),
             ),
           ),

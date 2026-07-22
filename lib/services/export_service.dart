@@ -280,7 +280,7 @@ class ExportService {
             pw.SizedBox(height: 12),
 
             // Tableau des comptes
-            _buildBalanceTable(
+            ..._buildBalanceTable(
               comptes,
               soldeOuvertureDebit: soldeOuvertureDebit,
               soldeOuvertureCredit: soldeOuvertureCredit,
@@ -344,8 +344,20 @@ class ExportService {
     }
   }
 
-  /// Construit le tableau de balance avec le layout exact
-  static pw.Widget _buildBalanceTable(
+  /// Construit le tableau de balance avec le layout exact.
+  ///
+  /// Le corps (en-têtes colonnes + lignes de comptes + lignes de totaux) est
+  /// un vrai [pw.Table] : c'est le seul widget de ce fichier qui implémente
+  /// `SpanningWidget` et sait donc se scinder proprement entre deux pages
+  /// d'un [pw.MultiPage]. L'ancienne version empilait tout (bandeau, lignes,
+  /// totaux) dans un unique [pw.Container] à bordure : un `Container` ne sait
+  /// pas se répartir sur plusieurs pages, donc dès que la balance dépassait
+  /// la hauteur d'une page, le contenu excédentaire était purement et
+  /// simplement rogné au bord de la page — d'où les bordures manquantes ou
+  /// coupées au milieu d'une cellule. Le bandeau de groupe et la ligne
+  /// "Nature du résultat" restent des widgets simples car ce sont des lignes
+  /// uniques de hauteur fixe qui ne peuvent jamais déborder d'une page.
+  static List<pw.Widget> _buildBalanceTable(
     List<Map<String, dynamic>> comptes, {
     double soldeOuvertureDebit = 0.0,
     double soldeOuvertureCredit = 0.0,
@@ -364,245 +376,199 @@ class ExportService {
           return first >= 6 && first <= 8;
         }).toList();
 
-    return pw.Container(
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.black),
+    const line = pw.BorderSide(color: PdfColors.black, width: 1);
+    const columnWidths = {
+      0: pw.FlexColumnWidth(1),
+      1: pw.FlexColumnWidth(2),
+      2: pw.FlexColumnWidth(1),
+      3: pw.FlexColumnWidth(1),
+      4: pw.FlexColumnWidth(1),
+      5: pw.FlexColumnWidth(1),
+      6: pw.FlexColumnWidth(1),
+      7: pw.FlexColumnWidth(1),
+    };
+
+    return [
+      // Bandeau de groupe (SOLDE D'OUVERTURE / MOUVEMENTS / SOLDE DE
+      // CLOTURE). Une seule ligne de hauteur fixe : pas de bordure du bas,
+      // c'est la bordure du haut du Table ci-dessous qui referme le trait.
+      pw.Container(
+        decoration: const pw.BoxDecoration(
+          color: PdfColors.blue100,
+          border: pw.Border(left: line, top: line, right: line),
+        ),
+        child: pw.Row(
+          children: [
+            pw.Expanded(flex: 3, child: pw.SizedBox(height: 22)),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Container(
+                height: 22,
+                decoration: const pw.BoxDecoration(
+                  border: pw.Border(left: line),
+                ),
+                child: pw.Center(
+                  child: pw.Text(
+                    "SOLDE D'OUVERTURE",
+                    style: pw.TextStyle(
+                      fontSize: 9,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Container(
+                height: 22,
+                decoration: const pw.BoxDecoration(
+                  border: pw.Border(left: line),
+                ),
+                child: pw.Center(
+                  child: pw.Text(
+                    'MOUVEMENTS',
+                    style: pw.TextStyle(
+                      fontSize: 9,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Container(
+                height: 22,
+                decoration: const pw.BoxDecoration(
+                  border: pw.Border(left: line),
+                ),
+                child: pw.Center(
+                  child: pw.Text(
+                    'SOLDE DE CLOTURE',
+                    style: pw.TextStyle(
+                      fontSize: 9,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-      child: pw.Column(
+
+      // Corps du tableau : en-têtes colonnes + lignes de comptes + lignes de
+      // totaux, dans un unique pw.Table à bordure uniforme. TableBorder.all
+      // dessine les 4 côtés de chaque cellule avec la même épaisseur et
+      // reste correct quel que soit l'endroit où MultiPage coupe la page.
+      pw.Table(
+        border: pw.TableBorder.all(color: PdfColors.black, width: 1),
+        columnWidths: columnWidths,
+        defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
         children: [
-          // En-tête du tableau - Titre
-          pw.Container(
-            decoration: pw.BoxDecoration(
-              color: PdfColors.blue100,
-              border: pw.Border(
-                bottom: const pw.BorderSide(color: PdfColors.black, width: 1),
+          pw.TableRow(
+            repeat: true,
+            decoration: const pw.BoxDecoration(color: PdfColors.blue100),
+            children: [
+              _balanceCell('N° COMPTE', bold: true),
+              _balanceCell('INTITULES', bold: true),
+              _balanceCell(
+                'DEBITEUR',
+                bold: true,
+                align: pw.TextAlign.center,
               ),
-            ),
-            child: pw.Row(
-              children: [
-                pw.Expanded(
-                  flex: 3,
-                  child: pw.Container(
-                    padding: const pw.EdgeInsets.all(4),
-                    child: pw.SizedBox(),
-                  ),
-                ),
-                pw.Expanded(
-                  flex: 2,
-                  child: pw.Container(
-                    padding: const pw.EdgeInsets.all(4),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border(
-                        left: const pw.BorderSide(
-                          color: PdfColors.black,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: pw.Center(
-                      child: pw.Text(
-                        'SOLDE D\'OUVERTURE',
-                        style: pw.TextStyle(
-                          fontSize: 9,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                        textAlign: pw.TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ),
-                pw.Expanded(
-                  flex: 2,
-                  child: pw.Container(
-                    padding: const pw.EdgeInsets.all(4),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border(
-                        left: const pw.BorderSide(
-                          color: PdfColors.black,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: pw.Center(
-                      child: pw.Text(
-                        'MOUVEMENTS',
-                        style: pw.TextStyle(
-                          fontSize: 9,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                        textAlign: pw.TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ),
-                pw.Expanded(
-                  flex: 2,
-                  child: pw.Container(
-                    padding: const pw.EdgeInsets.all(4),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border(
-                        left: const pw.BorderSide(
-                          color: PdfColors.black,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: pw.Center(
-                      child: pw.Text(
-                        'SOLDE DE CLOTURE',
-                        style: pw.TextStyle(
-                          fontSize: 9,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                        textAlign: pw.TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // En-têtes colonnes
-          pw.Container(
-            decoration: pw.BoxDecoration(
-              color: PdfColors.blue100,
-              border: pw.Border(
-                bottom: const pw.BorderSide(color: PdfColors.black, width: 1),
+              _balanceCell(
+                'CREDITEUR',
+                bold: true,
+                align: pw.TextAlign.center,
               ),
-            ),
-            child: pw.Row(
-              children: [
-                pw.Expanded(
-                  flex: 1,
-                  child: pw.Container(
-                    padding: const pw.EdgeInsets.all(3),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border(
-                        right: const pw.BorderSide(
-                          color: PdfColors.black,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: pw.Center(
-                      child: pw.Text(
-                        'N° COMPTE',
-                        style: pw.TextStyle(
-                          fontSize: 8,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                pw.Expanded(
-                  flex: 2,
-                  child: pw.Container(
-                    padding: const pw.EdgeInsets.all(3),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border(
-                        right: const pw.BorderSide(
-                          color: PdfColors.black,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: pw.Center(
-                      child: pw.Text(
-                        'INTITULES',
-                        style: pw.TextStyle(
-                          fontSize: 8,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                // 8 colonnes pour les montants
-                ..._buildHeaderColumns(),
-              ],
-            ),
+              _balanceCell('DEBIT', bold: true, align: pw.TextAlign.center),
+              _balanceCell('CREDIT', bold: true, align: pw.TextAlign.center),
+              _balanceCell(
+                'DEBITEUR',
+                bold: true,
+                align: pw.TextAlign.center,
+              ),
+              _balanceCell(
+                'CREDITEUR',
+                bold: true,
+                align: pw.TextAlign.center,
+              ),
+            ],
           ),
-          // Lignes de données
-          ...comptes.map((compte) {
-            return pw.Container(
+          ...comptes.asMap().entries.map((entry) {
+            final i = entry.key;
+            final compte = entry.value;
+            return pw.TableRow(
               decoration: pw.BoxDecoration(
-                border: pw.Border(
-                  bottom: const pw.BorderSide(
-                    color: PdfColors.black,
-                    width: 0.5,
-                  ),
+                color: i % 2 == 0 ? PdfColors.white : PdfColors.grey50,
+              ),
+              children: [
+                _balanceCell(_pdfSafe(compte['numero'] ?? '-'), bold: true),
+                _balanceCell(_pdfSafe(compte['intitule'] ?? ' ')),
+                _balanceCell(
+                  _formatNumber(compte['ouvertureDebit'] ?? 0),
+                  align: pw.TextAlign.center,
+                  color: PdfColors.indigo700,
                 ),
-              ),
-              child: pw.Row(
-                children: [
-                  pw.Expanded(
-                    flex: 1,
-                    child: pw.Container(
-                      padding: const pw.EdgeInsets.all(3),
-                      decoration: pw.BoxDecoration(
-                        border: pw.Border(
-                          right: const pw.BorderSide(
-                            color: PdfColors.black,
-                            width: 0.5,
-                          ),
-                        ),
-                      ),
-                      child: pw.Text(
-                        _pdfSafe(compte['numero'] ?? '-'),
-                        style: pw.TextStyle(
-                          fontSize: 8,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  pw.Expanded(
-                    flex: 2,
-                    child: pw.Container(
-                      padding: const pw.EdgeInsets.all(3),
-                      decoration: pw.BoxDecoration(
-                        border: pw.Border(
-                          right: const pw.BorderSide(
-                            color: PdfColors.black,
-                            width: 0.5,
-                          ),
-                        ),
-                      ),
-                      child: pw.Text(
-                        _pdfSafe(compte['intitule'] ?? ' '),
-                        style: const pw.TextStyle(fontSize: 8),
-                      ),
-                    ),
-                  ),
-                  // 8 colonnes de montants
-                  ..._buildDataColumns(compte),
-                ],
-              ),
+                _balanceCell(
+                  _formatNumber(compte['ouvertureCredit'] ?? 0),
+                  align: pw.TextAlign.center,
+                  color: PdfColors.indigo700,
+                ),
+                _balanceCell(
+                  _formatNumber(compte['mouvementDebit'] ?? 0),
+                  align: pw.TextAlign.center,
+                  color: PdfColors.indigo700,
+                ),
+                _balanceCell(
+                  _formatNumber(compte['mouvementCredit'] ?? 0),
+                  align: pw.TextAlign.center,
+                  color: PdfColors.indigo700,
+                ),
+                _balanceCell(
+                  _formatNumber(compte['soldeDebit'] ?? 0),
+                  align: pw.TextAlign.center,
+                  color: PdfColors.indigo700,
+                ),
+                _balanceCell(
+                  _formatNumber(compte['soldeCredit'] ?? 0),
+                  align: pw.TextAlign.center,
+                  color: PdfColors.indigo700,
+                ),
+              ],
             );
           }),
-          _buildTotalSummaryRow(
-            label: 'COMPTES DU BILAN',
-            comptes: comptesBilan,
-          ),
-          _buildTotalSummaryRow(
-            label: 'COMPTES DE GESTION',
-            comptes: comptesGestion,
-          ),
-          _buildTotalSummaryRow(
-            label: 'TOTAL DE LA BALANCE',
-            comptes: comptes,
+          _buildTotalTableRow('COMPTES DU BILAN', comptesBilan),
+          _buildTotalTableRow('COMPTES DE GESTION', comptesGestion),
+          _buildTotalTableRow(
+            'TOTAL DE LA BALANCE',
+            comptes,
             isTotalBalance: true,
           ),
-          _buildNatureResultatRow(comptesGestion),
         ],
       ),
-    );
+
+      // Ligne "Nature du résultat" : comme le bandeau de groupe, une seule
+      // ligne de hauteur fixe qui referme le cadre (pas de bordure du haut,
+      // c'est la bordure du bas du Table qui referme le trait).
+      pw.Container(
+        decoration: const pw.BoxDecoration(
+          color: PdfColors.amber50,
+          border: pw.Border(left: line, right: line, bottom: line),
+        ),
+        child: _buildNatureResultatContent(comptesGestion),
+      ),
+    ];
   }
 
-  static pw.Widget _buildTotalSummaryRow({
-    required String label,
-    required List<Map<String, dynamic>> comptes,
+  static pw.TableRow _buildTotalTableRow(
+    String label,
+    List<Map<String, dynamic>> comptes, {
     bool isTotalBalance = false,
   }) {
     final ouvertureDebit = comptes.fold<double>(
@@ -644,84 +610,76 @@ class ExportService {
       soldeClotureCredit = net < 0 ? -net : 0.0;
     }
 
-    return pw.Container(
-      decoration: pw.BoxDecoration(
-        color: PdfColors.blue100,
-        border: pw.Border(
-          top: const pw.BorderSide(color: PdfColors.black, width: 1),
-          bottom: const pw.BorderSide(color: PdfColors.black, width: 1),
+    return pw.TableRow(
+      decoration: const pw.BoxDecoration(color: PdfColors.blue50),
+      children: [
+        _balanceCell(label, bold: true),
+        _balanceCell(''),
+        _balanceCell(
+          _formatNumber(ouvertureDebit),
+          bold: true,
+          align: pw.TextAlign.center,
+          color: PdfColors.indigo,
         ),
-      ),
-      child: pw.Row(
-        children: [
-          pw.Expanded(
-            flex: 3,
-            child: pw.Container(
-              padding: const pw.EdgeInsets.symmetric(
-                horizontal: 6,
-                vertical: 3,
-              ),
-              decoration: pw.BoxDecoration(
-                border: pw.Border(
-                  right: const pw.BorderSide(color: PdfColors.black, width: 1),
-                ),
-              ),
-              child: pw.Text(
-                label,
-                style: pw.TextStyle(
-                  fontSize: 8,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          _buildSummaryValueCell(_formatNumber(ouvertureDebit)),
-          _buildSummaryValueCell(_formatNumber(ouvertureCredit)),
-          _buildSummaryValueCell(_formatNumber(mouvementDebit)),
-          _buildSummaryValueCell(_formatNumber(mouvementCredit)),
-          _buildSummaryValueCell(
-            isTotalBalance ? '' : _formatNumber(soldeClotureDebit),
-          ),
-          _buildSummaryValueCell(
-            isTotalBalance ? '' : _formatNumber(soldeClotureCredit),
-            hasRightBorder: false,
-          ),
-        ],
-      ),
+        _balanceCell(
+          _formatNumber(ouvertureCredit),
+          bold: true,
+          align: pw.TextAlign.center,
+          color: PdfColors.indigo,
+        ),
+        _balanceCell(
+          _formatNumber(mouvementDebit),
+          bold: true,
+          align: pw.TextAlign.center,
+          color: PdfColors.indigo,
+        ),
+        _balanceCell(
+          _formatNumber(mouvementCredit),
+          bold: true,
+          align: pw.TextAlign.center,
+          color: PdfColors.indigo,
+        ),
+        _balanceCell(
+          isTotalBalance ? '' : _formatNumber(soldeClotureDebit),
+          bold: true,
+          align: pw.TextAlign.center,
+          color: PdfColors.indigo,
+        ),
+        _balanceCell(
+          isTotalBalance ? '' : _formatNumber(soldeClotureCredit),
+          bold: true,
+          align: pw.TextAlign.center,
+          color: PdfColors.indigo,
+        ),
+      ],
     );
   }
 
-  static pw.Widget _buildSummaryValueCell(
-    String value, {
-    bool hasRightBorder = true,
+  /// Cellule de texte du tableau de balance (styles bord + alignement
+  /// partagés par l'en-tête, les lignes de comptes et les totaux).
+  static pw.Widget _balanceCell(
+    String text, {
+    bool bold = false,
+    pw.TextAlign align = pw.TextAlign.center,
+    PdfColor? color,
   }) {
-    return pw.Expanded(
-      flex: 1,
-      child: pw.Container(
-        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-        decoration: pw.BoxDecoration(
-          border:
-              hasRightBorder
-                  ? pw.Border(
-                    right: const pw.BorderSide(
-                      color: PdfColors.black,
-                      width: 1,
-                    ),
-                  )
-                  : null,
-        ),
-        child: pw.Center(
-          child: pw.Text(
-            value,
-            textAlign: pw.TextAlign.center,
-            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+      child: pw.Center(
+        child: pw.Text(
+          _pdfSafe(text),
+          textAlign: align,
+          style: pw.TextStyle(
+            fontSize: 8,
+            fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+            color: color,
           ),
         ),
       ),
     );
   }
 
-  static pw.Widget _buildNatureResultatRow(
+  static pw.Widget _buildNatureResultatContent(
     List<Map<String, dynamic>> comptesGestion,
   ) {
     final totalDebit = comptesGestion.fold<double>(
@@ -747,29 +705,19 @@ class ExportService {
             ? PdfColors.red700
             : PdfColors.blue700;
 
-    return pw.Container(
-      decoration: pw.BoxDecoration(
-        border: pw.Border(
-          top: const pw.BorderSide(color: PdfColors.black, width: 1),
-          bottom: const pw.BorderSide(color: PdfColors.black, width: 1),
-        ),
-      ),
-      child: pw.Row(
-        children: [
-          pw.Expanded(
-            flex: 3,
-            child: pw.Container(
-              padding: const pw.EdgeInsets.symmetric(
-                horizontal: 6,
-                vertical: 3,
-              ),
-              decoration: pw.BoxDecoration(
-                border: pw.Border(
-                  right: const pw.BorderSide(color: PdfColors.black, width: 1),
-                ),
-              ),
+    return pw.Row(
+      children: [
+        pw.Expanded(
+          flex: 3,
+          child: pw.Container(
+            padding: const pw.EdgeInsets.symmetric(
+              horizontal: 6,
+              vertical: 3,
+            ),
+            child: pw.Center(
               child: pw.Text(
                 'NATURE DU RESULTAT',
+                textAlign: pw.TextAlign.center,
                 style: pw.TextStyle(
                   fontSize: 8,
                   fontWeight: pw.FontWeight.bold,
@@ -777,92 +725,33 @@ class ExportService {
               ),
             ),
           ),
-          pw.Expanded(
-            flex: 6,
-            child: pw.Container(
-              padding: const pw.EdgeInsets.symmetric(
-                horizontal: 6,
-                vertical: 3,
+        ),
+        pw.Expanded(
+          flex: 6,
+          child: pw.Container(
+            padding: const pw.EdgeInsets.symmetric(
+              horizontal: 6,
+              vertical: 3,
+            ),
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(
+                left: pw.BorderSide(color: PdfColors.black, width: 1),
               ),
-              child: pw.Center(
-                child: pw.Text(
-                  natureResultat,
-                  style: pw.TextStyle(
-                    fontSize: 9,
-                    fontWeight: pw.FontWeight.bold,
-                    color: color,
-                  ),
+            ),
+            child: pw.Center(
+              child: pw.Text(
+                natureResultat,
+                style: pw.TextStyle(
+                  fontSize: 9,
+                  fontWeight: pw.FontWeight.bold,
+                  color: color,
                 ),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
-  }
-
-  static List<pw.Widget> _buildHeaderColumns() {
-    final headers = [
-      'DEBITEUR',
-      'CREDITEUR',
-      'DEBIT',
-      'CREDIT',
-      'DEBITEUR',
-      'CREDITEUR',
-    ];
-
-    return headers.map((header) {
-      return pw.Expanded(
-        flex: 1,
-        child: pw.Container(
-          padding: const pw.EdgeInsets.all(2),
-          decoration: pw.BoxDecoration(
-            border: pw.Border(
-              right: const pw.BorderSide(color: PdfColors.black, width: 0.5),
-            ),
-          ),
-          child: pw.Center(
-            child: pw.Text(
-              header,
-              style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold),
-              textAlign: pw.TextAlign.center,
-            ),
-          ),
-        ),
-      );
-    }).toList();
-  }
-
-  static List<pw.Widget> _buildDataColumns(Map<String, dynamic> compte) {
-    final values = [
-      _formatNumber(compte['ouvertureDebit'] ?? 0),
-      _formatNumber(compte['ouvertureCredit'] ?? 0),
-      _formatNumber(compte['mouvementDebit'] ?? 0),
-      _formatNumber(compte['mouvementCredit'] ?? 0),
-      _formatNumber(compte['soldeDebit'] ?? 0),
-      _formatNumber(compte['soldeCredit'] ?? 0),
-    ];
-
-    return values.map((value) {
-      return pw.Expanded(
-        flex: 1,
-        child: pw.Container(
-          padding: const pw.EdgeInsets.all(2),
-          decoration: pw.BoxDecoration(
-            border: pw.Border(
-              right: const pw.BorderSide(color: PdfColors.black, width: 0.5),
-            ),
-          ),
-          child: pw.Center(
-            child: pw.Text(
-              value,
-              style: const pw.TextStyle(fontSize: 7),
-              textAlign: pw.TextAlign.right,
-            ),
-          ),
-        ),
-      );
-    }).toList();
   }
 
   static Future<void> _savePDF(
@@ -3243,7 +3132,7 @@ class ExportService {
     required String label,
   }) async {
     try {
-      final path = await FilePicker.platform.saveFile(
+      final path = await FilePicker.saveFile(
         dialogTitle: 'Enregistrer le fichier $label',
         fileName: suggestedFileName,
       );

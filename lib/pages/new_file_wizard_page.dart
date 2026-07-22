@@ -90,7 +90,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
   }
 
   Future<void> _selectFile() async {
-    final result = await FilePicker.platform.saveFile(
+    final result = await FilePicker.saveFile(
       dialogTitle: 'Créer un nouveau fichier comptable',
       fileName: 'comptabilite$databaseExtension',
       type: FileType.custom,
@@ -217,8 +217,10 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
       // mot de passe que l'utilisateur admin, et afficher la clé de
       // récupération une seule fois.
       if (_usePassword) {
-        final (recoveryKey, dossierUuid) =
-            await DatabaseService.enableDossierEncryption(
+        final (
+          recoveryKey,
+          dossierUuid,
+        ) = await DatabaseService.enableDossierEncryption(
           _selectedFilePath!,
           _passwordController.text,
         );
@@ -242,11 +244,12 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
         if (!mounted) return;
         await Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => RecoveryKeyDisplayPage(
-              dossierUuid: dossierUuid,
-              recoveryKey: recoveryKey,
-              entiteNom: _denominationController.text,
-            ),
+            builder:
+                (_) => RecoveryKeyDisplayPage(
+                  dossierUuid: dossierUuid,
+                  recoveryKey: recoveryKey,
+                  entiteNom: _denominationController.text,
+                ),
           ),
         );
       }
@@ -373,7 +376,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                             _currentStep == 3
                                 ? Icons.check
                                 : Icons.arrow_forward,
-                              color: Colors.white,
+                            color: Colors.white,
                           ),
                   label: Text(
                     _currentStep == 3 ? 'Créer le fichier' : 'Suivant',
@@ -505,7 +508,11 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: _selectFile,
-              icon: const Icon(Icons.folder_open, size: 32, color: Colors.white),
+              icon: const Icon(
+                Icons.folder_open,
+                size: 32,
+                color: Colors.white,
+              ),
               label: const Text(
                 'Choisir l\'emplacement',
                 style: TextStyle(fontSize: 16),
@@ -607,7 +614,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _formeJuridique,
+                    initialValue: _formeJuridique,
                     decoration: InputDecoration(
                       labelText: 'Forme juridique',
                       prefixIcon: const Icon(Icons.account_balance),
@@ -869,9 +876,14 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                   prefixIcon: const Icon(Icons.lock),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                      _obscurePassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
                     ),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    onPressed:
+                        () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -905,9 +917,12 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                               ? Icons.visibility
                               : Icons.visibility_off,
                         ),
-                        onPressed: () => setState(
-                          () => _obscureConfirmPassword = !_obscureConfirmPassword,
-                        ),
+                        onPressed:
+                            () => setState(
+                              () =>
+                                  _obscureConfirmPassword =
+                                      !_obscureConfirmPassword,
+                            ),
                       ),
                     ],
                   ),

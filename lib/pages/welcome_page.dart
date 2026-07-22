@@ -57,7 +57,7 @@ class _WelcomePageState extends State<WelcomePage> {
   }
 
   Future<void> _openExistingFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: [databaseExtensionNoDot],
       dialogTitle: 'Ouvrir un fichier comptable',

@@ -23,10 +23,10 @@ dependencies:
   path: ^1.9.0
   path_provider: ^2.1.1
   crypto: ^3.0.3
-  file_picker: ^8.0.0+1
+  file_picker: ^11.0.2
 
   # Window management for desktop
-  window_manager: ^0.4.3
+  window_manager: ^0.5.2
 
   # PDF generation
   pdf: ^3.10.6
@@ -39,7 +39,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
   # Génération de l'icône Windows à partir du logo officiel :
   # `dart run flutter_launcher_icons` (à relancer si le PNG est remplacé)
   flutter_launcher_icons: ^0.14.3

@@ -66,8 +66,9 @@ class ImportService {
     final excel = Excel.decodeBytes(bytes);
     final sheet = excel.sheets.values.first;
     final rows = sheet.rows;
-    if (rows.isEmpty)
+    if (rows.isEmpty) {
       return const ImportResult(inserted: 0, skipped: 0, errors: []);
+    }
 
     // Détection des colonnes depuis la première ligne
     final headers =
@@ -405,8 +406,9 @@ class ImportService {
     final excel = Excel.decodeBytes(bytes);
     final sheet = excel.sheets.values.first;
     final rows = sheet.rows;
-    if (rows.isEmpty)
+    if (rows.isEmpty) {
       return const ImportResult(inserted: 0, skipped: 0, errors: []);
+    }
 
     final headers =
         rows.first
@@ -518,7 +520,7 @@ class ImportService {
   // ==================== UTILITAIRES ====================
 
   static Future<List<int>?> _pickExcelFile(BuildContext context) async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['xlsx'],
       allowMultiple: false,

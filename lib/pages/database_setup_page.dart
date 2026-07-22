@@ -119,7 +119,7 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
     try {
       if (_isCreatingDatabase) {
         // Sélectionner un emplacement pour créer une nouvelle base
-        final result = await FilePicker.platform.saveFile(
+        final result = await FilePicker.saveFile(
           dialogTitle: 'Choisir l\'emplacement du nouveau fichier comptable',
           fileName: 'sycebnl_accounting$databaseExtension',
           type: FileType.custom,
@@ -133,7 +133,7 @@ class _DatabaseSetupPageState extends State<DatabaseSetupPage> {
         }
       } else {
         // Sélectionner une base existante
-        final result = await FilePicker.platform.pickFiles(
+        final result = await FilePicker.pickFiles(
           dialogTitle: 'Sélectionner un fichier comptable existant',
           type: FileType.custom,
           allowedExtensions: [databaseExtensionNoDot],
