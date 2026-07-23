@@ -473,6 +473,7 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
           child: ConstrainedBox(
             constraints: BoxConstraints(minWidth: minW),
             child: Table(
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
               border: TableBorder.all(color: Colors.black, width: 0.8),
               columnWidths: const {
                 0: FlexColumnWidth(1.2), // Date
@@ -540,15 +541,16 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
       decoration: BoxDecoration(color: color ?? Colors.white),
       children:
           values.asMap().entries.map((entry) {
-            final isAmount = entry.key >= 5;
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-              child: Text(
-                entry.value,
-                textAlign: isAmount ? TextAlign.right : TextAlign.left,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: bold ? FontWeight.w800 : FontWeight.normal,
+              child: Center(
+                child: Text(
+                  entry.value,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: bold ? FontWeight.w800 : FontWeight.normal,
+                  ),
                 ),
               ),
             );

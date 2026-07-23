@@ -2279,6 +2279,8 @@ class ExportService {
                       ),
                     ),
                     pw.Table(
+                      defaultVerticalAlignment:
+                          pw.TableCellVerticalAlignment.middle,
                       border: pw.TableBorder.all(
                         color: PdfColors.black,
                         width: .5,
@@ -2298,27 +2300,33 @@ class ExportService {
                             color: PdfColors.blue100,
                           ),
                           children: [
-                            _pdfCell('Date', bold: true),
-                            _pdfCell('N Compte', bold: true),
-                            _pdfCell('Intitulé', bold: true),
-                            _pdfCell('N Enreg.', bold: true),
-                            _pdfCell('Libellé', bold: true),
-                            _pdfCell('Débit', bold: true),
-                            _pdfCell('Crédit', bold: true),
+                            _journalPdfCell('Date', bold: true),
+                            _journalPdfCell('N Compte', bold: true),
+                            _journalPdfCell('Intitulé', bold: true),
+                            _journalPdfCell('N Enreg.', bold: true),
+                            _journalPdfCell('Libellé', bold: true),
+                            _journalPdfCell('Débit', bold: true),
+                            _journalPdfCell('Crédit', bold: true),
                           ],
                         ),
                         ...rows.map(
                           (row) => pw.TableRow(
                             children: [
-                              _pdfCell(_formatDateCell(row['date'])),
-                              _pdfCell(row['numeroCompte']?.toString() ?? ''),
-                              _pdfCell(row['compteIntitule']?.toString() ?? ''),
-                              _pdfCell(
+                              _journalPdfCell(_formatDateCell(row['date'])),
+                              _journalPdfCell(
+                                row['numeroCompte']?.toString() ?? '',
+                              ),
+                              _journalPdfCell(
+                                row['compteIntitule']?.toString() ?? '',
+                              ),
+                              _journalPdfCell(
                                 row['numeroEnregistrement']?.toString() ?? '',
                               ),
-                              _pdfCell(row['libelle']?.toString() ?? ''),
-                              _pdfCell(_formatNumber(row['debit'])),
-                              _pdfCell(_formatNumber(row['credit'])),
+                              _journalPdfCell(
+                                row['libelle']?.toString() ?? '',
+                              ),
+                              _journalPdfCell(_formatNumber(row['debit'])),
+                              _journalPdfCell(_formatNumber(row['credit'])),
                             ],
                           ),
                         ),
@@ -2327,19 +2335,19 @@ class ExportService {
                             color: PdfColors.blue100,
                           ),
                           children: [
-                            _pdfCell(''),
-                            _pdfCell(''),
-                            _pdfCell(''),
-                            _pdfCell(''),
-                            _pdfCell(
+                            _journalPdfCell(''),
+                            _journalPdfCell(''),
+                            _journalPdfCell(''),
+                            _journalPdfCell(''),
+                            _journalPdfCell(
                               'TOTAL (${rows.length} écritures)',
                               bold: true,
                             ),
-                            _pdfCell(
+                            _journalPdfCell(
                               _formatNumber(group['totalDebit']),
                               bold: true,
                             ),
-                            _pdfCell(
+                            _journalPdfCell(
                               _formatNumber(group['totalCredit']),
                               bold: true,
                             ),
@@ -2645,6 +2653,8 @@ class ExportService {
                       ),
                     ),
                     pw.Table(
+                      defaultVerticalAlignment:
+                          pw.TableCellVerticalAlignment.middle,
                       border: pw.TableBorder.all(
                         color: PdfColors.black,
                         width: .5,
@@ -2664,13 +2674,13 @@ class ExportService {
                             color: PdfColors.blue100,
                           ),
                           children: [
-                            _pdfCell('Date', bold: true),
-                            _pdfCell('Journal', bold: true),
-                            _pdfCell('N enregis.', bold: true),
-                            _pdfCell('Libelle', bold: true),
-                            _pdfCell('Debit', bold: true),
-                            _pdfCell('Credit', bold: true),
-                            _pdfCell('Solde', bold: true),
+                            _grandLivrePdfCell('Date', bold: true),
+                            _grandLivrePdfCell('Journal', bold: true),
+                            _grandLivrePdfCell('N enregis.', bold: true),
+                            _grandLivrePdfCell('Libelle', bold: true),
+                            _grandLivrePdfCell('Debit', bold: true),
+                            _grandLivrePdfCell('Credit', bold: true),
+                            _grandLivrePdfCell('Solde', bold: true),
                           ],
                         ),
                         if (group['has_opening_balance'] == true)
@@ -2679,27 +2689,36 @@ class ExportService {
                               color: PdfColors.grey100,
                             ),
                             children: [
-                              _pdfCell(''),
-                              _pdfCell(''),
-                              _pdfCell(''),
-                              _pdfCell('Solde d\'ouverture', bold: true),
-                              _pdfCell(''),
-                              _pdfCell(''),
-                              _pdfCell(_formatNumber(group['opening_balance'])),
+                              _grandLivrePdfCell(''),
+                              _grandLivrePdfCell(''),
+                              _grandLivrePdfCell(''),
+                              _grandLivrePdfCell(
+                                'Solde d\'ouverture',
+                                bold: true,
+                              ),
+                              _grandLivrePdfCell(''),
+                              _grandLivrePdfCell(''),
+                              _grandLivrePdfCell(
+                                _formatNumber(group['opening_balance']),
+                              ),
                             ],
                           ),
                         ...rows.map(
                           (row) => pw.TableRow(
                             children: [
-                              _pdfCell(_formatDateCell(row['date'])),
-                              _pdfCell(row['journal']?.toString() ?? ''),
-                              _pdfCell(
+                              _grandLivrePdfCell(_formatDateCell(row['date'])),
+                              _grandLivrePdfCell(
+                                row['journal']?.toString() ?? '',
+                              ),
+                              _grandLivrePdfCell(
                                 row['numero_enregistrement']?.toString() ?? '',
                               ),
-                              _pdfCell(row['libelle']?.toString() ?? ''),
-                              _pdfCell(_formatNumber(row['debit'])),
-                              _pdfCell(_formatNumber(row['credit'])),
-                              _pdfCell(_formatNumber(row['solde'])),
+                              _grandLivrePdfCell(
+                                row['libelle']?.toString() ?? '',
+                              ),
+                              _grandLivrePdfCell(_formatNumber(row['debit'])),
+                              _grandLivrePdfCell(_formatNumber(row['credit'])),
+                              _grandLivrePdfCell(_formatNumber(row['solde'])),
                             ],
                           ),
                         ),
@@ -2708,22 +2727,22 @@ class ExportService {
                             color: PdfColors.blue100,
                           ),
                           children: [
-                            _pdfCell(''),
-                            _pdfCell(''),
-                            _pdfCell(''),
-                            _pdfCell(
+                            _grandLivrePdfCell(''),
+                            _grandLivrePdfCell(''),
+                            _grandLivrePdfCell(''),
+                            _grandLivrePdfCell(
                               'TOTAL COMPTE ${group['numero']}',
                               bold: true,
                             ),
-                            _pdfCell(
+                            _grandLivrePdfCell(
                               _formatNumber(group['total_debit']),
                               bold: true,
                             ),
-                            _pdfCell(
+                            _grandLivrePdfCell(
                               _formatNumber(group['total_credit']),
                               bold: true,
                             ),
-                            _pdfCell(
+                            _grandLivrePdfCell(
                               _formatNumber(group['final_balance']),
                               bold: true,
                             ),
@@ -3040,6 +3059,44 @@ class ExportService {
     );
   }
 
+  /// Cellule du tableau PDF du grand livre : centrée horizontalement et
+  /// verticalement, pour un rendu cohérent avec le tableau affiché dans
+  /// l'application (grand_livre_page.dart).
+  static pw.Widget _grandLivrePdfCell(String text, {bool bold = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(4),
+      child: pw.Center(
+        child: pw.Text(
+          _pdfSafe(text),
+          textAlign: pw.TextAlign.center,
+          style: pw.TextStyle(
+            fontSize: 9,
+            fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Cellule du tableau PDF du journal : centrée horizontalement et
+  /// verticalement, pour un rendu cohérent avec le tableau affiché dans
+  /// l'application (journal_results_page.dart).
+  static pw.Widget _journalPdfCell(String text, {bool bold = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(4),
+      child: pw.Center(
+        child: pw.Text(
+          _pdfSafe(text),
+          textAlign: pw.TextAlign.center,
+          style: pw.TextStyle(
+            fontSize: 9,
+            fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Remplace les caractères typographiques (guillemets courbes, points de
   /// suspension, tirets longs, etc.) absents de la police PDF par défaut par
   /// leur équivalent ASCII, pour éviter les avertissements "Unable to find
@@ -3132,16 +3189,37 @@ class ExportService {
     required String label,
   }) async {
     try {
+      // L'extension attendue est déduite du nom de fichier suggéré (déjà
+      // correct à tous les appels : "*.pdf" ou "*.xlsx"). Elle sert à la
+      // fois de filtre pour la boîte de dialogue et, plus important, de
+      // référence pour garantir que le fichier écrit sur le disque porte
+      // bien cette extension, quoi que renvoie le sélecteur système.
+      final dotIndex = suggestedFileName.lastIndexOf('.');
+      final extension =
+          dotIndex >= 0 ? suggestedFileName.substring(dotIndex + 1) : '';
+
       final path = await FilePicker.saveFile(
         dialogTitle: 'Enregistrer le fichier $label',
         fileName: suggestedFileName,
+        type: extension.isEmpty ? FileType.any : FileType.custom,
+        allowedExtensions: extension.isEmpty ? null : [extension],
       );
 
       if (path == null) {
         return null;
       }
 
-      final file = File(path);
+      // Ajoute l'extension avant l'écriture sur le disque si le chemin
+      // renvoyé par le sélecteur ne l'a pas conservée (ex: "journal_2026")
+      // et évite de la dupliquer si l'utilisateur l'a saisie lui-même
+      // (ex: "journal_2026.pdf" ne devient pas "journal_2026.pdf.pdf").
+      final finalPath =
+          extension.isEmpty ||
+                  path.toLowerCase().endsWith('.${extension.toLowerCase()}')
+              ? path
+              : '$path.$extension';
+
+      final file = File(finalPath);
       await file.writeAsBytes(bytes, flush: true);
 
       if (context.mounted) {

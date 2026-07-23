@@ -1161,6 +1161,7 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
           ),
         ),
         Table(
+          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
           border: TableBorder.all(color: Colors.black, width: 0.8),
           columnWidths: const {
             0: FlexColumnWidth(1.2),
@@ -1222,12 +1223,14 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
           .map(
             (entry) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-              child: Text(
-                entry.value,
-                textAlign: entry.key >= 4 ? TextAlign.right : TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: bold ? FontWeight.w800 : FontWeight.normal,
+              child: Center(
+                child: Text(
+                  entry.value,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: bold ? FontWeight.w800 : FontWeight.normal,
+                  ),
                 ),
               ),
             ),
