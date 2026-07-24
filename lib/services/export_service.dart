@@ -1556,6 +1556,157 @@ class ExportService {
     }
   }
 
+  /// Génère le modèle Excel vierge pour l'import du plan tiers.
+  ///
+  /// La feuille "Modèle Import Tiers" ne contient que la ligne d'en-têtes
+  /// (ligne 0) et une ligne d'exemple : `ImportService._processImportTiers`
+  /// lit `rows.first` comme ligne d'en-têtes (voir `_findCol` dans
+  /// import_service.dart), donc ce modèle doit rester ré-importable tel
+  /// quel, sans ligne supplémentaire au-dessus des en-têtes. Les
+  /// instructions vont sur un second onglet ("Instructions") qui n'est
+  /// jamais lu par l'import (`excel.sheets.values.first` cible toujours la
+  /// feuille de données, insérée en premier dans le classeur).
+  static Future<void> exportTiersImportTemplate({
+    required BuildContext context,
+  }) async {
+    try {
+      final bytes = _buildTiersImportTemplateBytes();
+      final fileName =
+          'modele_import_tiers_${DateTime.now().toString().split(' ')[0]}.xlsx';
+      await _saveBytesWithPicker(
+        bytes: bytes,
+        suggestedFileName: fileName,
+        context: context,
+        label: 'Excel',
+      );
+    } catch (e) {
+      debugPrint('Erreur Excel: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  static Uint8List _buildTiersImportTemplateBytes() {
+    final excel = Excel.createExcel();
+    const sheetName = 'Modèle Import Tiers';
+    final defaultSheet = excel.getDefaultSheet();
+    if (defaultSheet != null && defaultSheet != sheetName) {
+      excel.rename(defaultSheet, sheetName);
+    }
+    final sheet = excel[sheetName];
+
+    final headers = [
+      'N° Compte *',
+      'Intitulé *',
+      'Type',
+      'NIF',
+      'Adresse',
+      'Compte comptable *',
+    ];
+    const requiredColumns = {0, 1, 5};
+
+    final headerStyle = CellStyle(
+      bold: true,
+      horizontalAlign: HorizontalAlign.Center,
+      backgroundColorHex: ExcelColor.fromHexString('#DCE6F1'),
+    );
+    final requiredHeaderStyle = CellStyle(
+      bold: true,
+      horizontalAlign: HorizontalAlign.Center,
+      backgroundColorHex: ExcelColor.fromHexString('#DCE6F1'),
+      fontColorHex: ExcelColor.fromHexString('#C62828'),
+    );
+    final dataStyle = CellStyle(horizontalAlign: HorizontalAlign.Left);
+
+    // Ligne 0 : en-têtes (colonnes obligatoires en rouge). Doit rester la
+    // toute première ligne de la feuille (voir note ci-dessus).
+    const headerRow = 0;
+    for (int col = 0; col < headers.length; col++) {
+      final cell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: col, rowIndex: headerRow),
+      );
+      cell.value = TextCellValue(headers[col]);
+      cell.cellStyle =
+          requiredColumns.contains(col) ? requiredHeaderStyle : headerStyle;
+    }
+
+    // Ligne 1 : exemple de ligne valide.
+    const exampleRow = 1;
+    final example = ['41000001', 'Client Exemple', 'Client', '', '', '411000'];
+    for (int col = 0; col < example.length; col++) {
+      final cell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: col, rowIndex: exampleRow),
+      );
+      cell.value = TextCellValue(example[col]);
+      cell.cellStyle = dataStyle;
+    }
+
+    // Second onglet : instructions (jamais lu par l'import).
+    final instructions = excel['Instructions'];
+    final titleStyle = CellStyle(
+      bold: true,
+      fontColorHex: ExcelColor.fromHexString('#00695C'),
+    );
+    final sectionStyle = CellStyle(bold: true);
+    final lines = <(String, CellStyle?)>[
+      ('Instructions d\'import — Plan Tiers', titleStyle),
+      ('', null),
+      ('Colonnes obligatoires (*)', sectionStyle),
+      ('N° Compte : identifiant du tiers.', null),
+      ('Intitulé : nom du tiers.', null),
+      (
+        'Compte comptable : numéro du compte du plan comptable auquel '
+            'rattacher ce tiers.',
+        null,
+      ),
+      ('', null),
+      ('Colonnes optionnelles', sectionStyle),
+      (
+        'Type : Client, Fournisseur, Salarié ou Autre (déduit du N° '
+            'Compte si absent).',
+        null,
+      ),
+      ('NIF, Adresse.', null),
+      ('', null),
+      ('Règles de validation', sectionStyle),
+      (
+        'Le "Compte comptable" doit exister dans le plan comptable, '
+            'sinon la ligne est rejetée.',
+        null,
+      ),
+      (
+        'Ce compte doit avoir le "Rattachement de tiers" activé, sinon '
+            'la ligne est rejetée.',
+        null,
+      ),
+      (
+        'Toutes les erreurs du fichier sont listées ensemble à la fin '
+            'de l\'import.',
+        null,
+      ),
+    ];
+    for (int row = 0; row < lines.length; row++) {
+      final (text, style) = lines[row];
+      final cell = instructions.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
+      );
+      cell.value = TextCellValue(text);
+      if (style != null) cell.cellStyle = style;
+    }
+
+    final bytes = excel.encode();
+    if (bytes == null) {
+      throw Exception('Impossible de générer le fichier Excel');
+    }
+    return Uint8List.fromList(bytes);
+  }
+
   // ==================== EXPORT LISTE BAILLEURS ====================
 
   /// Exporte la liste des bailleurs en PDF

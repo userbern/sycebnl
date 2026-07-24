@@ -1499,8 +1499,27 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
       spacing: 8,
       runSpacing: 8,
       alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        if (_canCreate)
+        if (_canCreate) ...[
+          OutlinedButton.icon(
+            onPressed:
+                () => ExportService.exportTiersImportTemplate(
+                  context: context,
+                ),
+            icon: Icon(
+              Icons.description_outlined,
+              size: 16,
+              color: Colors.teal.shade700,
+            ),
+            label: const Text('Modèle'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.teal.shade700,
+              side: BorderSide(color: Colors.teal.shade700),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              textStyle: const TextStyle(fontSize: 13),
+            ),
+          ),
           ElevatedButton.icon(
             onPressed:
                 () => ImportService.importTiers(
@@ -1516,6 +1535,12 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
               textStyle: const TextStyle(fontSize: 13),
             ),
           ),
+          IconButton(
+            onPressed: _showImportHelp,
+            tooltip: 'Aide sur l\'import',
+            icon: Icon(Icons.help_outline, color: Colors.grey.shade500),
+          ),
+        ],
         ElevatedButton.icon(
           onPressed: () {
             final tiersList =
@@ -1588,6 +1613,120 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
             ),
           ),
       ],
+    );
+  }
+
+  void _showImportHelp() {
+    showDialog(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.help_outline, color: Colors.teal.shade700, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Import du plan tiers',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Téléchargez le "Modèle" pour obtenir un fichier Excel '
+                    'avec les bonnes colonnes, puis complétez-le avant de '
+                    'l\'importer.',
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                  ),
+                  const SizedBox(height: 14),
+                  _importHelpSection('Colonnes obligatoires', [
+                    'N° Compte : identifiant du tiers.',
+                    'Intitulé : nom du tiers.',
+                    'Compte comptable : numéro du compte du plan comptable '
+                        'auquel rattacher ce tiers.',
+                  ], Colors.red),
+                  const SizedBox(height: 10),
+                  _importHelpSection('Colonnes optionnelles', [
+                    'Type : Client, Fournisseur, Salarié ou Autre (déduit du '
+                        'N° Compte si absent).',
+                    'NIF, Adresse.',
+                  ], Colors.grey),
+                  const SizedBox(height: 10),
+                  _importHelpSection('Règles de validation', [
+                    'Le "Compte comptable" doit exister dans le plan '
+                        'comptable, sinon la ligne est rejetée.',
+                    'Ce compte doit avoir le "Rattachement de tiers" activé, '
+                        'sinon la ligne est rejetée.',
+                    'Toutes les erreurs du fichier sont listées ensemble à '
+                        'la fin de l\'import, pour les corriger en une fois.',
+                  ], Colors.teal),
+                ],
+              ),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal.shade700,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Compris'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Widget _importHelpSection(
+    String title,
+    List<String> points,
+    MaterialColor color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: color.shade700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          ...points.map(
+            (p) => Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('• ', style: TextStyle(color: color.shade600)),
+                  Expanded(
+                    child: Text(
+                      p,
+                      style: TextStyle(fontSize: 12, color: color.shade700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
