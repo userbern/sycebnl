@@ -279,3 +279,5 @@ Le projet sera considéré comme conforme si :
 ## 11. Conclusion
 
 SYCEBNL Accounting est une solution de gestion comptable locale, portable et structurée, pensée pour répondre aux besoins des organisations qui doivent centraliser leur comptabilité, maîtriser leurs budgets et sécuriser leurs données. Le présent cahier des charges formalise les besoins fonctionnels, techniques et organisationnels du projet tel qu'il est actuellement défini.
+
+
