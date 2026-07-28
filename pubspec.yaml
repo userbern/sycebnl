@@ -39,7 +39,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
+  flutter_lints: ^5.0.0
   # Génération de l'icône Windows à partir du logo officiel :
   # `dart run flutter_launcher_icons` (à relancer si le PNG est remplacé)
   flutter_launcher_icons: ^0.14.3

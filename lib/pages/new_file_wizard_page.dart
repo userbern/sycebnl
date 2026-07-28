@@ -614,7 +614,7 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    initialValue: _formeJuridique,
+                    value: _formeJuridique,
                     decoration: InputDecoration(
                       labelText: 'Forme juridique',
                       prefixIcon: const Icon(Icons.account_balance),
