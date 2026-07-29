@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:sycebnl_accounting/widgets/app_icon.dart';
 import 'package:sycebnl_accounting/widgets/company_header_card.dart';
 import '../services/database_service.dart';
+import '../services/exercice_service.dart';
 import '../models/user_session.dart';
 import 'entite_identification_page.dart';
 import 'nouvel_exercice_page.dart';
@@ -26,6 +27,7 @@ import 'dossier_security_page.dart';
 import '../widgets/app_logo.dart';
 import 'interrogations_lettrages_page.dart';
 import 'liste_exercices_page.dart';
+import 'journal_an_page.dart';
 import '../models/saisie_comptable.dart';
 
 class HomePage extends StatefulWidget {
@@ -986,7 +988,7 @@ class _HomePageState extends State<HomePage> {
       return;
     }
     try {
-      await DatabaseService.cloturerExercice(id);
+      await ExerciceService.cloturerExercice(id);
       await _refreshExercices();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1109,6 +1111,12 @@ class _HomePageState extends State<HomePage> {
           onEdit: _editExercice,
           onCloture: _cloturerExercice,
           onCheckPeriodesEquilibre: DatabaseService.getPeriodesNonEquilibrees,
+          onViewJournalAN: (exerciceId) => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => JournalAnPage(exerciceId: exerciceId),
+            ),
+          ),
           userSession: widget.userSession,
         );
       case 13:

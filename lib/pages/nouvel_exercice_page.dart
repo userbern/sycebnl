@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/user_session.dart';
 import '../services/database_service.dart';
+import '../services/exercice_service.dart';
+
+enum _ModeCreation { avecReport, sansReport, anterieur }
 
 class NouvelExercicePage extends StatefulWidget {
   final UserSession userSession;
@@ -20,8 +23,12 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
   final _anneeController = TextEditingController();
   final _anneeFocusNode = FocusNode();
   bool isLoading = false;
-  bool reportSoldes = true;
   List<Map<String, dynamic>> _exercices = [];
+
+  _ModeCreation? _mode;
+  int _step = 0; // 0 = choix du mode, 1 = dates, 2 = récap (avecReport)
+  int? _exercicePrecedentId;
+  Future<AnPreview?>? _anPreviewFuture;
 
   late int selectedDebutDay, selectedDebutMonth, selectedDebutYear;
   late int selectedFinDay, selectedFinMonth, selectedFinYear;
@@ -42,12 +49,6 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     selectedFinMonth = 12;
     selectedFinYear = now.year;
     _loadExercices();
-    // Force le focus dès l'arrivée sur la page, sinon le champ ne réagit
-    // pas instantanément au clavier (le focus est resté sur le widget
-    // précédent, ex: le bouton cliqué pour naviguer jusqu'ici).
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _anneeFocusNode.requestFocus();
-    });
   }
 
   @override
@@ -66,51 +67,168 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
 
   // ── Computed ────────────────────────────────────────────────────────────────
 
-  String get _dateDebutISO =>
-      '$selectedDebutYear-${selectedDebutMonth.toString().padLeft(2, '0')}-${selectedDebutDay.toString().padLeft(2, '0')}';
+  DateTime get _dateDebut =>
+      DateTime(selectedDebutYear, selectedDebutMonth, selectedDebutDay);
 
-  String get _dateFinISO =>
-      '$selectedFinYear-${selectedFinMonth.toString().padLeft(2, '0')}-${selectedFinDay.toString().padLeft(2, '0')}';
+  DateTime get _dateFin =>
+      DateTime(selectedFinYear, selectedFinMonth, selectedFinDay);
 
   int get _dureeMois {
-    final d = DateTime(selectedDebutYear, selectedDebutMonth, selectedDebutDay);
-    final f = DateTime(selectedFinYear, selectedFinMonth, selectedFinDay);
+    final d = _dateDebut;
+    final f = _dateFin;
     final m = (f.year - d.year) * 12 + (f.month - d.month) + 1;
     return m < 1 ? 1 : m;
   }
 
-  String get _typeExercice {
-    final duree = _dureeMois;
-    final debutJan = selectedDebutMonth == 1 && selectedDebutDay == 1;
-    final finDec = selectedFinMonth == 12 && selectedFinDay == 31;
-    if (duree == 12 && debutJan && finDec) return 'Standard calendaire';
-    if (duree == 12) return 'Standard décalé';
-    if (duree < 12) return 'Exercice court';
-    return 'Exercice long';
-  }
-
-  Map<String, dynamic>? get _exercicePrecedent {
-    final debut = DateTime.tryParse(_dateDebutISO);
-    if (debut == null) return null;
+  /// Exercice le plus récent (par date de fin) déjà présent, tous statuts
+  /// confondus — c'est celui dont dépend l'option "Avec report".
+  Map<String, dynamic>? get _dernierExercice {
     Map<String, dynamic>? best;
-    DateTime? bestDate;
+    DateTime? bestEnd;
     for (final ex in _exercices) {
       final fin = DateTime.tryParse(ex['date_fin']?.toString() ?? '');
       if (fin == null) continue;
-      if (fin.isBefore(debut)) {
-        if (bestDate == null || fin.isAfter(bestDate)) {
-          bestDate = fin;
-          best = ex;
-        }
+      if (bestEnd == null || fin.isAfter(bestEnd)) {
+        bestEnd = fin;
+        best = ex;
       }
     }
     return best;
   }
 
+  DateTime? get _plusAncienDebut {
+    DateTime? best;
+    for (final ex in _exercices) {
+      final debut = DateTime.tryParse(ex['date_debut']?.toString() ?? '');
+      if (debut == null) continue;
+      if (best == null || debut.isBefore(best)) best = debut;
+    }
+    return best;
+  }
 
   String _fmtDate(int d, int m, int y) =>
       '${d.toString().padLeft(2, '0')} ${_monthAbbr[m - 1]} $y';
 
+  String _fmtDateTime(DateTime d) => _fmtDate(d.day, d.month, d.year);
+
+  // ── Choix du mode ────────────────────────────────────────────────────────────
+
+  Future<void> _choisirAvecReport() async {
+    final dernier = _dernierExercice;
+    if (dernier == null) {
+      _showBlockingMessage(
+        'Aucun exercice existant',
+        'Il n\'y a aucun exercice précédent dans ce dossier. Utilisez '
+            '"Créer un exercice sans report" pour le tout premier exercice.',
+      );
+      return;
+    }
+    if ((dernier['is_cloture'] as int? ?? 0) != 1) {
+      _showBlockingMessage(
+        'Clôture requise',
+        'L\'exercice "${dernier['code']}" doit être clôturé avant de créer un '
+            'exercice avec report : c\'est la clôture qui génère le journal '
+            'des A-Nouveaux utilisé pour les comptes d\'ouverture.',
+      );
+      return;
+    }
+
+    final finPrecedent =
+        DateTime.tryParse(dernier['date_fin'].toString()) ?? DateTime.now();
+    final debut = finPrecedent.add(const Duration(days: 1));
+    final fin = DateTime(debut.year + 1, debut.month, debut.day)
+        .subtract(const Duration(days: 1));
+
+    setState(() {
+      _mode = _ModeCreation.avecReport;
+      _exercicePrecedentId = dernier['id'] as int;
+      selectedDebutDay = debut.day;
+      selectedDebutMonth = debut.month;
+      selectedDebutYear = debut.year;
+      selectedFinDay = fin.day;
+      selectedFinMonth = fin.month;
+      selectedFinYear = fin.year;
+      _step = 1;
+    });
+  }
+
+  void _choisirSansReport() {
+    final dernier = _dernierExercice;
+    if (dernier != null) {
+      final finPrecedent =
+          DateTime.tryParse(dernier['date_fin'].toString()) ?? DateTime.now();
+      final debut = finPrecedent.add(const Duration(days: 1));
+      final fin = DateTime(debut.year + 1, debut.month, debut.day)
+          .subtract(const Duration(days: 1));
+      setState(() {
+        selectedDebutDay = debut.day;
+        selectedDebutMonth = debut.month;
+        selectedDebutYear = debut.year;
+        selectedFinDay = fin.day;
+        selectedFinMonth = fin.month;
+        selectedFinYear = fin.year;
+      });
+    }
+    setState(() {
+      _mode = _ModeCreation.sansReport;
+      _step = 1;
+    });
+  }
+
+  void _choisirAnterieur() {
+    final plusAncien = _plusAncienDebut;
+    if (plusAncien != null) {
+      final fin = plusAncien.subtract(const Duration(days: 1));
+      final debut = DateTime(fin.year - 1, fin.month, fin.day)
+          .add(const Duration(days: 1));
+      setState(() {
+        selectedDebutDay = debut.day;
+        selectedDebutMonth = debut.month;
+        selectedDebutYear = debut.year;
+        selectedFinDay = fin.day;
+        selectedFinMonth = fin.month;
+        selectedFinYear = fin.year;
+      });
+    }
+    setState(() {
+      _mode = _ModeCreation.anterieur;
+      _step = 1;
+    });
+  }
+
+  void _showBlockingMessage(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.lock_outline, color: Colors.orange.shade700, size: 20),
+            const SizedBox(width: 8),
+            Expanded(child: Text(title)),
+          ],
+        ),
+        content: Text(message, style: const TextStyle(fontSize: 13)),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue.shade600,
+                foregroundColor: Colors.white),
+            child: const Text('Compris'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _retourChoixMode() {
+    setState(() {
+      _mode = null;
+      _step = 0;
+      _exercicePrecedentId = null;
+      _anPreviewFuture = null;
+    });
+  }
 
   // ── Date picker ─────────────────────────────────────────────────────────────
 
@@ -123,9 +241,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: Text(isDebut
-              ? 'Date de début'
-              : 'Date de fin'),
+          title: Text(isDebut ? 'Date de début' : 'Date de fin'),
           content: SingleChildScrollView(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 300),
@@ -136,7 +252,8 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Text('Jour',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 12)),
                         const SizedBox(height: 8),
                         _dropContainer(
                           child: DropdownButton<int>(
@@ -162,7 +279,8 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Text('Mois',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 12)),
                         const SizedBox(height: 8),
                         _dropContainer(
                           child: DropdownButton<int>(
@@ -174,10 +292,12 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                                 .entries
                                 .map((e) => DropdownMenuItem(
                                       value: e.key + 1,
-                                      child: Text(e.value, textAlign: TextAlign.center),
+                                      child: Text(e.value,
+                                          textAlign: TextAlign.center),
                                     ))
                                 .toList(),
-                            onChanged: (v) => setState(() => month = v ?? month),
+                            onChanged: (v) =>
+                                setState(() => month = v ?? month),
                           ),
                         ),
                       ],
@@ -189,7 +309,8 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Text('Année',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 12)),
                         const SizedBox(height: 8),
                         _dropContainer(
                           child: DropdownButton<int>(
@@ -199,7 +320,8 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                             items: List.generate(101, (i) => 2000 + i)
                                 .map((y) => DropdownMenuItem(
                                       value: y,
-                                      child: Text(y.toString(), textAlign: TextAlign.center),
+                                      child: Text(y.toString(),
+                                          textAlign: TextAlign.center),
                                     ))
                                 .toList(),
                             onChanged: (v) => setState(() => year = v ?? year),
@@ -218,8 +340,8 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
               child: const Text('Annuler'),
             ),
             ElevatedButton(
-              onPressed: () =>
-                  Navigator.pop(context, {'day': day, 'month': month, 'year': year}),
+              onPressed: () => Navigator.pop(
+                  context, {'day': day, 'month': month, 'year': year}),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue.shade600,
                 foregroundColor: Colors.white,
@@ -257,264 +379,125 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     );
   }
 
-  // ── Actions ─────────────────────────────────────────────────────────────────
+  // ── Validation / actions ─────────────────────────────────────────────────────
 
-  Future<void> _creerExercice() async {
-    if (!widget.userSession.isAdmin &&
-        !widget.userSession.canCreate('exercices')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Permission insuffisante pour créer un exercice.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+  bool get _canCreate =>
+      widget.userSession.isAdmin || widget.userSession.canCreate('exercices');
 
+  String? _validerFormulaire() {
+    if (!_canCreate) return 'Permission insuffisante pour créer un exercice.';
     if (_anneeController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez saisir le code de l\'exercice'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      return 'Veuillez saisir le code de l\'exercice.';
+    }
+    if (!_dateFin.isAfter(_dateDebut)) {
+      return 'La date de fin doit être postérieure à la date de début.';
+    }
+    return null;
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  Future<void> _continuerVersRecap() async {
+    final erreur = _validerFormulaire();
+    if (erreur != null) {
+      _showError(erreur);
       return;
     }
+    setState(() {
+      _step = 2;
+      _anPreviewFuture = ExerciceService.getAnPreview(_exercicePrecedentId!);
+    });
+  }
 
-    final confirm = await _showConfirmDialog();
-    if (confirm != true) return;
+  Future<void> _creerSansReportOuAnterieur() async {
+    final erreur = _validerFormulaire();
+    if (erreur != null) {
+      _showError(erreur);
+      return;
+    }
 
     setState(() => isLoading = true);
-
     try {
-      await DatabaseService.createExercice(
-        code: _anneeController.text.trim(),
-        dateDebut: _dateDebutISO,
-        dateFin: _dateFinISO,
-        dureeMois: _dureeMois,
-        reportSoldes: reportSoldes,
-      );
-
-      if (!mounted) return;
-      setState(() => isLoading = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Exercice créé avec succès'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      if (widget.showAppBar && mounted) {
-        Navigator.of(context).pop(true);
+      if (_mode == _ModeCreation.sansReport) {
+        await ExerciceService.creerExerciceSansReport(
+          code: _anneeController.text.trim(),
+          dateDebut: _dateDebut,
+          dateFin: _dateFin,
+        );
       } else {
-        _resetForm();
+        await ExerciceService.creerExerciceAnterieur(
+          code: _anneeController.text.trim(),
+          dateDebut: _dateDebut,
+          dateFin: _dateFin,
+        );
       }
+      _onCreationReussie();
     } catch (e) {
       if (!mounted) return;
       setState(() => isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
-      );
+      _showError(e is ExerciceOperationException ? e.message : 'Erreur : $e');
     }
   }
 
-  Future<bool?> _showConfirmDialog() {
-    final code = _anneeController.text.trim();
-    final precede = _exercicePrecedent;
-
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.add_circle_outline, color: Colors.blue.shade600, size: 20),
-            const SizedBox(width: 8),
-            Expanded(child: Text('Créer l\'exercice ${code.isEmpty ? '?' : code}')),
-          ],
-        ),
-        content: SizedBox(
-          width: 440,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Résumé tabulaire
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Column(
-                  children: [
-                    _confirmRow('Code', code.isEmpty ? '—' : code,
-                        icon: Icons.tag),
-                    _confirmRow(
-                        'Début',
-                        _fmtDate(selectedDebutDay, selectedDebutMonth,
-                            selectedDebutYear),
-                        icon: Icons.calendar_today_outlined),
-                    _confirmRow(
-                        'Fin',
-                        _fmtDate(
-                            selectedFinDay, selectedFinMonth, selectedFinYear),
-                        icon: Icons.event_outlined),
-                    _confirmRow('Durée', '$_dureeMois mois',
-                        icon: Icons.schedule, highlight: true),
-                    _confirmRow('Type', _typeExercice,
-                        icon: Icons.info_outline),
-                    _confirmRow('Statut initial', 'OUVERT',
-                        icon: Icons.lock_open_outlined),
-                    if (precede != null)
-                      _confirmRow('Exercice précédent',
-                          precede['code']?.toString() ?? '—',
-                          icon: Icons.history),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Report des soldes
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: reportSoldes ? Colors.blue.shade50 : Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: reportSoldes
-                        ? Colors.blue.shade200
-                        : Colors.grey.shade200,
-                  ),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      reportSoldes
-                          ? Icons.check_circle_outline
-                          : Icons.radio_button_unchecked,
-                      size: 16,
-                      color: reportSoldes
-                          ? Colors.blue.shade600
-                          : Colors.grey.shade400,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        reportSoldes
-                            ? 'Report des soldes activé${precede != null ? ' depuis "${precede['code']}"' : ''}. Les soldes de bilan seront repris en ouverture.'
-                            : 'Pas de report. L\'exercice démarrera avec des soldes à zéro.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: reportSoldes
-                              ? Colors.blue.shade700
-                              : Colors.grey.shade600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Avertissement
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.shade200),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.warning_amber_outlined,
-                        size: 15, color: Colors.amber.shade700),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Cette action est définitive. Vérifiez les dates et le code avant de confirmer.',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pop(ctx, true),
-            icon: const Icon(Icons.add_circle_outline, size: 16),
-            label: const Text('Créer l\'exercice'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade600,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
+  Future<void> _confirmerCreationAvecReport() async {
+    setState(() => isLoading = true);
+    try {
+      await ExerciceService.creerExerciceAvecReport(
+        code: _anneeController.text.trim(),
+        dateDebut: _dateDebut,
+        dateFin: _dateFin,
+        exercicePrecedentId: _exercicePrecedentId!,
+      );
+      _onCreationReussie();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => isLoading = false);
+      _showError(e is ExerciceOperationException ? e.message : 'Erreur : $e');
+    }
   }
 
-  Widget _confirmRow(
-    String label,
-    String value, {
-    required IconData icon,
-    bool highlight = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: Colors.grey.shade400),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 110,
-            child: Text(label,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight:
-                    highlight ? FontWeight.bold : FontWeight.w600,
-                color: highlight ? Colors.blue.shade700 : Colors.black87,
-              ),
-            ),
-          ),
-        ],
+  void _onCreationReussie() {
+    if (!mounted) return;
+    setState(() => isLoading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Exercice créé avec succès'),
+        backgroundColor: Colors.green,
       ),
     );
+    if (widget.showAppBar) {
+      Navigator.of(context).pop(true);
+    } else {
+      _resetForm();
+    }
   }
 
   void _resetForm() {
     final now = DateTime.now();
     setState(() {
       _anneeController.clear();
+      _mode = null;
+      _step = 0;
+      _exercicePrecedentId = null;
+      _anPreviewFuture = null;
       selectedDebutDay = 1;
       selectedDebutMonth = 1;
       selectedDebutYear = now.year;
       selectedFinDay = 31;
       selectedFinMonth = 12;
       selectedFinYear = now.year;
-      reportSoldes = true;
     });
+    _loadExercices();
   }
 
   // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final precede = _exercicePrecedent;
-
     final body = Column(
       children: [
         _buildHeader(),
@@ -523,34 +506,12 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
             padding: const EdgeInsets.all(20),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 680),
-                child: Column(
-                  children: [
-                    _buildSection(
-                      icon: Icons.tag,
-                      title: 'IDENTIFICATION',
-                      child: _buildIdentificationContent(),
-                    ),
-                    const SizedBox(height: 12),
-
-                    _buildSection(
-                      icon: Icons.date_range,
-                      title: 'PÉRIODE',
-                      child: _buildPeriodeContent(),
-                    ),
-                    const SizedBox(height: 12),
-
-                    _buildSection(
-                      icon: Icons.settings_outlined,
-                      title: 'OPTIONS',
-                      child: _buildOptionsContent(precede),
-                    ),
-                    const SizedBox(height: 24),
-
-                    _buildActions(),
-                    const SizedBox(height: 24),
-                  ],
-                ),
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: switch (_step) {
+                  1 => _buildStepDates(),
+                  2 => _buildStepRecap(),
+                  _ => _buildStepChoixMode(),
+                },
               ),
             ),
           ),
@@ -572,9 +533,17 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     );
   }
 
-  // ── Header ───────────────────────────────────────────────────────────────────
-
   Widget _buildHeader() {
+    const titles = {
+      0: 'Nouvel exercice comptable',
+      1: 'Période de l\'exercice',
+      2: 'Récapitulatif des reports',
+    };
+    const subtitles = {
+      0: 'Choisissez comment créer ce nouvel exercice',
+      1: 'Définissez les dates de début et de fin',
+      2: 'Vérifiez le journal AN avant de confirmer',
+    };
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -584,112 +553,172 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
       ),
       child: Row(
         children: [
+          if (_step > 0)
+            IconButton(
+              onPressed: _step == 2
+                  ? () => setState(() => _step = 1)
+                  : _retourChoixMode,
+              icon: const Icon(Icons.arrow_back),
+              tooltip: 'Retour',
+            ),
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: Colors.blue.shade50,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.add_chart, color: Colors.blue.shade700, size: 22),
+            child:
+                Icon(Icons.add_chart, color: Colors.blue.shade700, size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Nouvel exercice comptable',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                Text(
+                  titles[_step]!,
+                  style: const TextStyle(
+                      fontSize: 17, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  'Définissez la période et les paramètres du nouvel exercice',
+                  subtitles[_step]!,
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                 ),
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.green.shade200),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.green.shade600),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Statut : OUVERT',
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.green.shade700),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 
-  // ── Section wrapper ──────────────────────────────────────────────────────────
+  // ── Étape 1 : choix du mode ───────────────────────────────────────────────────
 
-  Widget _buildSection({
-    required IconData icon,
-    required String title,
-    required Widget child,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+  Widget _buildStepChoixMode() {
+    return Column(
+      children: [
+        _ModeCard(
+          icon: Icons.repeat,
+          color: Colors.blue,
+          title: 'Créer un exercice avec report',
+          description:
+              'Reprend les soldes de clôture de l\'exercice précédent via son '
+              'journal des A-Nouveaux. Nécessite que l\'exercice précédent '
+              'soit clôturé.',
+          onTap: _choisirAvecReport,
+        ),
+        const SizedBox(height: 12),
+        _ModeCard(
+          icon: Icons.note_add_outlined,
+          color: Colors.green,
+          title: 'Créer un exercice sans report',
+          description:
+              'Crée un exercice totalement vide, sans compte d\'ouverture. '
+              'Idéal pour le tout premier exercice du dossier.',
+          onTap: _choisirSansReport,
+        ),
+        const SizedBox(height: 12),
+        _ModeCard(
+          icon: Icons.history,
+          color: Colors.purple,
+          title: 'Créer un exercice antérieur',
+          description:
+              'Ajoute un exercice plus ancien que ceux déjà présents (ex : '
+              'ajouter 2024 alors que 2025 existe déjà).',
+          onTap: _choisirAnterieur,
+        ),
+      ],
+    );
+  }
+
+  // ── Étape 2 : dates ───────────────────────────────────────────────────────────
+
+  Widget _buildStepDates() {
+    final plusAncien = _plusAncienDebut;
+    final incoherenceAnterieur = _mode == _ModeCreation.anterieur &&
+        plusAncien != null &&
+        !_dateFin.isBefore(plusAncien);
+
+    return Column(
+      children: [
+        _buildSection(
+          icon: Icons.tag,
+          title: 'IDENTIFICATION',
+          child: _buildIdentificationContent(),
+        ),
+        const SizedBox(height: 12),
+        _buildSection(
+          icon: Icons.date_range,
+          title: 'PÉRIODE',
+          child: _buildPeriodeContent(),
+        ),
+        if (_mode == _ModeCreation.anterieur && incoherenceAnterieur) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red.shade200),
+            ),
+            child: Row(
               children: [
-                Icon(icon, size: 13, color: Colors.grey.shade400),
-                const SizedBox(width: 7),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.grey.shade500,
-                    letterSpacing: 0.9,
+                Icon(Icons.error_outline, size: 16, color: Colors.red.shade700),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'La date de fin doit précéder le début du plus ancien '
+                    'exercice existant (${_fmtDateTime(plusAncien)}).',
+                    style: TextStyle(fontSize: 12, color: Colors.red.shade700),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            child,
+          ),
+        ],
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: isLoading || incoherenceAnterieur
+                    ? null
+                    : (_mode == _ModeCreation.avecReport
+                        ? _continuerVersRecap
+                        : _creerSansReportOuAnterieur),
+                icon: isLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : Icon(
+                        _mode == _ModeCreation.avecReport
+                            ? Icons.arrow_forward
+                            : Icons.add_circle_outline,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                label: Text(_mode == _ModeCreation.avecReport
+                    ? 'Voir le récapitulatif'
+                    : 'Créer l\'exercice'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  backgroundColor: Colors.blue.shade600,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
           ],
         ),
-      ),
+        const SizedBox(height: 24),
+      ],
     );
   }
-
-  // ── Identification ───────────────────────────────────────────────────────────
 
   Widget _buildIdentificationContent() {
     return Column(
@@ -726,41 +755,14 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
             isDense: true,
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          'Ce code identifie l\'exercice de manière unique dans le logiciel. Il est généralement basé sur l\'année (ex : 2025) ou une référence interne.',
-          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-        ),
       ],
     );
   }
-
-  // ── Période ──────────────────────────────────────────────────────────────────
 
   Widget _buildPeriodeContent() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(8)),
-          child: Row(
-            children: [
-              Icon(Icons.info_outline, size: 14, color: Colors.blue.shade500),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Un exercice dure généralement 12 mois. Il peut chevaucher deux années calendaires (ex : Juillet 2025 → Juin 2026).',
-                  style:
-                      TextStyle(fontSize: 11, color: Colors.blue.shade700),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
         Row(
           children: [
             Expanded(
@@ -892,300 +894,279 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     );
   }
 
-
-  // ── Options ──────────────────────────────────────────────────────────────────
-
-  Widget _buildOptionsContent(Map<String, dynamic>? precede) {
+  Widget _buildSection({
+    required IconData icon,
+    required String title,
+    required Widget child,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: reportSoldes ? Colors.blue.shade50 : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: reportSoldes
-              ? Colors.blue.shade200
-              : Colors.grey.shade200,
-          width: reportSoldes ? 1.5 : 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'Reporter les soldes d\'ouverture',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: reportSoldes
-                                ? Colors.blue.shade800
-                                : Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        InkWell(
-                          onTap: _showReportHelp,
-                          borderRadius: BorderRadius.circular(10),
-                          child: Icon(Icons.help_outline,
-                              size: 16, color: Colors.grey.shade400),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      reportSoldes
-                          ? 'Les soldes de clôture de l\'exercice précédent seront automatiquement transférés en écriture d\'ouverture de ce nouvel exercice.'
-                          : 'Le nouvel exercice démarrera avec des soldes nuls sur tous les comptes. Aucune écriture d\'ouverture ne sera générée.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: reportSoldes
-                            ? Colors.blue.shade700
-                            : Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: reportSoldes,
-                activeColor: Colors.blue.shade500,
-                onChanged: (v) => setState(() => reportSoldes = v),
-              ),
-            ],
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
-          if (reportSoldes) ...[
-            const SizedBox(height: 14),
-            Divider(height: 1, color: Colors.blue.shade100),
-            const SizedBox(height: 14),
-            Text(
-              'IMPACTS DU REPORT',
-              style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.blue.shade400,
-                  letterSpacing: 0.8),
-            ),
-            const SizedBox(height: 10),
-            _impactRow(
-              Icons.account_balance_outlined,
-              'Comptes de bilan (classes 1 à 5)',
-              'Les soldes débiteurs et créditeurs seront repris en écriture d\'ouverture.',
-              Colors.blue,
-            ),
-            const SizedBox(height: 8),
-            _impactRow(
-              Icons.trending_up,
-              'Comptes de résultat (classes 6 et 7)',
-              'Non reportés — charges et produits repartent à zéro dans le nouvel exercice.',
-              Colors.orange,
-            ),
-            const SizedBox(height: 8),
-            if (precede != null)
-              _impactRow(
-                Icons.link,
-                'Source : exercice "${precede['code']}"',
-                'Les soldes seront issus de la clôture de cet exercice précédent.',
-                Colors.green,
-              )
-            else
-              _impactRow(
-                Icons.warning_amber_outlined,
-                'Aucun exercice précédent détecté',
-                'Le report s\'effectuera s\'il existe des données pour la période précédente.',
-                Colors.orange,
-              ),
-          ],
         ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 13, color: Colors.grey.shade400),
+                const SizedBox(width: 7),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade500,
+                    letterSpacing: 0.9,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            child,
+          ],
+        ),
       ),
     );
   }
 
-  Widget _impactRow(
-      IconData icon, String title, String desc, MaterialColor color) {
-    return Row(
+  // ── Étape 3 : récapitulatif (avec report uniquement) ─────────────────────────
+
+  Widget _buildStepRecap() {
+    return FutureBuilder<AnPreview?>(
+      future: _anPreviewFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 60),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final preview = snapshot.data;
+        final aucuneEcriture = preview == null || preview.lignes.isEmpty;
+
+        return Column(
+          children: [
+            _buildSection(
+              icon: Icons.summarize_outlined,
+              title: 'JOURNAL AN UTILISÉ',
+              child: aucuneEcriture
+                  ? Text(
+                      'L\'exercice précédent n\'a généré aucune écriture de '
+                      'report (aucun solde non nul sur les classes 1 à 5). '
+                      'L\'exercice sera créé sans compte d\'ouverture.',
+                      style:
+                          TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                    )
+                  : _buildRecapTable(preview),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: isLoading ? null : _confirmerCreationAvecReport,
+                    icon: isLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.check_circle_outline,
+                            size: 18, color: Colors.white),
+                    label: const Text('Confirmer la création'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      backgroundColor: Colors.blue.shade600,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildRecapTable(AnPreview preview) {
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-              color: color.shade50, borderRadius: BorderRadius.circular(6)),
-          alignment: Alignment.center,
-          child: Icon(icon, size: 14, color: color.shade600),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: color.shade700)),
-              Text(desc,
-                  style: TextStyle(
-                      fontSize: 11, color: Colors.grey.shade600)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showReportHelp() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
+        Row(
           children: [
-            Icon(Icons.help_outline, color: Colors.blue.shade600, size: 20),
-            const SizedBox(width: 8),
-            const Expanded(
-                child: Text('Report des soldes d\'ouverture',
-                    style: TextStyle(fontSize: 16))),
+            Expanded(
+              child: _recapStat('Comptes reportés', '${preview.lignes.length}'),
+            ),
+            Expanded(
+              child: _recapStat(
+                  'Total débit', preview.totalDebit.toStringAsFixed(2)),
+            ),
+            Expanded(
+              child: _recapStat(
+                  'Total crédit', preview.totalCredit.toStringAsFixed(2)),
+            ),
+            Expanded(
+              child: _recapStat(
+                  'Compte d\'équilibrage', preview.compteEquilibrage ?? '-'),
+            ),
           ],
         ),
-        content: SizedBox(
-          width: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Le report des soldes assure la continuité comptable entre deux exercices successifs.',
-                style:
-                    TextStyle(fontSize: 13, color: Colors.grey.shade700),
-              ),
-              const SizedBox(height: 14),
-              _helpSection(
-                'Quand activer ?',
-                [
-                  'Lors de la création d\'un exercice faisant suite à un exercice précédent.',
-                  'Pour assurer la continuité des soldes de bilan (actifs, dettes, capitaux…).',
-                ],
-                Colors.blue,
-              ),
-              const SizedBox(height: 10),
-              _helpSection(
-                'Quand désactiver ?',
-                [
-                  'Pour le tout premier exercice (aucune donnée antérieure).',
-                  'Si vous souhaitez démarrer avec tous les soldes à zéro.',
-                ],
-                Colors.orange,
-              ),
-              const SizedBox(height: 10),
-              _helpSection(
-                'Comptes concernés',
-                [
-                  'Classes 1 à 5 (bilan) : capitaux, immobilisations, stocks, tiers, trésorerie.',
-                  'Classes 6 et 7 (résultat) : non reportés — remis à zéro à chaque exercice.',
-                ],
-                Colors.green,
-              ),
-            ],
-          ),
+        const SizedBox(height: 14),
+        Divider(color: Colors.grey.shade200),
+        const SizedBox(height: 8),
+        Text(
+          'Aperçu des écritures d\'ouverture qui seront créées',
+          style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade700),
         ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade600,
-                foregroundColor: Colors.white),
-            child: const Text('Compris'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _helpSection(String title, List<String> points, MaterialColor color) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: color.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.shade100),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title,
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: color.shade700)),
-          const SizedBox(height: 4),
-          ...points.map((p) => Padding(
-                padding: const EdgeInsets.only(top: 3),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('• ', style: TextStyle(color: color.shade600)),
-                    Expanded(
-                        child: Text(p,
-                            style: TextStyle(
-                                fontSize: 12, color: color.shade700))),
-                  ],
-                ),
-              )),
-        ],
-      ),
-    );
-  }
-
-  // ── Actions bar ──────────────────────────────────────────────────────────────
-
-  Widget _buildActions() {
-    return Row(
-      children: [
-        OutlinedButton.icon(
-          onPressed: _resetForm,
-          icon: const Icon(Icons.refresh, size: 17),
-          label: const Text('Réinitialiser'),
-          style: OutlinedButton.styleFrom(
-            padding:
-                const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
-            side: BorderSide(color: Colors.grey.shade300),
-            foregroundColor: Colors.grey.shade700,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8)),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: isLoading ? null : _creerExercice,
-            icon: isLoading
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.add_circle_outline,
-                    size: 18, color: Colors.white),
-            label: const Text('Créer l\'exercice'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              backgroundColor: Colors.blue.shade600,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+        const SizedBox(height: 10),
+        ...preview.lignes.map((l) {
+          final estEquilibrage =
+              l.numeroCompte.startsWith('121') || l.numeroCompte.startsWith('129');
+          return Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: estEquilibrage ? Colors.blue.shade50 : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(6),
             ),
-          ),
-        ),
+            child: Row(
+              children: [
+                SizedBox(
+                    width: 90,
+                    child: Text(l.numeroCompte,
+                        style: const TextStyle(fontSize: 12))),
+                Expanded(
+                    child: Text(l.intitule,
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis)),
+                SizedBox(
+                  width: 90,
+                  child: Text(
+                    l.montantDebit == 0 ? '-' : l.montantDebit.toStringAsFixed(2),
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                SizedBox(
+                  width: 90,
+                  child: Text(
+                    l.montantCredit == 0
+                        ? '-'
+                        : l.montantCredit.toStringAsFixed(2),
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
       ],
+    );
+  }
+
+  Widget _recapStat(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+        const SizedBox(height: 2),
+        Text(value,
+            style:
+                const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+}
+
+class _ModeCard extends StatelessWidget {
+  final IconData icon;
+  final MaterialColor color;
+  final String title;
+  final String description;
+  final VoidCallback onTap;
+
+  const _ModeCard({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.description,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color.shade50,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, color: color.shade600, size: 22),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(description,
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.grey.shade600)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey.shade400),
+          ],
+        ),
+      ),
     );
   }
 }

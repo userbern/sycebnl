@@ -16,6 +16,7 @@ class ListeExercicesPage extends StatefulWidget {
   final Future<void> Function(int id) onCloture;
   final Future<List<Map<String, dynamic>>> Function(int id)
       onCheckPeriodesEquilibre;
+  final void Function(int id) onViewJournalAN;
   final UserSession? userSession;
 
   const ListeExercicesPage({
@@ -27,6 +28,7 @@ class ListeExercicesPage extends StatefulWidget {
     required this.onEdit,
     required this.onCloture,
     required this.onCheckPeriodesEquilibre,
+    required this.onViewJournalAN,
     this.userSession,
   });
 
@@ -212,6 +214,8 @@ class _ListeExercicesPageState extends State<ListeExercicesPage> {
                         onSwitch: () => widget.onSwitch(ex['id'] as int),
                         onEdit: _canModify ? () => _showEditDialog(context, ex) : () {},
                         onCloture: _canModify ? () => _showClotureDialog(context, ex) : () {},
+                        onViewJournalAN: () =>
+                            widget.onViewJournalAN(ex['id'] as int),
                         canModify: _canModify,
                       );
                     },
@@ -565,6 +569,7 @@ class _ExerciceCard extends StatelessWidget {
   final VoidCallback onSwitch;
   final VoidCallback onEdit;
   final VoidCallback onCloture;
+  final VoidCallback onViewJournalAN;
   final bool canModify;
 
   const _ExerciceCard({
@@ -576,6 +581,7 @@ class _ExerciceCard extends StatelessWidget {
     required this.onSwitch,
     required this.onEdit,
     required this.onCloture,
+    required this.onViewJournalAN,
     this.canModify = true,
   });
 
@@ -694,6 +700,25 @@ class _ExerciceCard extends StatelessWidget {
               ),
               child:
                   const Text('Clôturer', style: TextStyle(fontSize: 13)),
+            ),
+          ],
+          if (_isCloture) ...[
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: onViewJournalAN,
+              icon: Icon(Icons.menu_book_outlined,
+                  size: 15, color: Colors.blue.shade700),
+              label: Text('Journal AN',
+                  style: TextStyle(fontSize: 13, color: Colors.blue.shade700)),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: Colors.blue.shade200),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ),
           ],
           const SizedBox(width: 8),
