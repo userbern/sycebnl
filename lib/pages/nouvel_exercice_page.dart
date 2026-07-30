@@ -29,6 +29,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
   int _step = 0; // 0 = choix du mode, 1 = dates, 2 = récap (avecReport)
   int? _exercicePrecedentId;
   Future<AnPreview?>? _anPreviewFuture;
+  bool _datesModifieesManuellement = false;
 
   late int selectedDebutDay, selectedDebutMonth, selectedDebutYear;
   late int selectedFinDay, selectedFinMonth, selectedFinYear;
@@ -111,6 +112,26 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
 
   String _fmtDateTime(DateTime d) => _fmtDate(d.day, d.month, d.year);
 
+  static final RegExp _codeAnneeRegExp = RegExp(r'^\d{4}$');
+
+  void _onCodeChanged(String value) {
+    if (!_datesModifieesManuellement) {
+      final code = value.trim();
+      if (_codeAnneeRegExp.hasMatch(code)) {
+        final annee = int.parse(code);
+        if (annee >= 1900 && annee <= 2999) {
+          selectedDebutDay = 1;
+          selectedDebutMonth = 1;
+          selectedDebutYear = annee;
+          selectedFinDay = 31;
+          selectedFinMonth = 12;
+          selectedFinYear = annee;
+        }
+      }
+    }
+    setState(() {});
+  }
+
   // ── Choix du mode ────────────────────────────────────────────────────────────
 
   Future<void> _choisirAvecReport() async {
@@ -148,6 +169,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
       selectedFinDay = fin.day;
       selectedFinMonth = fin.month;
       selectedFinYear = fin.year;
+      _datesModifieesManuellement = false;
       _step = 1;
     });
   }
@@ -171,6 +193,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     }
     setState(() {
       _mode = _ModeCreation.sansReport;
+      _datesModifieesManuellement = false;
       _step = 1;
     });
   }
@@ -192,6 +215,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     }
     setState(() {
       _mode = _ModeCreation.anterieur;
+      _datesModifieesManuellement = false;
       _step = 1;
     });
   }
@@ -227,6 +251,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
       _step = 0;
       _exercicePrecedentId = null;
       _anPreviewFuture = null;
+      _datesModifieesManuellement = false;
     });
   }
 
@@ -364,6 +389,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           selectedFinMonth = result['month']!;
           selectedFinYear = result['year']!;
         }
+        _datesModifieesManuellement = true;
       });
     }
   }
@@ -484,6 +510,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
       _step = 0;
       _exercicePrecedentId = null;
       _anPreviewFuture = null;
+      _datesModifieesManuellement = false;
       selectedDebutDay = 1;
       selectedDebutMonth = 1;
       selectedDebutYear = now.year;
@@ -735,7 +762,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
         TextField(
           controller: _anneeController,
           focusNode: _anneeFocusNode,
-          onChanged: (_) => setState(() {}),
+          onChanged: _onCodeChanged,
           decoration: InputDecoration(
             hintText: 'Ex : 2025, EX-2025, AN2025…',
             prefixIcon:

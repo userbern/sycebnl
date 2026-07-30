@@ -160,7 +160,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
           content: SizedBox(
             width: 340,
             child: DropdownButtonFormField<int>(
-              value: sourceUserId,
+              initialValue: sourceUserId,
                decoration: const InputDecoration(
                 labelText: 'Copier depuis',
                 border: OutlineInputBorder(),
@@ -311,7 +311,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
                 if (!wasBootstrap) ...[
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: role,
+                    initialValue: role,
                     decoration: const InputDecoration(
                       labelText: 'Rôle',
                       border: OutlineInputBorder(),
@@ -422,7 +422,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
                 _formField(emailCtrl, 'Email', required: false),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: role,
+                  initialValue: role,
                   decoration: const InputDecoration(
                     labelText: 'Rôle',
                     border: OutlineInputBorder(),
@@ -1147,7 +1147,7 @@ class _PermToggle extends StatelessWidget {
       child: Switch(
         value: value,
         onChanged: onChanged,
-        activeColor: Colors.blue.shade600,
+        activeThumbColor: Colors.blue.shade600,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     );

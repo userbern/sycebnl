@@ -480,7 +480,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
 
   Widget _buildSortDropdown() {
     return DropdownButtonFormField<String>(
-      isExpanded: true, isDense: true, value: _sortBy,
+      isExpanded: true, isDense: true, initialValue: _sortBy,
       decoration: InputDecoration(
         labelText: 'Trier par', labelStyle: const TextStyle(fontSize: 12),
         prefixIcon: Icon(Icons.sort, size: 18, color: Colors.grey.shade500),
@@ -500,7 +500,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
 
   Widget _buildStatusDropdown() {
     return DropdownButtonFormField<String>(
-      isExpanded: true, isDense: true, value: _filterStatus,
+      isExpanded: true, isDense: true, initialValue: _filterStatus,
       decoration: InputDecoration(
         labelText: 'Statut', labelStyle: const TextStyle(fontSize: 12),
         prefixIcon: Icon(Icons.filter_alt, size: 18, color: Colors.grey.shade500),
@@ -700,7 +700,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                 SizedBox(
                   width: 90,
                   child: DropdownButtonFormField<int>(
-                    isDense: true, value: _currentPage,
+                    isDense: true, initialValue: _currentPage,
                     decoration: InputDecoration(labelText: 'Page', labelStyle: const TextStyle(fontSize: 12), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), filled: true, fillColor: Colors.white, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
                     items: List.generate(totalPages, (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}', style: const TextStyle(fontSize: 13)))),
                     onChanged: (v) { if (v != null) setState(() => _currentPage = v); },
@@ -710,7 +710,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                 SizedBox(
                   width: 110,
                   child: DropdownButtonFormField<int>(
-                    isDense: true, value: _itemsPerPage,
+                    isDense: true, initialValue: _itemsPerPage,
                     decoration: InputDecoration(labelText: 'Par page', labelStyle: const TextStyle(fontSize: 12), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), filled: true, fillColor: Colors.white, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
                     items: [5, 10, 15, 20, 50].map((v) => DropdownMenuItem(value: v, child: Text('$v', style: const TextStyle(fontSize: 13)))).toList(),
                     onChanged: (v) { if (v != null) setState(() { _itemsPerPage = v; _currentPage = 1; }); },

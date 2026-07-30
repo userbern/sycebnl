@@ -481,7 +481,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
           final sortField = DropdownButtonFormField<String>(
             isExpanded: true,
             isDense: true,
-            value: _sortBy,
+            initialValue: _sortBy,
             decoration: InputDecoration(
               labelText: 'Trier par',
               labelStyle: const TextStyle(fontSize: 12),
@@ -527,7 +527,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
           final statusField = DropdownButtonFormField<String>(
             isExpanded: true,
             isDense: true,
-            value: _filterStatus,
+            initialValue: _filterStatus,
             decoration: InputDecoration(
               labelText: 'Statut',
               labelStyle: const TextStyle(fontSize: 12),
@@ -729,8 +729,9 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                               color: WidgetStateProperty.resolveWith<Color?>((
                                 states,
                               ) {
-                                if (states.contains(WidgetState.hovered))
+                                if (states.contains(WidgetState.hovered)) {
                                   return Colors.blue.shade50;
+                                }
                                 return Colors.white;
                               }),
                               cells: [
@@ -976,7 +977,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                     width: 90,
                     child: DropdownButtonFormField<int>(
                       isDense: true,
-                      value: _currentPage,
+                      initialValue: _currentPage,
                       decoration: InputDecoration(
                         labelText: 'Page',
                         labelStyle: const TextStyle(fontSize: 12),
@@ -1010,7 +1011,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                     width: 110,
                     child: DropdownButtonFormField<int>(
                       isDense: true,
-                      value: _itemsPerPage,
+                      initialValue: _itemsPerPage,
                       decoration: InputDecoration(
                         labelText: 'Par page',
                         labelStyle: const TextStyle(fontSize: 12),
@@ -1037,11 +1038,12 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                               )
                               .toList(),
                       onChanged: (v) {
-                        if (v != null)
+                        if (v != null) {
                           setState(() {
                             _itemsPerPage = v;
                             _currentPage = 1;
                           });
+                        }
                       },
                     ),
                   ),

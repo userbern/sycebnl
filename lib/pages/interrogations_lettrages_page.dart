@@ -1516,7 +1516,7 @@ class _InterrogationsLettragesPageState
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: DataTable(
-            headingRowColor: MaterialStateProperty.resolveWith(
+            headingRowColor: WidgetStateProperty.resolveWith(
               (states) => Colors.blue.shade50,
             ),
             columns: const [
@@ -1577,7 +1577,7 @@ class _InterrogationsLettragesPageState
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: DataTable(
-            headingRowColor: MaterialStateProperty.resolveWith(
+            headingRowColor: WidgetStateProperty.resolveWith(
               (states) => Colors.blue.shade50,
             ),
             columns: const [

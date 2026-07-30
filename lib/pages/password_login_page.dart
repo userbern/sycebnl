@@ -286,7 +286,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                           child: _users.isNotEmpty
                               ? DropdownButtonHideUnderline(
                                   child: DropdownButtonFormField<String>(
-                                    value: _selectedLogin,
+                                    initialValue: _selectedLogin,
                                     isExpanded: true,
                                     decoration: InputDecoration(
                                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),

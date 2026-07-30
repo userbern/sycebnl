@@ -620,7 +620,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
                   width: isNarrow ? constraints.maxWidth : 170,
                   height: 36,
                   child: DropdownButtonFormField<String?>(
-                    value: _selectedMonthValue(monthOptions),
+                    initialValue: _selectedMonthValue(monthOptions),
                     isExpanded: true,
                     style: const TextStyle(fontSize: 12, color: Colors.black87),
                     decoration: InputDecoration(
@@ -682,7 +682,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
                   width: isNarrow ? constraints.maxWidth : 130,
                   height: 36,
                   child: DropdownButtonFormField<int>(
-                    value: _selectedYear ?? 0,
+                    initialValue: _selectedYear ?? 0,
                     isExpanded: true,
                     style: const TextStyle(fontSize: 12, color: Colors.black87),
                     decoration: InputDecoration(
@@ -899,7 +899,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
 
     return DataRow(
       onSelectChanged: (_) => _handleRowTap(row),
-      color: MaterialStateProperty.resolveWith((_) => status.backgroundColor),
+      color: WidgetStateProperty.resolveWith((_) => status.backgroundColor),
       cells: [
         DataCell(
           Padding(

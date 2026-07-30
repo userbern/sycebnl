@@ -109,7 +109,7 @@ class _JournalPageState extends State<JournalPage> {
         : null;
 
     return DropdownButtonFormField<DateTime>(
-      value: validValue,
+      initialValue: validValue,
       decoration: InputDecoration(
         labelText: isStart ? 'Début' : 'Fin',
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),

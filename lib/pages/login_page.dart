@@ -3,7 +3,6 @@ import 'package:sycebnl_accounting/widgets/app_icon.dart';
 import '../services/auth_service_local.dart';
 import '../models/user_session.dart';
 import '../utils/form_enter_shortcut.dart';
-import '../widgets/app_logo.dart';
 import 'home_page.dart';
 import 'database_setup_page.dart';
 

@@ -514,7 +514,7 @@ class _JournauxPageState extends State<JournauxPage> {
     return DropdownButtonFormField<String?>(
       isExpanded: true,
       isDense: true,
-      value: _selectedType,
+      initialValue: _selectedType,
       decoration: InputDecoration(
         labelText: 'Type',
         labelStyle: const TextStyle(fontSize: 12),
@@ -573,7 +573,7 @@ class _JournauxPageState extends State<JournauxPage> {
     return DropdownButtonFormField<String>(
       isExpanded: true,
       isDense: true,
-      value: _filterStatus,
+      initialValue: _filterStatus,
       decoration: InputDecoration(
         labelText: 'Statut',
         labelStyle: const TextStyle(fontSize: 12),
@@ -933,7 +933,7 @@ class _JournauxPageState extends State<JournauxPage> {
                   width: 90,
                   child: DropdownButtonFormField<int>(
                     isDense: true,
-                    value: _currentPage,
+                    initialValue: _currentPage,
                     decoration: InputDecoration(
                       labelText: 'Page',
                       labelStyle: const TextStyle(fontSize: 12),
@@ -952,7 +952,7 @@ class _JournauxPageState extends State<JournauxPage> {
                   width: 110,
                   child: DropdownButtonFormField<int>(
                     isDense: true,
-                    value: _itemsPerPage,
+                    initialValue: _itemsPerPage,
                     decoration: InputDecoration(
                       labelText: 'Par page',
                       labelStyle: const TextStyle(fontSize: 12),
@@ -1286,7 +1286,7 @@ class _JournalDialogState extends State<JournalDialog> {
 
                                 // Type (fixé à "détail" pour les comptes de trésorerie)
                                 DropdownButtonFormField<TypeCompte>(
-                                  value: selectedType,
+                                  initialValue: selectedType,
                                   decoration: InputDecoration(
                                     labelText: 'Type',
                                     prefixIcon: const Icon(Icons.category),
@@ -1333,7 +1333,7 @@ class _JournalDialogState extends State<JournalDialog> {
 
                                 // Nature (auto-détectée)
                                 DropdownButtonFormField<NatureCompte>(
-                                  value: calculatedNature,
+                                  initialValue: calculatedNature,
                                   decoration: InputDecoration(
                                     labelText: 'Nature *',
                                     prefixIcon: const Icon(Icons.layers),
@@ -1787,7 +1787,7 @@ class _JournalDialogState extends State<JournalDialog> {
                         const SizedBox(height: 10),
                         // Type de Journal
                         DropdownButtonFormField<TypeJournal>(
-                          value: _selectedType,
+                          initialValue: _selectedType,
                           decoration: InputDecoration(
                             labelText: 'Type *',
                             prefixIcon: const Icon(Icons.category),
