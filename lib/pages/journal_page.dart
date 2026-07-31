@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/exercice.dart';
 import '../models/journal.dart';
+import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import 'journal_results_page.dart';
 
@@ -41,17 +42,13 @@ class _JournalPageState extends State<JournalPage> {
       final journalRows = await db.rawQuery(
         'SELECT * FROM journal ORDER BY code ASC',
       );
-      final exerciceRows = await db.rawQuery(
-        'SELECT * FROM exercice WHERE is_active = 1 AND is_cloture = 0 LIMIT 1',
-      );
+      final exerciceActif = await AuthService.getExerciceActif();
 
       if (!mounted) return;
 
       setState(() {
         _journals = journalRows.map(Journal.fromMap).toList();
-        if (exerciceRows.isNotEmpty) {
-          _currentExercice = Exercice.fromMap(exerciceRows.first);
-        }
+        _currentExercice = exerciceActif;
         _isLoading = false;
       });
     } catch (e) {

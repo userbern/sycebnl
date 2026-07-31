@@ -47,6 +47,7 @@ class _HomePageState extends State<HomePage> {
 
   List<Map<String, dynamic>> _exercices = [];
   int? _activeExerciceId;
+  bool _isSwitchingExercice = false;
   static const int _saisiePageIndex = 99;
   JournalPeriode? _activeSaisiePeriode;
   int? _previousPageIndex;
@@ -394,6 +395,18 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showExerciceSelector() {
+    if (_isSwitchingExercice) return;
+    if (_currentPageIndex == _saisiePageIndex) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Fermez la saisie en cours avant de changer d\'exercice.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
     if (_exercices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -510,7 +523,7 @@ class _HomePageState extends State<HomePage> {
             // Centre: Entité + Exercice (cliquable)
             Expanded(
               child: InkWell(
-                onTap: _showExerciceSelector,
+                onTap: _isSwitchingExercice ? null : _showExerciceSelector,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -527,7 +540,13 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Icon(Icons.edit, size: 18),
+                    _isSwitchingExercice
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.edit, size: 18),
                   ],
                 ),
               ),
@@ -1009,10 +1028,19 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _switchExercice(int exerciceId) async {
+    if (_isSwitchingExercice) return;
+    setState(() => _isSwitchingExercice = true);
     try {
       await DatabaseService.setActiveExercice(exerciceId);
       await _loadDatabaseInfo();
       if (!mounted) return;
+      setState(() {
+        _isSwitchingExercice = false;
+        // Force le remontage complet de la page actuellement affichée pour
+        // qu'elle relise systématiquement les données du nouvel exercice
+        // actif, même si elle ne dépend pas d'un paramètre reconstruit.
+        _contentRefreshSeed++;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Exercice activé avec succès'),
@@ -1021,6 +1049,7 @@ class _HomePageState extends State<HomePage> {
       );
     } catch (e) {
       if (!mounted) return;
+      setState(() => _isSwitchingExercice = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Erreur: ${e.toString()}'),
