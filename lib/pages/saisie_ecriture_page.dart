@@ -79,13 +79,19 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
   bool get _exerciceBloque => widget.exerciceCloture;
   bool get _canCreate =>
       !_exerciceBloque &&
-      (widget.userSession == null ? true : widget.userSession!.canCreate('saisie_comptable'));
+      (widget.userSession == null
+          ? true
+          : widget.userSession!.canCreate('saisie_comptable'));
   bool get _canModify =>
       !_exerciceBloque &&
-      (widget.userSession == null ? true : widget.userSession!.canModify('saisie_comptable'));
+      (widget.userSession == null
+          ? true
+          : widget.userSession!.canModify('saisie_comptable'));
   bool get _canDelete =>
       !_exerciceBloque &&
-      (widget.userSession == null ? true : widget.userSession!.canDelete('saisie_comptable'));
+      (widget.userSession == null
+          ? true
+          : widget.userSession!.canDelete('saisie_comptable'));
 
   @override
   void initState() {
@@ -523,12 +529,16 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
   void _submitForm() async {
     final isEditing = _editingIndex != null;
     if (isEditing ? !_canModify : !_canCreate) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(_exerciceBloque
-            ? 'Exercice clôturé : aucune modification possible'
-            : 'Permission insuffisante'),
-        backgroundColor: Colors.red,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _exerciceBloque
+                ? 'Exercice clôturé : aucune modification possible'
+                : 'Permission insuffisante',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
 
@@ -1312,26 +1322,27 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         }
         final confirm = await showDialog<bool>(
           context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Journal déséquilibré'),
-            content: Text(
-              'Le solde n\'est pas équilibré (${_totaux.solde.toStringAsFixed(2)}).\nVoulez-vous quitter quand même ?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Rester'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
+          builder:
+              (ctx) => AlertDialog(
+                title: const Text('Journal déséquilibré'),
+                content: Text(
+                  'Le solde n\'est pas équilibré (${_totaux.solde.toStringAsFixed(2)}).\nVoulez-vous quitter quand même ?',
                 ),
-                child: const Text('Quitter quand même'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Rester'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Quitter quand même'),
+                  ),
+                ],
               ),
-            ],
-          ),
         );
         if (confirm == true) {
           if (widget.onClose != null) {
@@ -1355,7 +1366,11 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                   SizedBox(width: 8),
                   Text(
                     'Exercice clôturé — consultation uniquement, aucune modification possible.',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
@@ -1479,11 +1494,12 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
             ),
           ),
 
-          // Tableau avec saisie intégrée
+          // Tableau avec saisie intégrée (largeur adaptée à l'écran, sans scroll horizontal)
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: _buildTableWithInputRow(),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return _buildTableWithInputRow(constraints.maxWidth);
+              },
             ),
           ),
         ],
@@ -1543,26 +1559,27 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                 } else {
                   final confirm = await showDialog<bool>(
                     context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Journal déséquilibré'),
-                      content: Text(
-                        'Le solde n\'est pas équilibré (${_totaux.solde.toStringAsFixed(2)}).\nVoulez-vous quitter quand même ?',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text('Rester'),
-                        ),
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            foregroundColor: Colors.white,
+                    builder:
+                        (ctx) => AlertDialog(
+                          title: const Text('Journal déséquilibré'),
+                          content: Text(
+                            'Le solde n\'est pas équilibré (${_totaux.solde.toStringAsFixed(2)}).\nVoulez-vous quitter quand même ?',
                           ),
-                          child: const Text('Quitter quand même'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Rester'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Quitter quand même'),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
                   );
                   if (confirm == true && context.mounted) {
                     widget.onClose!(true);
@@ -1599,7 +1616,20 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     );
   }
 
-  Widget _buildTableWithInputRow() {
+  // Somme des largeurs de référence des colonnes (utilisée pour calculer
+  // l'échelle qui adapte le tableau à la largeur d'écran disponible).
+  static const double _kColumnsTotalWidth = 1435;
+
+  // Largeur consommée par le chrome du conteneur (margin 8+8 et bordure
+  // 1+1 de la carte blanche) qui ne doit pas être comptée dans les colonnes.
+  static const double _kTableChromeWidth = 18;
+
+  Widget _buildTableWithInputRow(double availableWidth) {
+    final double effectiveWidth =
+        availableWidth > _kTableChromeWidth
+            ? availableWidth - _kTableChromeWidth
+            : 0.0;
+    final double scale = effectiveWidth / _kColumnsTotalWidth;
     return Container(
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -1616,12 +1646,13 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // LIGNE 1: Champs de saisie
-          _buildInputRow(),
+          _buildInputRow(scale),
 
           // LIGNE 2: En-têtes des colonnes
-          _buildHeaderRow(),
+          _buildHeaderRow(scale),
 
           // LIGNES 3+: Données (scrollable)
           Expanded(
@@ -1633,7 +1664,12 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                         children: List.generate(_ecritures.length, (index) {
                           final ecriture = _ecritures[index];
                           final isEvenRow = index % 2 == 0;
-                          return _buildDataRow(index, ecriture, isEvenRow);
+                          return _buildDataRow(
+                            index,
+                            ecriture,
+                            isEvenRow,
+                            scale,
+                          );
                         }),
                       )
                       : Padding(
@@ -1707,7 +1743,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
   }
 
   // Ligne 1: Champs de saisie
-  Widget _buildInputRow() {
+  Widget _buildInputRow(double scale) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
@@ -1718,10 +1754,34 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         children: [
           Row(
             children: [
+              // N° ENR (auto)
+              _buildLabeledInputCell(
+                label: 'N° ENR',
+                width: 120 * scale,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                  child: IgnorePointer(
+                    child: InputDecorator(
+                      decoration: _inputDeco(''),
+                      child: Text(
+                        _currentNumeroEnregistrement != null
+                            ? _currentNumeroEnregistrement.toString()
+                            : 'Auto',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
               // Jour
               _buildLabeledInputCell(
                 label: 'JOUR',
-                width: 85,
+                width: 85 * scale,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
                   child: TextField(
@@ -1737,7 +1797,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               // N° Document
               _buildLabeledInputCell(
                 label: 'N° DOC',
-                width: 130,
+                width: 130 * scale,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
                   child: TextField(
@@ -1750,7 +1810,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               // Référence
               _buildLabeledInputCell(
                 label: 'RÉF',
-                width: 120,
+                width: 120 * scale,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
                   child: TextField(
@@ -1763,7 +1823,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               // Compte
               _buildLabeledInputCell(
                 label: 'COMPTE',
-                width: 170,
+                width: 170 * scale,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
                   child: Autocomplete<Compte>(
@@ -1872,7 +1932,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                         child: Material(
                           elevation: 4,
                           child: Container(
-                            width: 170,
+                            width: 170 * scale,
                             constraints: const BoxConstraints(maxHeight: 250),
                             child: ListView.builder(
                               padding: EdgeInsets.zero,
@@ -1929,7 +1989,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               // Tiers
               _buildLabeledInputCell(
                 label: 'TIERS',
-                width: 120,
+                width: 120 * scale,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
                   child: DropdownButtonFormField<String>(
@@ -1981,7 +2041,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               // Libellé
               _buildLabeledInputCell(
                 label: 'LIBELLÉ',
-                width: 200,
+                width: 200 * scale,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
                   child: TextField(
@@ -1994,7 +2054,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               // Débit
               _buildLabeledInputCell(
                 label: 'DÉBIT',
-                width: 110,
+                width: 110 * scale,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
                   child: TextField(
@@ -2012,7 +2072,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               // Crédit
               _buildLabeledInputCell(
                 label: 'CRÉDIT',
-                width: 110,
+                width: 110 * scale,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
                   child: TextField(
@@ -2024,64 +2084,53 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                   ),
                 ),
               ),
-
-              // Boutons d'action
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(height: 18),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: _clearForm,
-                          icon: const Icon(Icons.close, size: 14),
-                          label: Text(
-                            _editingIndex != null ? 'Réinitialiser' : 'Annuler',
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed:
-                              !_isCurrentEnregistrementBalanced
-                                  ? _balanceEnregistrement
-                                  : null,
-                          icon: const Icon(Icons.balance, size: 14),
-                          label: const Text('Équilibrer'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange.shade600,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (_editingIndex != null ? _canModify : _canCreate)
-                          ElevatedButton.icon(
-                            onPressed: _submitForm,
-                            icon: Icon(
-                              _editingIndex != null ? Icons.edit : Icons.add,
-                              size: 14,
-                              color: Colors.white,
-                            ),
-                            label: Text(
-                              _editingIndex != null ? 'Modifier' : 'Ajouter',
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue.shade500,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
             ],
+          ),
+
+          // LIGNE 2: Boutons d'action (Annuler / Équilibrer / Ajouter l'écriture)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 10),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _clearForm,
+                  icon: const Icon(Icons.close, size: 14),
+                  label: Text(
+                    _editingIndex != null ? 'Réinitialiser' : 'Annuler',
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed:
+                      !_isCurrentEnregistrementBalanced
+                          ? _balanceEnregistrement
+                          : null,
+                  icon: const Icon(Icons.balance, size: 14),
+                  label: const Text('Équilibrer'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade600,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                  ),
+                ),
+                if (_editingIndex != null ? _canModify : _canCreate)
+                  ElevatedButton.icon(
+                    onPressed: _submitForm,
+                    icon: Icon(
+                      _editingIndex != null ? Icons.edit : Icons.add,
+                      size: 14,
+                      color: Colors.white,
+                    ),
+                    label: Text(_editingIndex != null ? 'Modifier' : 'Ajouter'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade500,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
@@ -2089,29 +2138,34 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
   }
 
   // Ligne 2: En-têtes
-  Widget _buildHeaderRow() {
+  Widget _buildHeaderRow(double scale) {
     return Container(
       decoration: BoxDecoration(color: Colors.blue.shade500),
       child: Row(
         children: [
-          _buildHeaderCell('N° ENR', 120),
-          _buildHeaderCell('JOUR', 85),
-          _buildHeaderCell('N° DOC', 130),
-          _buildHeaderCell('RÉF', 120),
-          _buildHeaderCell('COMPTE', 170),
-          _buildHeaderCell('TIERS', 120),
-          _buildHeaderCell('LIBELLÉ', 200),
-          _buildHeaderCell('DÉBIT', 110),
-          _buildHeaderCell('CRÉDIT', 110),
-          _buildHeaderCell('VENTIL.', 120),
-          _buildHeaderCell('ACTIONS', 150),
+          _buildHeaderCell('N° ENR', 120 * scale),
+          _buildHeaderCell('JOUR', 85 * scale),
+          _buildHeaderCell('N° DOC', 130 * scale),
+          _buildHeaderCell('RÉF', 120 * scale),
+          _buildHeaderCell('COMPTE', 170 * scale),
+          _buildHeaderCell('TIERS', 120 * scale),
+          _buildHeaderCell('LIBELLÉ', 200 * scale),
+          _buildHeaderCell('DÉBIT', 110 * scale),
+          _buildHeaderCell('CRÉDIT', 110 * scale),
+          _buildHeaderCell('VENTILATION', 120 * scale),
+          _buildHeaderCell('ACTIONS', 150 * scale),
         ],
       ),
     );
   }
 
   // Lignes 3+: Données
-  Widget _buildDataRow(int index, LigneEcriture ecriture, bool isEvenRow) {
+  Widget _buildDataRow(
+    int index,
+    LigneEcriture ecriture,
+    bool isEvenRow,
+    double scale,
+  ) {
     return Material(
       color: isEvenRow ? Colors.white : Colors.grey.shade50,
       child: InkWell(
@@ -2124,32 +2178,32 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
             children: [
               _buildDataCell(
                 ecriture.numeroEnregistrement.toString(),
-                120,
+                120 * scale,
                 isNumEnr: true,
               ),
-              _buildDataCell(ecriture.jour.toString(), 85),
-              _buildDataCell(ecriture.numeroDocument, 130),
-              _buildDataCell(ecriture.reference ?? '-', 120),
-              _buildDataCell(ecriture.numeroCompte, 170),
-              _buildDataCell(ecriture.numeroTiers ?? '-', 120),
-              _buildDataCell(ecriture.libelle, 200),
+              _buildDataCell(ecriture.jour.toString(), 85 * scale),
+              _buildDataCell(ecriture.numeroDocument, 130 * scale),
+              _buildDataCell(ecriture.reference ?? '-', 120 * scale),
+              _buildDataCell(ecriture.numeroCompte, 170 * scale),
+              _buildDataCell(ecriture.numeroTiers ?? '-', 120 * scale),
+              _buildDataCell(ecriture.libelle, 200 * scale),
               _buildDataCell(
                 ecriture.montantDebit > 0
                     ? formatMontantCFA(ecriture.montantDebit)
                     : '-',
-                110,
+                110 * scale,
                 isDebit: true,
               ),
               _buildDataCell(
                 ecriture.montantCredit > 0
                     ? formatMontantCFA(ecriture.montantCredit)
                     : '-',
-                110,
+                110 * scale,
                 isCredit: true,
               ),
               // Colonne Ventilation
               _buildCell(
-                width: 120,
+                width: 120 * scale,
                 minHeight: 14,
                 child: Center(
                   child: GestureDetector(
@@ -2165,32 +2219,49 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               ),
               // Colonne Actions
               _buildCell(
-                width: 150,
+                width: 150 * scale,
                 minHeight: 14,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    if (_canModify) IconButton(
-                      icon: const Icon(Icons.edit, size: 16, color: Colors.blue),
-                      tooltip: 'Modifier',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () => Future.delayed(
-                        const Duration(milliseconds: 0),
-                        () { if (mounted) _editEcriture(index, ecriture); },
+                    if (_canModify)
+                      IconButton(
+                        icon: const Icon(
+                          Icons.edit,
+                          size: 16,
+                          color: Colors.blue,
+                        ),
+                        tooltip: 'Modifier',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed:
+                            () => Future.delayed(
+                              const Duration(milliseconds: 0),
+                              () {
+                                if (mounted) _editEcriture(index, ecriture);
+                              },
+                            ),
                       ),
-                    ),
                     if (_canModify) const SizedBox(width: 12),
-                    if (_canDelete) IconButton(
-                      icon: Icon(Icons.delete, size: 16, color: Colors.red.shade600),
-                      tooltip: 'Supprimer',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () => Future.delayed(
-                        const Duration(milliseconds: 0),
-                        () { if (mounted) _showDeleteConfirmation(index, ecriture); },
+                    if (_canDelete)
+                      IconButton(
+                        icon: Icon(
+                          Icons.delete,
+                          size: 16,
+                          color: Colors.red.shade600,
+                        ),
+                        tooltip: 'Supprimer',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed:
+                            () => Future.delayed(
+                              const Duration(milliseconds: 0),
+                              () {
+                                if (mounted)
+                                  _showDeleteConfirmation(index, ecriture);
+                              },
+                            ),
                       ),
-                    ),
                   ],
                 ),
               ),
