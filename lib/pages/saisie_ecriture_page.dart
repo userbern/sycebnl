@@ -722,7 +722,21 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     }
   }
 
-  void _showVentilationDialog(LigneEcriture ligne) {
+  void _showVentilationDialog(LigneEcriture ligne) async {
+    // Une ligne qui possède déjà ses propres ventilations enregistrées reste
+    // toujours éditable, même si le calcul ci-dessous la détecte aussi comme
+    // ligne d'équilibre (cas ambigu d'un enregistrement à seulement 2 lignes,
+    // où les deux montants se compensent exactement dans les deux sens).
+    if (ligne.id != null) {
+      final ownVentilations = await SaisieComptableService.getVentilations(
+        ligne.id!,
+      );
+      if (ownVentilations.isNotEmpty) {
+        _openVentilationEditor(ligne);
+        return;
+      }
+    }
+
     // Récupérer toutes les lignes de cet enregistrement
     final lignesEnregistrement =
         _ecritures
@@ -742,6 +756,10 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     }
 
     // Pour les autres lignes : dialog normal
+    _openVentilationEditor(ligne);
+  }
+
+  void _openVentilationEditor(LigneEcriture ligne) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1873,7 +1891,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                       autofocus: true,
                       keyboardType: TextInputType.number,
                       validator: _validateJour,
-                      decoration: _inputDeco('JJ', helperText: 'Jour (1-31)'),
+                      decoration: _inputDeco('JJ'),
                     ),
                   ),
                 ),
@@ -1888,10 +1906,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                       controller: _numeroDocController,
                       focusNode: _numeroDocFocusNode,
                       validator: _validateNumeroDoc,
-                      decoration: _inputDeco(
-                        'N° Doc',
-                        helperText: 'Obligatoire',
-                      ),
+                      decoration: _inputDeco('N° Doc'),
                     ),
                   ),
                 ),
@@ -1904,10 +1919,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                     padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
                     child: TextFormField(
                       controller: _referenceController,
-                      decoration: _inputDeco(
-                        'Réf',
-                        helperText: 'Optionnel (= N° Doc si vide)',
-                      ),
+                      decoration: _inputDeco('Réf'),
                     ),
                   ),
                 ),
@@ -1990,8 +2002,6 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                           },
                           decoration: InputDecoration(
                             hintText: 'Compte (code/nom)',
-                            helperText: 'Recherchez par code ou intitulé',
-                            helperMaxLines: 2,
                             errorText: _compteFieldError,
                             errorMaxLines: 2,
                             border: OutlineInputBorder(
@@ -2097,8 +2107,6 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                       validator: _validateTiers,
                       decoration: InputDecoration(
                         hintText: 'Tiers',
-                        helperText:
-                            _showTiersField ? 'Sélection obligatoire' : null,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(4),
                         ),
@@ -2151,10 +2159,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                     child: TextFormField(
                       controller: _libelleController,
                       focusNode: _libelleFocusNode,
-                      decoration: _inputDeco(
-                        'Libellé',
-                        helperText: 'Description de l\'écriture',
-                      ),
+                      decoration: _inputDeco('Libellé'),
                     ),
                   ),
                 ),
@@ -2175,7 +2180,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                       validator: _validateDebit,
                       onChanged: (_) => _formKey.currentState?.validate(),
                       onFieldSubmitted: (_) => _submitForm(),
-                      decoration: _inputDeco('0', helperText: 'Montant débité'),
+                      decoration: _inputDeco('0'),
                     ),
                   ),
                 ),
@@ -2194,10 +2199,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                       ),
                       validator: _validateCredit,
                       onChanged: (_) => _formKey.currentState?.validate(),
-                      decoration: _inputDeco(
-                        '0',
-                        helperText: 'Montant crédité',
-                      ),
+                      decoration: _inputDeco('0'),
                     ),
                   ),
                 ),
