@@ -11,6 +11,7 @@ import 'services/dossier_crypto_service.dart';
 import 'services/export_service.dart';
 import 'services/file_association_service.dart';
 import 'pages/splash_page.dart';
+import 'widgets/app_logo.dart';
 
 bool get _isDesktop =>
     Platform.isWindows || Platform.isLinux || Platform.isMacOS;
@@ -108,44 +109,142 @@ class _MyAppState extends State<MyApp> with WindowListener {
     );
 
     if (confirmer == true) {
+      final remainingSeconds = ValueNotifier<int>(_closeTimeoutSeconds);
       if (context.mounted) {
         unawaited(
           showDialog<void>(
             context: context,
             barrierDismissible: false,
             builder:
-                (context) => const AlertDialog(
-                  content: Row(
-                    children: [
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.5),
-                      ),
-                      SizedBox(width: 16),
-                      Expanded(child: Text('Fermeture en cours…')),
-                    ],
+                (context) => Dialog(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 28,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.92, end: 1.0),
+                          duration: const Duration(milliseconds: 900),
+                          curve: Curves.easeInOut,
+                          builder:
+                              (context, scale, child) =>
+                                  Transform.scale(scale: scale, child: child),
+                          child: const AppLogo(size: 96),
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: 220,
+                          child: ValueListenableBuilder<int>(
+                            valueListenable: remainingSeconds,
+                            builder: (context, value, _) {
+                              final elapsedFraction =
+                                  (_closeTimeoutSeconds - value) /
+                                  _closeTimeoutSeconds;
+                              return TweenAnimationBuilder<double>(
+                                tween: Tween(
+                                  begin: elapsedFraction -
+                                      (1 / _closeTimeoutSeconds),
+                                  end: elapsedFraction,
+                                ),
+                                duration: const Duration(seconds: 1),
+                                curve: Curves.linear,
+                                builder:
+                                    (context, progress, _) =>
+                                        ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          child: LinearProgressIndicator(
+                                            value: progress.clamp(0.0, 1.0),
+                                            minHeight: 6,
+                                          ),
+                                        ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ValueListenableBuilder<int>(
+                          valueListenable: remainingSeconds,
+                          builder: (context, value, _) {
+                            final message = _closingMessages[
+                                (_closeTimeoutSeconds - value) %
+                                    _closingMessages.length];
+                            return AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              child: Text(
+                                message,
+                                key: ValueKey(message),
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
           ),
         );
       }
+
+      final countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (remainingSeconds.value > 0) remainingSeconds.value--;
+      });
+
       final closeStopwatch = Stopwatch()..start();
-      if (DatabaseService.isConnected) {
-        await DatabaseService.database.close();
+      final results = await Future.wait([
+        Future.any([
+          _performClosingWork().then((_) => false),
+          Future.delayed(
+            const Duration(seconds: _closeTimeoutSeconds),
+            () => true,
+          ),
+        ]),
+        // Garantit que la boîte "Fermeture en cours" reste visible au moins
+        // ce temps, même si la fermeture réelle est quasi instantanée.
+        Future.delayed(_minClosingDialogDuration),
+      ]);
+      final timedOut = results[0] as bool;
+      countdownTimer.cancel();
+
+      if (timedOut) {
         debugPrint(
-            '[Fermeture] DB fermée en ${closeStopwatch.elapsedMilliseconds} ms');
-      }
-      if (DossierCryptoService.hasOpenEncryptedSession) {
-        closeStopwatch.reset();
-        await DossierCryptoService.closeOpenSessionAndReencrypt();
+            '[Fermeture] Délai de ${_closeTimeoutSeconds}s dépassé, fermeture forcée '
+            '(${closeStopwatch.elapsedMilliseconds} ms écoulés — fermeture normale non terminée)');
+      } else {
         debugPrint(
-            '[Fermeture] Rechiffrement terminé en ${closeStopwatch.elapsedMilliseconds} ms');
+            '[Fermeture] Fermeture normale terminée en ${closeStopwatch.elapsedMilliseconds} ms');
       }
-      closeStopwatch.reset();
       await windowManager.destroy();
+    }
+  }
+
+  static const int _closeTimeoutSeconds = 5;
+  static const Duration _minClosingDialogDuration = Duration(milliseconds: 900);
+
+  static const List<String> _closingMessages = [
+    'Enregistrement des données…',
+    'Sécurisation du dossier…',
+    'Fermeture des connexions…',
+    'Finalisation…',
+  ];
+
+  Future<void> _performClosingWork() async {
+    final closeStopwatch = Stopwatch()..start();
+    if (DatabaseService.isConnected) {
+      await DatabaseService.database.close();
       debugPrint(
-          '[Fermeture] windowManager.destroy() en ${closeStopwatch.elapsedMilliseconds} ms');
+          '[Fermeture] DB fermée en ${closeStopwatch.elapsedMilliseconds} ms');
+    }
+    if (DossierCryptoService.hasOpenEncryptedSession) {
+      closeStopwatch.reset();
+      await DossierCryptoService.closeOpenSessionAndReencrypt();
+      debugPrint(
+          '[Fermeture] Rechiffrement terminé en ${closeStopwatch.elapsedMilliseconds} ms');
     }
   }
 
