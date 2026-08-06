@@ -47,10 +47,6 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> _exercices = [];
   int? _activeExerciceId;
   bool _isSwitchingExercice = false;
-  static const int _saisiePageIndex = 99;
-  JournalPeriode? _activeSaisiePeriode;
-  int? _previousPageIndex;
-  Completer<bool>? _saisieCompleter;
   int _journauxRefreshSeed = 0;
   int _selectionRefreshSeed = 0;
   int _contentRefreshSeed = 0;
@@ -153,9 +149,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showPage(int index, {bool recordHistory = true}) async {
-    _saisieCompleter?.complete(false);
-    _saisieCompleter = null;
-
     // Vérifier permission de lecture
     const pageModules = <int, String>{
       1: 'identification',   4: 'plan_comptable',    5: 'liste_tiers',
@@ -186,13 +179,10 @@ class _HomePageState extends State<HomePage> {
         _pageHistory.add(_currentPageIndex);
       }
       _currentPageIndex = index;
-      _activeSaisiePeriode = null;
-      _previousPageIndex = null;
     });
   }
 
-  bool get _canGoBack =>
-      _pageHistory.isNotEmpty && _currentPageIndex != _saisiePageIndex;
+  bool get _canGoBack => _pageHistory.isNotEmpty;
 
   void _goBack() {
     if (_pageHistory.isEmpty) return;
@@ -226,35 +216,31 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  Future<bool> _openSaisie(JournalPeriode periode) {
-    final completer = Completer<bool>();
-    setState(() {
-      _previousPageIndex = _currentPageIndex;
-      _activeSaisiePeriode = periode;
-      _currentPageIndex = _saisiePageIndex;
-      _saisieCompleter = completer;
-    });
-    return completer.future;
-  }
+  Future<bool> _openSaisie(JournalPeriode periode) async {
+    final openingPageIndex = _currentPageIndex;
+    final refresh = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => SaisieEcriturePage(
+              journalPeriode: periode,
+              userSession: widget.userSession,
+              exerciceCloture: _activeExerciceCloture,
+            ),
+      ),
+    );
 
-  void _closeSaisie(bool refresh) {
-    final target = _previousPageIndex ?? 10;
-
-    setState(() {
-      _currentPageIndex = target;
-      _activeSaisiePeriode = null;
-      _previousPageIndex = null;
-      if (refresh) {
-        if (target == 16) {
+    if (refresh == true && mounted) {
+      setState(() {
+        if (openingPageIndex == 16) {
           _journauxRefreshSeed++;
-        } else if (target == 10) {
+        } else if (openingPageIndex == 10) {
           _selectionRefreshSeed++;
         }
-      }
-    });
+      });
+    }
 
-    _saisieCompleter?.complete(refresh);
-    _saisieCompleter = null;
+    return refresh ?? false;
   }
 
   void _reloadCurrentPage() {
@@ -395,17 +381,6 @@ class _HomePageState extends State<HomePage> {
 
   void _showExerciceSelector() {
     if (_isSwitchingExercice) return;
-    if (_currentPageIndex == _saisiePageIndex) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Fermez la saisie en cours avant de changer d\'exercice.',
-          ),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
     if (_exercices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -419,58 +394,165 @@ class _HomePageState extends State<HomePage> {
     showDialog(
       context: context,
       builder:
-          (context) => AlertDialog(
-            title: Row(
-              children: [
-                Icon(Icons.calendar_today, color: Colors.blue.shade400),
-                const SizedBox(width: 12),
-                const Text('Changer d\'exercice'),
-              ],
+          (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            content: SizedBox(
-              width: 400,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children:
-                    _exercices.map((exercice) {
-                      final isActive = exercice['id'] == _activeExerciceId;
-                      return ListTile(
-                        leading: Icon(
-                          isActive
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                          color: isActive ? Colors.green : Colors.grey,
-                        ),
-                        title: Text(
-                          exercice['code'].toString(),
-                          style: TextStyle(
-                            fontWeight:
-                                isActive ? FontWeight.bold : FontWeight.normal,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.calendar_today,
+                            color: Colors.blue.shade600,
+                            size: 20,
                           ),
                         ),
-                        subtitle: Text(
-                          '${exercice['date_debut']} - ${exercice['date_fin']}',
-                          style: TextStyle(fontSize: 12),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Text(
+                            'Changer d\'exercice',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
-                        tileColor: isActive ? Colors.green.shade50 : null,
-                        onTap: () async {
-                          if (!isActive) {
-                            Navigator.pop(context);
-                            await _switchExercice(exercice['id']);
-                          }
-                        },
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    ..._exercices.map((exercice) {
+                      final isActive = exercice['id'] == _activeExerciceId;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () async {
+                            if (!isActive) {
+                              Navigator.pop(context);
+                              await _switchExercice(exercice['id']);
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  isActive
+                                      ? Colors.green.shade50
+                                      : Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color:
+                                    isActive
+                                        ? Colors.green.shade200
+                                        : Colors.grey.shade200,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isActive
+                                      ? Icons.check_circle
+                                      : Icons.radio_button_unchecked,
+                                  color:
+                                      isActive
+                                          ? Colors.green.shade600
+                                          : Colors.grey.shade400,
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        exercice['code'].toString(),
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight:
+                                              isActive
+                                                  ? FontWeight.bold
+                                                  : FontWeight.w600,
+                                          color:
+                                              isActive
+                                                  ? Colors.green.shade800
+                                                  : Colors.black87,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${_fmtExerciceDate(exercice['date_debut'])} → '
+                                        '${_fmtExerciceDate(exercice['date_fin'])}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (isActive)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade100,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      'Actif',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green.shade800,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
                       );
-                    }).toList(),
+                    }),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Annuler'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Annuler'),
-              ),
-            ],
           ),
     );
+  }
+
+  String _fmtExerciceDate(Object? raw) {
+    final dt = DateTime.tryParse(raw?.toString() ?? '');
+    if (dt == null) return raw?.toString() ?? '-';
+    return '${dt.day.toString().padLeft(2, '0')}/'
+        '${dt.month.toString().padLeft(2, '0')}/${dt.year}';
   }
 
   @override
@@ -1132,42 +1214,9 @@ class _HomePageState extends State<HomePage> {
           showAppBar: false,
           onOpenPeriode: _openSaisie,
         );
-      case _saisiePageIndex:
-        final periode = _activeSaisiePeriode;
-        if (periode == null) {
-          return _buildPlaceholderPage('Sélectionnez une période de saisie');
-        }
-        return SaisieEcriturePage(
-          journalPeriode: periode,
-          showAppBar: false,
-          onClose: _closeSaisie,
-          userSession: widget.userSession,
-          exerciceCloture: _activeExerciceCloture,
-        );
       default:
         return _buildWelcomePage();
     }
-  }
-
-  Widget _buildPlaceholderPage(String title) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.construction, size: 80, color: Colors.orange[300]),
-          const SizedBox(height: 24),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Cette fonctionnalité est en cours de développement',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildWelcomePage() {

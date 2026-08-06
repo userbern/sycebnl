@@ -1,5 +1,6 @@
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../models/compte.dart';
+import '../models/saisie_comptable.dart';
 import 'database_service.dart';
 
 /// Une ligne du journal des A-Nouveaux (report ou équilibrage).
@@ -392,6 +393,293 @@ class ExerciceService {
       compteEquilibrage: compteEquilibrageUtilise,
       montantEquilibrage: montantEquilibrage,
     );
+  }
+
+  /// Le document qui identifie les écritures de report générées pour
+  /// l'exercice de code [code] (voir [creerExerciceAvecReport] /
+  /// [regenererReportSoldes]).
+  static String _documentReport(String code) => 'OUV-$code';
+
+  static Future<Map<String, dynamic>?> _exerciceParId(int exerciceId) async {
+    final exercices = await DatabaseService.getExercices();
+    final match = exercices.firstWhere(
+      (e) => e['id'] == exerciceId,
+      orElse: () => <String, dynamic>{},
+    );
+    return match.isEmpty ? null : match;
+  }
+
+  /// `true` si [periode] est la période contenant les écritures de report
+  /// (A-Nouveaux) générées à la création de son exercice — c'est sur cette
+  /// période que la régénération est proposée à l'utilisateur.
+  static Future<bool> estPeriodeDeReport(JournalPeriode periode) async {
+    final exerciceId = periode.exerciceId;
+    if (exerciceId == null) return false;
+
+    final exercice = await _exerciceParId(exerciceId);
+    if (exercice == null) return false;
+
+    final dateDebut = DateTime.tryParse(exercice['date_debut']?.toString() ?? '');
+    if (dateDebut == null) return false;
+    if (periode.annee != dateDebut.year || periode.mois != dateDebut.month) {
+      return false;
+    }
+
+    await DatabaseService.ensureDatabaseOpen();
+    final rows = await DatabaseService.database.query(
+      'ecritures',
+      where: 'journal_periode_id = ? AND numero_document = ?',
+      whereArgs: [periode.id, _documentReport(exercice['code'].toString())],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
+  /// Id de l'exercice précédant celui de [periode], utilisé comme source des
+  /// soldes à reporter. `null` si [periode] n'est pas rattachée à un
+  /// exercice ou si aucun exercice précédent n'existe.
+  static Future<int?> exercicePrecedentIdPourPeriode(
+    JournalPeriode periode,
+  ) async {
+    final exerciceId = periode.exerciceId;
+    if (exerciceId == null) return null;
+    final exercice = await _exerciceParId(exerciceId);
+    if (exercice == null) return null;
+
+    final dateDebut = DateTime.tryParse(exercice['date_debut']?.toString() ?? '');
+    if (dateDebut == null) return null;
+
+    final exercices = await DatabaseService.getExercices();
+    final precedent = exercicePrecedent(exercices, dateDebut);
+    return precedent == null ? null : precedent['id'] as int;
+  }
+
+  /// Compte d'équilibrage utilisé lors de la précédente génération du report
+  /// de [periode] (déduit de l'écriture "Report à nouveau…"), s'il y en a
+  /// un. Sert à pré-remplir le champ lors d'une régénération.
+  static Future<String?> compteEquilibrageActuel(JournalPeriode periode) async {
+    final exerciceId = periode.exerciceId;
+    if (exerciceId == null) return null;
+    final exercice = await _exerciceParId(exerciceId);
+    if (exercice == null) return null;
+
+    await DatabaseService.ensureDatabaseOpen();
+    final rows = await DatabaseService.database.query(
+      'ecritures',
+      where: 'journal_periode_id = ? AND numero_document = ? AND libelle LIKE ?',
+      whereArgs: [
+        periode.id,
+        _documentReport(exercice['code'].toString()),
+        'Report à nouveau%',
+      ],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : rows.first['numero_compte']?.toString();
+  }
+
+  /// Recalcule les écritures de report (A-Nouveaux) de [periode] à partir
+  /// des soldes ACTUELS de l'exercice précédent, et remplace celles générées
+  /// lors d'une précédente génération. À utiliser quand des écritures de
+  /// l'exercice précédent ont été ajoutées ou modifiées après la création de
+  /// l'exercice courant.
+  static Future<AnPreview> regenererReportSoldes({
+    required JournalPeriode periode,
+    required String compteEquilibrage,
+  }) async {
+    await DatabaseService.ensureDatabaseOpen();
+
+    final exerciceId = periode.exerciceId;
+    if (exerciceId == null) {
+      throw const ExerciceOperationException('Période sans exercice associé.');
+    }
+    final exercice = await _exerciceParId(exerciceId);
+    if (exercice == null) {
+      throw const ExerciceOperationException('Exercice introuvable.');
+    }
+
+    final exercices = await DatabaseService.getExercices();
+    final dateDebut = DateTime.parse(exercice['date_debut'].toString());
+    final precedent = exercicePrecedent(exercices, dateDebut);
+    if (precedent == null) {
+      throw const ExerciceOperationException(
+        'Aucun exercice précédent trouvé pour régénérer ce report.',
+      );
+    }
+
+    final code = exercice['code'].toString();
+    final document = _documentReport(code);
+    final precedentId = precedent['id'] as int;
+    final dateDebutStr = _formatDateYMD(dateDebut);
+
+    late AnPreview preview;
+
+    await DatabaseService.database.transaction((txn) async {
+      await txn.delete(
+        'ecritures',
+        where: 'journal_periode_id = ? AND numero_document = ?',
+        whereArgs: [periode.id, document],
+      );
+
+      final soldes = await txn.rawQuery(
+        '''
+        SELECT
+          c.numero_compte,
+          c.intitule,
+          COALESCE(SUM(e.montant_debit - e.montant_credit), 0) AS solde
+        FROM compte c
+        JOIN ecritures e ON e.numero_compte = c.numero_compte
+        JOIN journaux_periodes jp ON jp.id = e.journal_periode_id
+        WHERE jp.exercice_id = ?
+          AND c.deleted_at IS NULL
+          AND substr(c.numero_compte, 1, 1) IN ('1', '2', '3', '4', '5')
+        GROUP BY c.numero_compte, c.intitule
+        HAVING ABS(solde) > 0.01
+        ORDER BY c.numero_compte
+        ''',
+        [precedentId],
+      );
+
+      final now = DateTime.now().toIso8601String();
+      final maxNumRows = await txn.rawQuery(
+        'SELECT COALESCE(MAX(numero_enregistrement), 0) AS m FROM ecritures '
+        'WHERE journal_periode_id = ?',
+        [periode.id],
+      );
+      var numeroEnregistrement =
+          ((maxNumRows.first['m'] as num?)?.toInt() ?? 0) + 1;
+
+      final lignes = <AnLigne>[];
+      double totalDebit = 0;
+      double totalCredit = 0;
+
+      for (final row in soldes) {
+        final numeroCompte = row['numero_compte']?.toString() ?? '';
+        final solde = (row['solde'] as num?)?.toDouble() ?? 0.0;
+        if (numeroCompte.isEmpty || solde.abs() <= 0.01) continue;
+
+        final debit = solde > 0 ? solde : 0.0;
+        final credit = solde < 0 ? -solde : 0.0;
+        totalDebit += debit;
+        totalCredit += credit;
+
+        lignes.add(AnLigne(
+          numeroCompte: numeroCompte,
+          intitule: row['intitule']?.toString() ?? '',
+          montantDebit: debit,
+          montantCredit: credit,
+        ));
+
+        await txn.insert('ecritures', {
+          'journal_periode_id': periode.id,
+          'numero_enregistrement': numeroEnregistrement++,
+          'jour': dateDebut.day,
+          'date_comptable': dateDebutStr,
+          'numero_document': document,
+          'reference': document,
+          'numero_compte': numeroCompte,
+          'numero_tiers': null,
+          'libelle': 'Ouverture $code',
+          'montant_debit': debit,
+          'montant_credit': credit,
+          'is_ventilee': 0,
+          'created_at': now,
+          'updated_at': now,
+        });
+      }
+
+      String? compteEquilibrageUtilise;
+      double montantEquilibrage = 0;
+      final ecart = totalDebit - totalCredit;
+      if (ecart.abs() > 0.01) {
+        final excedent = ecart > 0;
+        await _ensureCompteEquilibrage(txn, compteEquilibrage, now);
+
+        final debit = ecart < 0 ? -ecart : 0.0;
+        final credit = ecart > 0 ? ecart : 0.0;
+        totalDebit += debit;
+        totalCredit += credit;
+        compteEquilibrageUtilise = compteEquilibrage;
+        montantEquilibrage = ecart.abs();
+
+        final compteRows = await txn.query(
+          'compte',
+          where: 'numero_compte = ? AND deleted_at IS NULL',
+          whereArgs: [compteEquilibrage],
+          limit: 1,
+        );
+        final intitule = compteRows.isNotEmpty
+            ? (compteRows.first['intitule']?.toString() ?? 'Nouveau compte')
+            : 'Nouveau compte';
+
+        lignes.add(AnLigne(
+          numeroCompte: compteEquilibrage,
+          intitule: excedent ? '$intitule (excédent)' : '$intitule (déficit)',
+          montantDebit: debit,
+          montantCredit: credit,
+        ));
+
+        await txn.insert('ecritures', {
+          'journal_periode_id': periode.id,
+          'numero_enregistrement': numeroEnregistrement++,
+          'jour': dateDebut.day,
+          'date_comptable': dateDebutStr,
+          'numero_document': document,
+          'reference': document,
+          'numero_compte': compteEquilibrage,
+          'numero_tiers': null,
+          'libelle': excedent
+              ? 'Report à nouveau créditeur (excédent) $code'
+              : 'Report à nouveau débiteur (déficit) $code',
+          'montant_debit': debit,
+          'montant_credit': credit,
+          'is_ventilee': 0,
+          'created_at': now,
+          'updated_at': now,
+        });
+      }
+
+      // Recalcule les totaux agrégés de la période à partir de TOUTES ses
+      // écritures (pas seulement celles du report), au cas où l'utilisateur
+      // y aurait ajouté des écritures manuelles.
+      final aggRows = await txn.rawQuery(
+        '''
+        SELECT
+          COUNT(*) AS nb,
+          COALESCE(SUM(montant_debit), 0) AS td,
+          COALESCE(SUM(montant_credit), 0) AS tc
+        FROM ecritures
+        WHERE journal_periode_id = ?
+        ''',
+        [periode.id],
+      );
+      final nb = (aggRows.first['nb'] as num?)?.toInt() ?? 0;
+      final td = (aggRows.first['td'] as num?)?.toDouble() ?? 0.0;
+      final tc = (aggRows.first['tc'] as num?)?.toDouble() ?? 0.0;
+
+      await txn.update(
+        'journaux_periodes',
+        {
+          'nombre_ecritures': nb,
+          'total_debit': td,
+          'total_credit': tc,
+          'solde_final': td - tc,
+          'is_equilibre': (td - tc).abs() <= 0.01 ? 1 : 0,
+          'updated_at': now,
+        },
+        where: 'id = ?',
+        whereArgs: [periode.id],
+      );
+
+      preview = AnPreview(
+        lignes: lignes,
+        totalDebit: totalDebit,
+        totalCredit: totalCredit,
+        compteEquilibrage: compteEquilibrageUtilise,
+        montantEquilibrage: montantEquilibrage,
+      );
+    });
+
+    return preview;
   }
 
   static Future<void> _validerCodeUnique(String code) async {
