@@ -1262,8 +1262,12 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       if (widget.showAppBar) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Saisie Écriture'),
-            backgroundColor: Colors.blue.shade500,
+            title: const Text(
+              'Saisie Écriture',
+              style: TextStyle(color: Colors.white),
+            ),
+            iconTheme: const IconThemeData(color: Colors.white),
+            backgroundColor: Colors.blue.shade700,
           ),
           body: loader,
         );
@@ -1276,8 +1280,12 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     if (widget.showAppBar) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Saisie Écriture'),
-          backgroundColor: Colors.blue.shade500,
+          title: const Text(
+            'Saisie Écriture',
+            style: TextStyle(color: Colors.white),
+          ),
+          iconTheme: const IconThemeData(color: Colors.white),
+          backgroundColor: Colors.blue.shade700,
           elevation: 0,
           actions: [
             IconButton(
@@ -1285,6 +1293,15 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               onPressed: _loadData,
               tooltip: 'Rafraîchir',
             ),
+            TextButton.icon(
+              onPressed: () => _handleClose(context),
+              icon: const Icon(Icons.close, color: Colors.white),
+              label: const Text(
+                'Fermer',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+            const SizedBox(width: 8),
           ],
         ),
         body: body,
@@ -1294,50 +1311,54 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     return body;
   }
 
+  Future<void> _handleClose(BuildContext context) async {
+    if (_totaux.isEquilibre) {
+      if (widget.onClose != null) {
+        widget.onClose!(true);
+      } else if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Journal déséquilibré'),
+            content: Text(
+              'Le solde n\'est pas équilibré (${_totaux.solde.toStringAsFixed(2)}).\nVoulez-vous quitter quand même ?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Rester'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Quitter quand même'),
+              ),
+            ],
+          ),
+    );
+    if (confirm == true) {
+      if (widget.onClose != null) {
+        widget.onClose!(true);
+      } else if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+    }
+  }
+
   Widget _buildPageBody() {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        if (_totaux.isEquilibre) {
-          if (widget.onClose != null) {
-            widget.onClose!(true);
-          } else if (context.mounted) {
-            Navigator.of(context).pop();
-          }
-          return;
-        }
-        final confirm = await showDialog<bool>(
-          context: context,
-          builder:
-              (ctx) => AlertDialog(
-                title: const Text('Journal déséquilibré'),
-                content: Text(
-                  'Le solde n\'est pas équilibré (${_totaux.solde.toStringAsFixed(2)}).\nVoulez-vous quitter quand même ?',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Rester'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Quitter quand même'),
-                  ),
-                ],
-              ),
-        );
-        if (confirm == true) {
-          if (widget.onClose != null) {
-            widget.onClose!(true);
-          } else if (mounted) {
-            Navigator.of(context).pop();
-          }
-        }
+        await _handleClose(context);
       },
       child: Column(
         children: [

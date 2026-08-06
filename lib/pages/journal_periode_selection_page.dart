@@ -270,9 +270,18 @@ class _JournalPeriodeSelectionPageState
                     ),
                   ),
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-                    child: _buildHeroCard(),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight - 56,
+                          ),
+                          child: Center(child: _buildHeroCard()),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],

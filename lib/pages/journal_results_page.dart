@@ -229,6 +229,14 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
                       style: TextStyle(color: Colors.white),
                     ),
                   ),
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    label: const Text(
+                      'Fermer',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
                   const SizedBox(width: 8),
                 ],
               )

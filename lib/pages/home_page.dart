@@ -47,10 +47,6 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> _exercices = [];
   int? _activeExerciceId;
   bool _isSwitchingExercice = false;
-  static const int _saisiePageIndex = 99;
-  JournalPeriode? _activeSaisiePeriode;
-  int? _previousPageIndex;
-  Completer<bool>? _saisieCompleter;
   int _journauxRefreshSeed = 0;
   int _selectionRefreshSeed = 0;
   int _contentRefreshSeed = 0;
@@ -153,9 +149,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showPage(int index, {bool recordHistory = true}) async {
-    _saisieCompleter?.complete(false);
-    _saisieCompleter = null;
-
     // Vérifier permission de lecture
     const pageModules = <int, String>{
       1: 'identification',   4: 'plan_comptable',    5: 'liste_tiers',
@@ -186,13 +179,10 @@ class _HomePageState extends State<HomePage> {
         _pageHistory.add(_currentPageIndex);
       }
       _currentPageIndex = index;
-      _activeSaisiePeriode = null;
-      _previousPageIndex = null;
     });
   }
 
-  bool get _canGoBack =>
-      _pageHistory.isNotEmpty && _currentPageIndex != _saisiePageIndex;
+  bool get _canGoBack => _pageHistory.isNotEmpty;
 
   void _goBack() {
     if (_pageHistory.isEmpty) return;
@@ -226,35 +216,31 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  Future<bool> _openSaisie(JournalPeriode periode) {
-    final completer = Completer<bool>();
-    setState(() {
-      _previousPageIndex = _currentPageIndex;
-      _activeSaisiePeriode = periode;
-      _currentPageIndex = _saisiePageIndex;
-      _saisieCompleter = completer;
-    });
-    return completer.future;
-  }
+  Future<bool> _openSaisie(JournalPeriode periode) async {
+    final openingPageIndex = _currentPageIndex;
+    final refresh = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => SaisieEcriturePage(
+              journalPeriode: periode,
+              userSession: widget.userSession,
+              exerciceCloture: _activeExerciceCloture,
+            ),
+      ),
+    );
 
-  void _closeSaisie(bool refresh) {
-    final target = _previousPageIndex ?? 10;
-
-    setState(() {
-      _currentPageIndex = target;
-      _activeSaisiePeriode = null;
-      _previousPageIndex = null;
-      if (refresh) {
-        if (target == 16) {
+    if (refresh == true && mounted) {
+      setState(() {
+        if (openingPageIndex == 16) {
           _journauxRefreshSeed++;
-        } else if (target == 10) {
+        } else if (openingPageIndex == 10) {
           _selectionRefreshSeed++;
         }
-      }
-    });
+      });
+    }
 
-    _saisieCompleter?.complete(refresh);
-    _saisieCompleter = null;
+    return refresh ?? false;
   }
 
   void _reloadCurrentPage() {
@@ -395,17 +381,6 @@ class _HomePageState extends State<HomePage> {
 
   void _showExerciceSelector() {
     if (_isSwitchingExercice) return;
-    if (_currentPageIndex == _saisiePageIndex) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Fermez la saisie en cours avant de changer d\'exercice.',
-          ),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
     if (_exercices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1132,42 +1107,9 @@ class _HomePageState extends State<HomePage> {
           showAppBar: false,
           onOpenPeriode: _openSaisie,
         );
-      case _saisiePageIndex:
-        final periode = _activeSaisiePeriode;
-        if (periode == null) {
-          return _buildPlaceholderPage('Sélectionnez une période de saisie');
-        }
-        return SaisieEcriturePage(
-          journalPeriode: periode,
-          showAppBar: false,
-          onClose: _closeSaisie,
-          userSession: widget.userSession,
-          exerciceCloture: _activeExerciceCloture,
-        );
       default:
         return _buildWelcomePage();
     }
-  }
-
-  Widget _buildPlaceholderPage(String title) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.construction, size: 80, color: Colors.orange[300]),
-          const SizedBox(height: 24),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Cette fonctionnalité est en cours de développement',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildWelcomePage() {
