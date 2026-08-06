@@ -41,12 +41,24 @@ class _PermissionsPageState extends State<PermissionsPage> {
   bool get _canManage => _isAdmin || _isBootstrap;
 
   static const _sections = [
-    ('Notre Entité',  ['identification']),
-    ('Paramétrages',  ['plan_comptable', 'liste_tiers', 'codes_journaux',
-                       'liste_bailleurs', 'liste_projets', 'gestion_budgets']),
-    ('Traitements',   ['saisie_comptable', 'journaux_de_saisie', 'interrogations']),
-    ('Édition',       ['balance_comptes', 'grand_livre', 'journal']),
-    ('Exercices',     ['exercices']),
+    ('Notre Entité', ['identification']),
+    (
+      'Paramétrages',
+      [
+        'plan_comptable',
+        'liste_tiers',
+        'codes_journaux',
+        'liste_bailleurs',
+        'liste_projets',
+        'gestion_budgets',
+      ],
+    ),
+    (
+      'Traitements',
+      ['saisie_comptable', 'journaux_de_saisie', 'interrogations'],
+    ),
+    ('Édition', ['balance_comptes', 'grand_livre', 'journal']),
+    ('Exercices', ['exercices']),
   ];
 
   @override
@@ -74,18 +86,22 @@ class _PermissionsPageState extends State<PermissionsPage> {
 
   Future<void> _loadData() async {
     if (!mounted) return;
-    setState(() { _isLoading = true; _error = null; });
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     try {
-      final users   = await AuthService.getAllUsers();
+      final users = await AuthService.getAllUsers();
       final modules = await AuthService.getAllModules();
 
-      final visibleUsers = _isAdmin
-          ? users.where((u) => u['id'] != _currentUserId).toList()
-          : users.where((u) => u['id'] == _currentUserId).toList();
+      final visibleUsers =
+          _isAdmin
+              ? users.where((u) => u['id'] != _currentUserId).toList()
+              : users.where((u) => u['id'] == _currentUserId).toList();
 
       if (!mounted) return;
       setState(() {
-        _users   = visibleUsers;
+        _users = visibleUsers;
         _modules = modules;
         _isLoading = false;
       });
@@ -95,39 +111,52 @@ class _PermissionsPageState extends State<PermissionsPage> {
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() { _isLoading = false; _error = e.toString(); });
+      setState(() {
+        _isLoading = false;
+        _error = e.toString();
+      });
     }
   }
 
   /// Convertit les lignes brutes de `AuthService.getUserPermissions` en
   /// `Map<moduleId, {lecture/ajout/modification/suppression}>`, en
   /// complétant les modules absents avec des valeurs à false.
-  Map<int, Map<String, bool>> _mapPermissionRows(List<Map<String, dynamic>> rows) {
+  Map<int, Map<String, bool>> _mapPermissionRows(
+    List<Map<String, dynamic>> rows,
+  ) {
     final map = <int, Map<String, bool>>{};
     for (final row in rows) {
       final moduleId = row['module_id'] as int;
       map[moduleId] = {
-        'lecture':      row['lecture']      == 1 || row['lecture']      == true,
-        'ajout':        row['ajout']        == 1 || row['ajout']        == true,
+        'lecture': row['lecture'] == 1 || row['lecture'] == true,
+        'ajout': row['ajout'] == 1 || row['ajout'] == true,
         'modification': row['modification'] == 1 || row['modification'] == true,
-        'suppression':  row['suppression']  == 1 || row['suppression']  == true,
+        'suppression': row['suppression'] == 1 || row['suppression'] == true,
       };
     }
     for (final m in _modules) {
       final id = m['id'] as int;
-      map.putIfAbsent(id, () => {
-        'lecture': false, 'ajout': false,
-        'modification': false, 'suppression': false,
-      });
+      map.putIfAbsent(
+        id,
+        () => {
+          'lecture': false,
+          'ajout': false,
+          'modification': false,
+          'suppression': false,
+        },
+      );
     }
     return map;
   }
 
   Future<void> _selectUser(int userId) async {
-    setState(() { _selectedUserId = userId; _permissionsByModule.clear(); });
+    setState(() {
+      _selectedUserId = userId;
+      _permissionsByModule.clear();
+    });
     try {
       final rows = await AuthService.getUserPermissions(userId);
-      final map  = _mapPermissionRows(rows);
+      final map = _mapPermissionRows(rows);
       if (!mounted) return;
       setState(() => _permissionsByModule.addAll(map));
     } catch (e) {
@@ -140,8 +169,10 @@ class _PermissionsPageState extends State<PermissionsPage> {
       for (final m in _modules) {
         final id = m['id'] as int;
         _permissionsByModule[id] = {
-          'lecture': value, 'ajout': value,
-          'modification': value, 'suppression': value,
+          'lecture': value,
+          'ajout': value,
+          'modification': value,
+          'suppression': value,
         };
       }
     });
@@ -154,42 +185,50 @@ class _PermissionsPageState extends State<PermissionsPage> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Copier les permissions'),
-          content: SizedBox(
-            width: 340,
-            child: DropdownButtonFormField<int>(
-              initialValue: sourceUserId,
-               decoration: const InputDecoration(
-                labelText: 'Copier depuis',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              items: otherUsers
-                  .map((u) => DropdownMenuItem<int>(
-                        value: u['id'] as int,
-                        child: Text(u['login']?.toString() ?? ''),
-                      ))
-                  .toList(),
-              onChanged: (v) => setDialogState(() => sourceUserId = v),
-            ),
+      builder:
+          (ctx) => StatefulBuilder(
+            builder:
+                (ctx, setDialogState) => AlertDialog(
+                  title: const Text('Copier les permissions'),
+                  content: SizedBox(
+                    width: 340,
+                    child: DropdownButtonFormField<int>(
+                      value: sourceUserId,
+                      decoration: const InputDecoration(
+                        labelText: 'Copier depuis',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items:
+                          otherUsers
+                              .map(
+                                (u) => DropdownMenuItem<int>(
+                                  value: u['id'] as int,
+                                  child: Text(u['login']?.toString() ?? ''),
+                                ),
+                              )
+                              .toList(),
+                      onChanged: (v) => setDialogState(() => sourceUserId = v),
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Annuler'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Copier'),
+                    ),
+                  ],
+                ),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Copier'),
-            ),
-          ],
-        ),
-      ),
     );
 
     if (confirmed != true || sourceUserId == null) return;
     try {
       final rows = await AuthService.getUserPermissions(sourceUserId!);
-      final map  = _mapPermissionRows(rows);
+      final map = _mapPermissionRows(rows);
       if (!mounted) return;
       setState(() {
         _permissionsByModule.clear();
@@ -216,23 +255,27 @@ class _PermissionsPageState extends State<PermissionsPage> {
     if (_selectedUserId == null) return;
     setState(() => _isSaving = true);
     try {
-      final payload = _modules.map((m) {
-        final id    = m['id'] as int;
-        final perms = _permissionsByModule[id] ?? {};
-        return {
-          'moduleId':     id,
-          'lecture':      perms['lecture']      == true,
-          'ajout':        perms['ajout']        == true,
-          'modification': perms['modification'] == true,
-          'suppression':  perms['suppression']  == true,
-        };
-      }).toList();
+      final payload =
+          _modules.map((m) {
+            final id = m['id'] as int;
+            final perms = _permissionsByModule[id] ?? {};
+            return {
+              'moduleId': id,
+              'lecture': perms['lecture'] == true,
+              'ajout': perms['ajout'] == true,
+              'modification': perms['modification'] == true,
+              'suppression': perms['suppression'] == true,
+            };
+          }).toList();
 
       await AuthService.updatePermissions(_selectedUserId!, payload);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Permissions enregistrées'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Permissions enregistrées'),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -258,7 +301,8 @@ class _PermissionsPageState extends State<PermissionsPage> {
       final uLogin = (u['login']?.toString() ?? '').toLowerCase();
       final uEmail = (u['email']?.toString() ?? '').toLowerCase();
       if (uLogin == loginLower) return 'Ce login existe déjà';
-      if (emailLower.isNotEmpty && uEmail == emailLower) return 'Cet email existe déjà';
+      if (emailLower.isNotEmpty && uEmail == emailLower)
+        return 'Cet email existe déjà';
     }
     return null;
   }
@@ -266,224 +310,299 @@ class _PermissionsPageState extends State<PermissionsPage> {
   /// Enregistre des permissions explicites à false sur tous les modules pour
   /// un nouvel utilisateur, afin d'éviter un état ambigu "aucune permission".
   Future<void> _initializeBaselinePermissions(int userId) async {
-    final payload = _modules.map((m) => {
-      'moduleId':     m['id'] as int,
-      'lecture':      false,
-      'ajout':        false,
-      'modification': false,
-      'suppression':  false,
-    }).toList();
+    final payload =
+        _modules
+            .map(
+              (m) => {
+                'moduleId': m['id'] as int,
+                'lecture': false,
+                'ajout': false,
+                'modification': false,
+                'suppression': false,
+              },
+            )
+            .toList();
     await AuthService.updatePermissions(userId, payload);
   }
 
   Future<void> _showCreateUserDialog() async {
     final wasBootstrap = _isBootstrap;
-    final loginCtrl    = TextEditingController();
-    final nomCtrl      = TextEditingController();
-    final prenomCtrl   = TextEditingController();
-    final emailCtrl    = TextEditingController();
-    final passCtrl     = TextEditingController();
-    final confirmCtrl  = TextEditingController();
-    final formKey      = GlobalKey<FormState>();
-    String role        = wasBootstrap ? 'admin' : 'utilisateur';
+    final loginCtrl = TextEditingController();
+    final nomCtrl = TextEditingController();
+    final prenomCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    String role = wasBootstrap ? 'admin' : 'utilisateur';
 
     await showDialog<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Nouvel utilisateur'),
-          content: SizedBox(
-            width: 360,
-            child: Form(
-              key: formKey,
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                _formField(prenomCtrl, 'Prénom', autofocus: true),
-                const SizedBox(height: 12),
-                _formField(nomCtrl, 'Nom'),
-                const SizedBox(height: 12),
-                _formField(loginCtrl, 'Login'),
-                const SizedBox(height: 12),
-                _formField(emailCtrl, 'Email', required: false),
-                const SizedBox(height: 12),
-                _formField(passCtrl, 'Mot de passe', obscure: true),
-                const SizedBox(height: 12),
-                _formField(confirmCtrl, 'Confirmer le mot de passe', obscure: true),
-                if (!wasBootstrap) ...[
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: role,
-                    decoration: const InputDecoration(
-                      labelText: 'Rôle',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'utilisateur', child: Text('Utilisateur')),
-                      DropdownMenuItem(value: 'admin', child: Text('Administrateur')),
-                    ],
-                    onChanged: (v) => setDialogState(() => role = v ?? 'utilisateur'),
-                  ),
-                ],
-              ]),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-            FilledButton(
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                if (passCtrl.text != confirmCtrl.text) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    const SnackBar(
-                      content: Text('Les mots de passe ne correspondent pas'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-                final uniquenessError = _validateLoginAndEmailUniqueness(
-                  login: loginCtrl.text.trim(),
-                  email: emailCtrl.text.trim(),
-                );
-                if (uniquenessError != null) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    SnackBar(content: Text(uniquenessError), backgroundColor: Colors.red),
-                  );
-                  return;
-                }
-                try {
-                  final newUserId = await AuthService.createUser(
-                    login:     loginCtrl.text.trim(),
-                    password:  passCtrl.text,
-                    nom:       nomCtrl.text.trim(),
-                    prenom:    prenomCtrl.text.trim(),
-                    email:     emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
-                    role:      role,
-                    createdBy: _currentUserId,
-                  );
-                  if (role != 'admin') {
-                    await _initializeBaselinePermissions(newUserId);
-                  }
-                  if (ctx.mounted) Navigator.pop(ctx);
-                  await _loadData();
-                  if (wasBootstrap && mounted) {
-                    // On vient de créer le premier admin en mode bootstrap.
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Compte administrateur créé. Fermez puis rouvrez ce fichier pour vous connecter.',
-                        ),
-                        backgroundColor: Colors.green,
+      builder:
+          (ctx) => StatefulBuilder(
+            builder:
+                (ctx, setDialogState) => AlertDialog(
+                  title: const Text('Nouvel utilisateur'),
+                  content: SizedBox(
+                    width: 360,
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _formField(prenomCtrl, 'Prénom', autofocus: true),
+                          const SizedBox(height: 12),
+                          _formField(nomCtrl, 'Nom'),
+                          const SizedBox(height: 12),
+                          _formField(loginCtrl, 'Login'),
+                          const SizedBox(height: 12),
+                          _formField(emailCtrl, 'Email', required: false),
+                          const SizedBox(height: 12),
+                          _formField(passCtrl, 'Mot de passe', obscure: true),
+                          const SizedBox(height: 12),
+                          _formField(
+                            confirmCtrl,
+                            'Confirmer le mot de passe',
+                            obscure: true,
+                          ),
+                          if (!wasBootstrap) ...[
+                            const SizedBox(height: 12),
+                            DropdownButtonFormField<String>(
+                              value: role,
+                              decoration: const InputDecoration(
+                                labelText: 'Rôle',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'utilisateur',
+                                  child: Text('Utilisateur'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'admin',
+                                  child: Text('Administrateur'),
+                                ),
+                              ],
+                              onChanged:
+                                  (v) => setDialogState(
+                                    () => role = v ?? 'utilisateur',
+                                  ),
+                            ),
+                          ],
+                        ],
                       ),
-                    );
-                  }
-                } catch (e) {
-                  if (ctx.mounted) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(
-                      SnackBar(content: Text('$e'), backgroundColor: Colors.red),
-                    );
-                  }
-                }
-              },
-              child: const Text('Créer'),
-            ),
-          ],
-        ),
-      ),
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Annuler'),
+                    ),
+                    FilledButton(
+                      onPressed: () async {
+                        if (!formKey.currentState!.validate()) return;
+                        if (passCtrl.text != confirmCtrl.text) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Les mots de passe ne correspondent pas',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        final uniquenessError =
+                            _validateLoginAndEmailUniqueness(
+                              login: loginCtrl.text.trim(),
+                              email: emailCtrl.text.trim(),
+                            );
+                        if (uniquenessError != null) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Text(uniquenessError),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        try {
+                          final newUserId = await AuthService.createUser(
+                            login: loginCtrl.text.trim(),
+                            password: passCtrl.text,
+                            nom: nomCtrl.text.trim(),
+                            prenom: prenomCtrl.text.trim(),
+                            email:
+                                emailCtrl.text.trim().isEmpty
+                                    ? null
+                                    : emailCtrl.text.trim(),
+                            role: role,
+                            createdBy: _currentUserId,
+                          );
+                          if (role != 'admin') {
+                            await _initializeBaselinePermissions(newUserId);
+                          }
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          await _loadData();
+                          if (wasBootstrap && mounted) {
+                            // On vient de créer le premier admin en mode bootstrap.
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Compte administrateur créé. Fermez puis rouvrez ce fichier pour vous connecter.',
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(
+                                content: Text('$e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      child: const Text('Créer'),
+                    ),
+                  ],
+                ),
+          ),
     );
   }
 
   Future<void> _showEditUserDialog(Map<String, dynamic> user) async {
     final uid = user['id'] as int;
     final isSelf = uid == _currentUserId;
-    final loginCtrl  = TextEditingController(text: user['login']?.toString() ?? '');
-    final nomCtrl    = TextEditingController(text: user['nom']?.toString() ?? '');
-    final prenomCtrl = TextEditingController(text: user['prenom']?.toString() ?? '');
-    final emailCtrl  = TextEditingController(text: user['email']?.toString() ?? '');
-    final formKey    = GlobalKey<FormState>();
+    final loginCtrl = TextEditingController(
+      text: user['login']?.toString() ?? '',
+    );
+    final nomCtrl = TextEditingController(text: user['nom']?.toString() ?? '');
+    final prenomCtrl = TextEditingController(
+      text: user['prenom']?.toString() ?? '',
+    );
+    final emailCtrl = TextEditingController(
+      text: user['email']?.toString() ?? '',
+    );
+    final formKey = GlobalKey<FormState>();
     String role = (user['role']?.toString() ?? 'utilisateur');
 
     await showDialog<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Modifier l\'utilisateur'),
-          content: SizedBox(
-            width: 360,
-            child: Form(
-              key: formKey,
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                _formField(prenomCtrl, 'Prénom'),
-                const SizedBox(height: 12),
-                _formField(nomCtrl, 'Nom'),
-                const SizedBox(height: 12),
-                _formField(loginCtrl, 'Login'),
-                const SizedBox(height: 12),
-                _formField(emailCtrl, 'Email', required: false),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: role,
-                  decoration: const InputDecoration(
-                    labelText: 'Rôle',
-                    border: OutlineInputBorder(),
-                    isDense: true,
+      builder:
+          (ctx) => StatefulBuilder(
+            builder:
+                (ctx, setDialogState) => AlertDialog(
+                  title: const Text('Modifier l\'utilisateur'),
+                  content: SizedBox(
+                    width: 360,
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _formField(prenomCtrl, 'Prénom'),
+                          const SizedBox(height: 12),
+                          _formField(nomCtrl, 'Nom'),
+                          const SizedBox(height: 12),
+                          _formField(loginCtrl, 'Login'),
+                          const SizedBox(height: 12),
+                          _formField(emailCtrl, 'Email', required: false),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            value: role,
+                            decoration: const InputDecoration(
+                              labelText: 'Rôle',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'utilisateur',
+                                child: Text('Utilisateur'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'admin',
+                                child: Text('Administrateur'),
+                              ),
+                            ],
+                            onChanged:
+                                isSelf
+                                    ? null
+                                    : (v) =>
+                                        setDialogState(() => role = v ?? role),
+                          ),
+                          if (isSelf) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Vous ne pouvez pas modifier votre propre rôle.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'utilisateur', child: Text('Utilisateur')),
-                    DropdownMenuItem(value: 'admin', child: Text('Administrateur')),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Annuler'),
+                    ),
+                    FilledButton(
+                      onPressed: () async {
+                        if (!formKey.currentState!.validate()) return;
+                        final uniquenessError =
+                            _validateLoginAndEmailUniqueness(
+                              login: loginCtrl.text.trim(),
+                              email: emailCtrl.text.trim(),
+                              excludeUserId: uid,
+                            );
+                        if (uniquenessError != null) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Text(uniquenessError),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        try {
+                          await AuthService.updateUser(
+                            id: uid,
+                            login: loginCtrl.text.trim(),
+                            nom: nomCtrl.text.trim(),
+                            prenom: prenomCtrl.text.trim(),
+                            email:
+                                emailCtrl.text.trim().isEmpty
+                                    ? null
+                                    : emailCtrl.text.trim(),
+                            role: isSelf ? null : role,
+                          );
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          await _loadData();
+                        } catch (e) {
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(
+                                content: Text('$e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      child: const Text('Enregistrer'),
+                    ),
                   ],
-                  onChanged: isSelf ? null : (v) => setDialogState(() => role = v ?? role),
                 ),
-                if (isSelf) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Vous ne pouvez pas modifier votre propre rôle.',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                  ),
-                ],
-              ]),
-            ),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-            FilledButton(
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                final uniquenessError = _validateLoginAndEmailUniqueness(
-                  login: loginCtrl.text.trim(),
-                  email: emailCtrl.text.trim(),
-                  excludeUserId: uid,
-                );
-                if (uniquenessError != null) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    SnackBar(content: Text(uniquenessError), backgroundColor: Colors.red),
-                  );
-                  return;
-                }
-                try {
-                  await AuthService.updateUser(
-                    id:     uid,
-                    login:  loginCtrl.text.trim(),
-                    nom:    nomCtrl.text.trim(),
-                    prenom: prenomCtrl.text.trim(),
-                    email:  emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
-                    role:   isSelf ? null : role,
-                  );
-                  if (ctx.mounted) Navigator.pop(ctx);
-                  await _loadData();
-                } catch (e) {
-                  if (ctx.mounted) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(
-                      SnackBar(content: Text('$e'), backgroundColor: Colors.red),
-                    );
-                  }
-                }
-              },
-              child: const Text('Enregistrer'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -504,187 +623,248 @@ class _PermissionsPageState extends State<PermissionsPage> {
     }
     if (selfUser.isEmpty || !mounted) return;
 
-    final nomCtrl    = TextEditingController(text: selfUser['nom']?.toString() ?? '');
-    final prenomCtrl = TextEditingController(text: selfUser['prenom']?.toString() ?? '');
-    final emailCtrl  = TextEditingController(text: selfUser['email']?.toString() ?? '');
-    final oldPassCtrl  = TextEditingController();
-    final newPassCtrl  = TextEditingController();
+    final nomCtrl = TextEditingController(
+      text: selfUser['nom']?.toString() ?? '',
+    );
+    final prenomCtrl = TextEditingController(
+      text: selfUser['prenom']?.toString() ?? '',
+    );
+    final emailCtrl = TextEditingController(
+      text: selfUser['email']?.toString() ?? '',
+    );
+    final oldPassCtrl = TextEditingController();
+    final newPassCtrl = TextEditingController();
     final confPassCtrl = TextEditingController();
-    final formKey      = GlobalKey<FormState>();
-    final login        = selfUser['login']?.toString() ?? '';
+    final formKey = GlobalKey<FormState>();
+    final login = selfUser['login']?.toString() ?? '';
 
     await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Mon profil'),
-        content: SizedBox(
-          width: 360,
-          child: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                _formField(prenomCtrl, 'Prénom'),
-                const SizedBox(height: 12),
-                _formField(nomCtrl, 'Nom'),
-                const SizedBox(height: 12),
-                // Login en lecture seule
-                TextFormField(
-                  initialValue: login,
-                  readOnly: true,
-                  decoration: InputDecoration(
-                    labelText: 'Login',
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                    filled: true,
-                    fillColor: Colors.grey.shade100,
-                    suffixIcon: const Tooltip(
-                      message: 'Le login ne peut pas être modifié',
-                      child: Icon(Icons.lock_outline, size: 16),
-                    ),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Mon profil'),
+            content: SizedBox(
+              width: 360,
+              child: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _formField(prenomCtrl, 'Prénom'),
+                      const SizedBox(height: 12),
+                      _formField(nomCtrl, 'Nom'),
+                      const SizedBox(height: 12),
+                      // Login en lecture seule
+                      TextFormField(
+                        initialValue: login,
+                        readOnly: true,
+                        decoration: InputDecoration(
+                          labelText: 'Login',
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                          filled: true,
+                          fillColor: Colors.grey.shade100,
+                          suffixIcon: const Tooltip(
+                            message: 'Le login ne peut pas être modifié',
+                            child: Icon(Icons.lock_outline, size: 16),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _formField(emailCtrl, 'Email', required: false),
+                      const Divider(height: 28),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Changer le mot de passe (facultatif)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _formField(
+                        oldPassCtrl,
+                        'Mot de passe actuel',
+                        obscure: true,
+                        required: false,
+                      ),
+                      const SizedBox(height: 12),
+                      _formField(
+                        newPassCtrl,
+                        'Nouveau mot de passe',
+                        obscure: true,
+                        required: false,
+                      ),
+                      const SizedBox(height: 12),
+                      _formField(
+                        confPassCtrl,
+                        'Confirmer le nouveau mot de passe',
+                        obscure: true,
+                        required: false,
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                _formField(emailCtrl, 'Email', required: false),
-                const Divider(height: 28),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Changer le mot de passe (facultatif)',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _formField(oldPassCtrl, 'Mot de passe actuel', obscure: true, required: false),
-                const SizedBox(height: 12),
-                _formField(newPassCtrl, 'Nouveau mot de passe', obscure: true, required: false),
-                const SizedBox(height: 12),
-                _formField(confPassCtrl, 'Confirmer le nouveau mot de passe', obscure: true, required: false),
-              ]),
+              ),
             ),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-          FilledButton(
-            onPressed: () async {
-              if (!formKey.currentState!.validate()) return;
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Annuler'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  if (!formKey.currentState!.validate()) return;
 
-              final wantsPasswordChange = newPassCtrl.text.isNotEmpty;
-              if (wantsPasswordChange) {
-                if (oldPassCtrl.text.isEmpty) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    const SnackBar(
-                      content: Text('Veuillez saisir votre mot de passe actuel'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-                if (newPassCtrl.text != confPassCtrl.text) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    const SnackBar(
-                      content: Text('Les nouveaux mots de passe ne correspondent pas'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-              }
+                  final wantsPasswordChange = newPassCtrl.text.isNotEmpty;
+                  if (wantsPasswordChange) {
+                    if (oldPassCtrl.text.isEmpty) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Veuillez saisir votre mot de passe actuel',
+                          ),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+                    if (newPassCtrl.text != confPassCtrl.text) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Les nouveaux mots de passe ne correspondent pas',
+                          ),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+                  }
 
-              try {
-                await AuthService.updateUser(
-                  id:     _currentUserId!,
-                  nom:    nomCtrl.text.trim(),
-                  prenom: prenomCtrl.text.trim(),
-                  email:  emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
-                );
-                if (wantsPasswordChange) {
-                  await AuthService.changePassword(
-                    userId:      _currentUserId!,
-                    oldPassword: oldPassCtrl.text,
-                    newPassword: newPassCtrl.text,
-                    isAdmin:     _isAdmin,
-                  );
-                }
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Profil mis à jour'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-                await _loadData();
-              } catch (e) {
-                if (ctx.mounted) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    SnackBar(content: Text('$e'), backgroundColor: Colors.red),
-                  );
-                }
-              }
-            },
-            child: const Text('Enregistrer'),
+                  try {
+                    await AuthService.updateUser(
+                      id: _currentUserId!,
+                      nom: nomCtrl.text.trim(),
+                      prenom: prenomCtrl.text.trim(),
+                      email:
+                          emailCtrl.text.trim().isEmpty
+                              ? null
+                              : emailCtrl.text.trim(),
+                    );
+                    if (wantsPasswordChange) {
+                      await AuthService.changePassword(
+                        userId: _currentUserId!,
+                        oldPassword: oldPassCtrl.text,
+                        newPassword: newPassCtrl.text,
+                        isAdmin: _isAdmin,
+                      );
+                    }
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Profil mis à jour'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                    await _loadData();
+                  } catch (e) {
+                    if (ctx.mounted) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(
+                          content: Text('$e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: const Text('Enregistrer'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
   Future<void> _showResetPasswordDialog(int userId, String login) async {
-    final passCtrl    = TextEditingController();
+    final passCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
-    final formKey     = GlobalKey<FormState>();
+    final formKey = GlobalKey<FormState>();
 
     await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Réinitialiser le mot de passe de « $login »'),
-        content: SizedBox(
-          width: 340,
-          child: Form(
-            key: formKey,
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              _formField(passCtrl, 'Nouveau mot de passe', obscure: true),
-              const SizedBox(height: 12),
-              _formField(confirmCtrl, 'Confirmer le mot de passe', obscure: true),
-            ]),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text('Réinitialiser le mot de passe de « $login »'),
+            content: SizedBox(
+              width: 340,
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _formField(passCtrl, 'Nouveau mot de passe', obscure: true),
+                    const SizedBox(height: 12),
+                    _formField(
+                      confirmCtrl,
+                      'Confirmer le mot de passe',
+                      obscure: true,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Annuler'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  if (!formKey.currentState!.validate()) return;
+                  if (passCtrl.text != confirmCtrl.text) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(
+                        content: Text('Les mots de passe ne correspondent pas'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+                  try {
+                    await AuthService.resetPassword(
+                      userId: userId,
+                      newPassword: passCtrl.text,
+                    );
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Mot de passe réinitialisé'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (ctx.mounted) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(
+                          content: Text('$e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: const Text('Réinitialiser'),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-          FilledButton(
-            onPressed: () async {
-              if (!formKey.currentState!.validate()) return;
-              if (passCtrl.text != confirmCtrl.text) {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(
-                    content: Text('Les mots de passe ne correspondent pas'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-              try {
-                await AuthService.resetPassword(userId: userId, newPassword: passCtrl.text);
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Mot de passe réinitialisé'), backgroundColor: Colors.green),
-                  );
-                }
-              } catch (e) {
-                if (ctx.mounted) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    SnackBar(content: Text('$e'), backgroundColor: Colors.red),
-                  );
-                }
-              }
-            },
-            child: const Text('Réinitialiser'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -703,18 +883,22 @@ class _PermissionsPageState extends State<PermissionsPage> {
   Future<void> _confirmDeleteUser(int userId, String login) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Supprimer l\'utilisateur'),
-        content: Text('Supprimer « $login » ?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Supprimer'),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Supprimer l\'utilisateur'),
+            content: Text('Supprimer « $login » ?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Annuler'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Supprimer'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
     if (ok == true) {
       await AuthService.deleteUser(userId);
@@ -723,8 +907,13 @@ class _PermissionsPageState extends State<PermissionsPage> {
     }
   }
 
-  TextFormField _formField(TextEditingController ctrl, String label,
-      {bool obscure = false, bool required = true, bool autofocus = false}) {
+  TextFormField _formField(
+    TextEditingController ctrl,
+    String label, {
+    bool obscure = false,
+    bool required = true,
+    bool autofocus = false,
+  }) {
     return TextFormField(
       controller: ctrl,
       obscureText: obscure,
@@ -734,9 +923,10 @@ class _PermissionsPageState extends State<PermissionsPage> {
         border: const OutlineInputBorder(),
         isDense: true,
       ),
-      validator: required
-          ? (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null
-          : null,
+      validator:
+          required
+              ? (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null
+              : null,
     );
   }
 
@@ -744,24 +934,28 @@ class _PermissionsPageState extends State<PermissionsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: widget.showAppBar
-          ? AppBar(
-              title: const Text('Autorisations d\'accès'),
-              backgroundColor: Colors.lightBlue.shade600,
-              foregroundColor: Colors.white,
-            )
-          : null,
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+      appBar:
+          widget.showAppBar
+              ? AppBar(
+                title: const Text('Autorisations d\'accès'),
+                backgroundColor: Colors.lightBlue.shade600,
+                foregroundColor: Colors.white,
+              )
+              : null,
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? Center(
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              )
               : Row(
-                  children: [
-                    _buildUserPanel(),
-                    const VerticalDivider(width: 1),
-                    Expanded(child: _buildPermissionsPanel()),
-                  ],
-                ),
+                children: [
+                  _buildUserPanel(),
+                  const VerticalDivider(width: 1),
+                  Expanded(child: _buildPermissionsPanel()),
+                ],
+              ),
     );
   }
 
@@ -810,103 +1004,127 @@ class _PermissionsPageState extends State<PermissionsPage> {
           ),
           const Divider(height: 1),
           Expanded(
-            child: _users.isEmpty
-                ? Center(
-                    child: Text(
-                      'Aucun utilisateur',
-                      style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: _users.length,
-                    itemBuilder: (_, i) {
-                      final user      = _users[i];
-                      final uid       = user['id'] as int;
-                      final login     = user['login']?.toString() ?? '';
-                      final nom       = user['nom']?.toString() ?? '';
-                      final prenom    = user['prenom']?.toString() ?? '';
-                      final fullName  = [prenom, nom].where((s) => s.isNotEmpty).join(' ');
-                      final isSelected = uid == _selectedUserId;
-                      final isActive  = user['is_active'] == null ||
-                          user['is_active'] == 1 ||
-                          user['is_active'] == true;
+            child:
+                _users.isEmpty
+                    ? Center(
+                      child: Text(
+                        'Aucun utilisateur',
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 13,
+                        ),
+                      ),
+                    )
+                    : ListView.builder(
+                      itemCount: _users.length,
+                      itemBuilder: (_, i) {
+                        final user = _users[i];
+                        final uid = user['id'] as int;
+                        final login = user['login']?.toString() ?? '';
+                        final nom = user['nom']?.toString() ?? '';
+                        final prenom = user['prenom']?.toString() ?? '';
+                        final fullName = [
+                          prenom,
+                          nom,
+                        ].where((s) => s.isNotEmpty).join(' ');
+                        final isSelected = uid == _selectedUserId;
+                        final isActive =
+                            user['is_active'] == null ||
+                            user['is_active'] == 1 ||
+                            user['is_active'] == true;
 
-                      return ListTile(
-                        dense: true,
-                        selected: isSelected,
-                        selectedTileColor: Colors.blue.shade50,
-                        leading: CircleAvatar(
-                          radius: 16,
-                          backgroundColor: isSelected
-                              ? Colors.blue.shade200
-                              : Colors.grey.shade200,
-                          child: Text(
-                            login.isNotEmpty ? login[0].toUpperCase() : '?',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: isSelected
-                                  ? Colors.blue.shade800
-                                  : Colors.grey.shade600,
+                        return ListTile(
+                          dense: true,
+                          selected: isSelected,
+                          selectedTileColor: Colors.blue.shade50,
+                          leading: CircleAvatar(
+                            radius: 16,
+                            backgroundColor:
+                                isSelected
+                                    ? Colors.blue.shade200
+                                    : Colors.grey.shade200,
+                            child: Text(
+                              login.isNotEmpty ? login[0].toUpperCase() : '?',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color:
+                                    isSelected
+                                        ? Colors.blue.shade800
+                                        : Colors.grey.shade600,
+                              ),
                             ),
                           ),
-                        ),
-                        title: Text(
-                          login,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: isActive ? null : Colors.grey.shade500,
+                          title: Text(
+                            login,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isActive ? null : Colors.grey.shade500,
+                            ),
                           ),
-                        ),
-                        subtitle: Text(
-                          [
-                            if (fullName.isNotEmpty) fullName,
-                            if (!isActive) 'Inactif',
-                          ].join(' · '),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isActive ? null : Colors.red.shade300,
+                          subtitle: Text(
+                            [
+                              if (fullName.isNotEmpty) fullName,
+                              if (!isActive) 'Inactif',
+                            ].join(' · '),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isActive ? null : Colors.red.shade300,
+                            ),
                           ),
-                        ),
-                        onTap: () => _selectUser(uid),
-                        trailing: _canManage
-                            ? PopupMenuButton<String>(
-                                icon: const Icon(Icons.more_vert, size: 18),
-                                tooltip: 'Actions',
-                                onSelected: (action) {
-                                  switch (action) {
-                                    case 'edit':
-                                      _showEditUserDialog(user);
-                                      break;
-                                    case 'reset_password':
-                                      _showResetPasswordDialog(uid, login);
-                                      break;
-                                    case 'toggle_active':
-                                      _toggleUserActive(uid, !isActive);
-                                      break;
-                                    case 'delete':
-                                      _confirmDeleteUser(uid, login);
-                                      break;
-                                  }
-                                },
-                                itemBuilder: (ctx) => [
-                                  const PopupMenuItem(value: 'edit', child: Text('Modifier')),
-                                  const PopupMenuItem(
-                                    value: 'reset_password',
-                                    child: Text('Réinitialiser le mot de passe'),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'toggle_active',
-                                    child: Text(isActive ? 'Désactiver' : 'Réactiver'),
-                                  ),
-                                  const PopupMenuItem(value: 'delete', child: Text('Supprimer')),
-                                ],
-                              )
-                            : null,
-                      );
-                    },
-                  ),
+                          onTap: () => _selectUser(uid),
+                          trailing:
+                              _canManage
+                                  ? PopupMenuButton<String>(
+                                    icon: const Icon(Icons.more_vert, size: 18),
+                                    tooltip: 'Actions',
+                                    onSelected: (action) {
+                                      switch (action) {
+                                        case 'edit':
+                                          _showEditUserDialog(user);
+                                          break;
+                                        case 'reset_password':
+                                          _showResetPasswordDialog(uid, login);
+                                          break;
+                                        case 'toggle_active':
+                                          _toggleUserActive(uid, !isActive);
+                                          break;
+                                        case 'delete':
+                                          _confirmDeleteUser(uid, login);
+                                          break;
+                                      }
+                                    },
+                                    itemBuilder:
+                                        (ctx) => [
+                                          const PopupMenuItem(
+                                            value: 'edit',
+                                            child: Text('Modifier'),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'reset_password',
+                                            child: Text(
+                                              'Réinitialiser le mot de passe',
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'toggle_active',
+                                            child: Text(
+                                              isActive
+                                                  ? 'Désactiver'
+                                                  : 'Réactiver',
+                                            ),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'delete',
+                                            child: Text('Supprimer'),
+                                          ),
+                                        ],
+                                  )
+                                  : null,
+                        );
+                      },
+                    ),
           ),
         ],
       ),
@@ -950,12 +1168,17 @@ class _PermissionsPageState extends State<PermissionsPage> {
               if (_canManage)
                 FilledButton.icon(
                   onPressed: _isSaving ? null : _save,
-                  icon: _isSaving
-                      ? const SizedBox(
-                          width: 16, height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.save_outlined, size: 18),
+                  icon:
+                      _isSaving
+                          ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                          : const Icon(Icons.save_outlined, size: 18),
                   label: const Text('Enregistrer'),
                 ),
             ],
@@ -993,8 +1216,10 @@ class _PermissionsPageState extends State<PermissionsPage> {
             children: const [
               Expanded(
                 flex: 3,
-                child: Text('Sous-menu',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                child: Text(
+                  'Sous-menu',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                ),
               ),
               _ColHeader(label: 'Lecture'),
               _ColHeader(label: 'Ajout'),
@@ -1014,12 +1239,13 @@ class _PermissionsPageState extends State<PermissionsPage> {
 
     for (final section in _sections) {
       final sectionLabel = section.$1;
-      final sectionNoms  = section.$2;
+      final sectionNoms = section.$2;
 
-      final sectionModules = sectionNoms
-          .map((nom) => _modules.where((m) => m['nom'] == nom).firstOrNull)
-          .whereType<Map<String, dynamic>>()
-          .toList();
+      final sectionModules =
+          sectionNoms
+              .map((nom) => _modules.where((m) => m['nom'] == nom).firstOrNull)
+              .whereType<Map<String, dynamic>>()
+              .toList();
 
       if (sectionModules.isEmpty) continue;
 
@@ -1041,9 +1267,9 @@ class _PermissionsPageState extends State<PermissionsPage> {
       );
 
       for (int i = 0; i < sectionModules.length; i++) {
-        final module   = sectionModules[i];
+        final module = sectionModules[i];
         final moduleId = module['id'] as int;
-        final perms    = _permissionsByModule[moduleId] ?? {};
+        final perms = _permissionsByModule[moduleId] ?? {};
 
         widgets.add(
           Padding(
@@ -1059,27 +1285,32 @@ class _PermissionsPageState extends State<PermissionsPage> {
                 ),
                 _PermToggle(
                   value: perms['lecture'] == true,
-                  onChanged: _canManage
-                      ? (v) => _togglePermission(moduleId, 'lecture', v)
-                      : null,
+                  onChanged:
+                      _canManage
+                          ? (v) => _togglePermission(moduleId, 'lecture', v)
+                          : null,
                 ),
                 _PermToggle(
                   value: perms['ajout'] == true,
-                  onChanged: _canManage
-                      ? (v) => _togglePermission(moduleId, 'ajout', v)
-                      : null,
+                  onChanged:
+                      _canManage
+                          ? (v) => _togglePermission(moduleId, 'ajout', v)
+                          : null,
                 ),
                 _PermToggle(
                   value: perms['modification'] == true,
-                  onChanged: _canManage
-                      ? (v) => _togglePermission(moduleId, 'modification', v)
-                      : null,
+                  onChanged:
+                      _canManage
+                          ? (v) =>
+                              _togglePermission(moduleId, 'modification', v)
+                          : null,
                 ),
                 _PermToggle(
                   value: perms['suppression'] == true,
-                  onChanged: _canManage
-                      ? (v) => _togglePermission(moduleId, 'suppression', v)
-                      : null,
+                  onChanged:
+                      _canManage
+                          ? (v) => _togglePermission(moduleId, 'suppression', v)
+                          : null,
                 ),
               ],
             ),
@@ -1099,20 +1330,20 @@ class _PermissionsPageState extends State<PermissionsPage> {
 
   String _formatModuleName(String raw) {
     const names = {
-      'identification':     'Identification',
-      'plan_comptable':     'Plan comptable',
-      'liste_tiers':        'Liste des tiers',
-      'codes_journaux':     'Codes journaux',
-      'liste_bailleurs':    'Liste des bailleurs',
-      'liste_projets':      'Liste des projets',
-      'gestion_budgets':    'Gestion des budgets',
-      'saisie_comptable':   'Saisie comptable',
+      'identification': 'Identification',
+      'plan_comptable': 'Plan comptable',
+      'liste_tiers': 'Liste des tiers',
+      'codes_journaux': 'Codes journaux',
+      'liste_bailleurs': 'Liste des bailleurs',
+      'liste_projets': 'Liste des projets',
+      'gestion_budgets': 'Gestion des budgets',
+      'saisie_comptable': 'Saisie comptable',
       'journaux_de_saisie': 'Journaux de saisie',
-      'interrogations':     'Interrogations & Lettrages',
-      'balance_comptes':    'Balance des comptes',
-      'grand_livre':        'Grand livre',
-      'journal':            'Journal',
-      'exercices':          'Exercices',
+      'interrogations': 'Interrogations & Lettrages',
+      'balance_comptes': 'Balance des comptes',
+      'grand_livre': 'Grand livre',
+      'journal': 'Journal',
+      'exercices': 'Exercices',
     };
     return names[raw] ?? raw;
   }
@@ -1147,7 +1378,7 @@ class _PermToggle extends StatelessWidget {
       child: Switch(
         value: value,
         onChanged: onChanged,
-        activeThumbColor: Colors.blue.shade600,
+        activeTrackColor: Colors.blue.shade600,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     );

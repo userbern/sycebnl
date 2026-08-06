@@ -30,11 +30,17 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
   int _currentPage = 1;
 
   bool get _canCreate =>
-      widget.userSession == null ? true : widget.userSession!.canCreate('liste_projets');
+      widget.userSession == null
+          ? true
+          : widget.userSession!.canCreate('liste_projets');
   bool get _canUpdate =>
-      widget.userSession == null ? true : widget.userSession!.canModify('liste_projets');
+      widget.userSession == null
+          ? true
+          : widget.userSession!.canModify('liste_projets');
   bool get _canDelete =>
-      widget.userSession == null ? true : widget.userSession!.canDelete('liste_projets');
+      widget.userSession == null
+          ? true
+          : widget.userSession!.canDelete('liste_projets');
 
   @override
   void initState() {
@@ -148,7 +154,8 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
     return filtered.sublist(start, end);
   }
 
-  int get _totalPages => math.max(1, (_filteredProjets.length / _itemsPerPage).ceil());
+  int get _totalPages =>
+      math.max(1, (_filteredProjets.length / _itemsPerPage).ceil());
 
   void _resetPagination() => setState(() => _currentPage = 1);
 
@@ -163,43 +170,46 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
     final designation = projet['designation']?.toString() ?? '';
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Confirmer la suppression'),
-          ],
-        ),
-        content: RichText(
-          text: TextSpan(
-            style: DefaultTextStyle.of(context).style,
-            children: [
-              const TextSpan(text: 'Voulez-vous vraiment supprimer le projet '),
-              TextSpan(
-                text: designation.isNotEmpty ? '"$designation"' : '"$code"',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+      builder:
+          (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('Confirmer la suppression'),
+              ],
+            ),
+            content: RichText(
+              text: TextSpan(
+                style: DefaultTextStyle.of(context).style,
+                children: [
+                  const TextSpan(
+                    text: 'Voulez-vous vraiment supprimer le projet ',
+                  ),
+                  TextSpan(
+                    text: designation.isNotEmpty ? '"$designation"' : '"$code"',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const TextSpan(text: ' ?'),
+                ],
               ),
-              const TextSpan(text: ' ?'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context, true),
+                icon: const Icon(Icons.delete_forever),
+                label: const Text('Supprimer'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+              ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pop(context, true),
-            icon: const Icon(Icons.delete_forever),
-            label: const Text('Supprimer'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
     );
 
     if (confirm == true) {
@@ -207,13 +217,19 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
         await AuthService.deleteProjet(int.parse(projet['id'].toString()));
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Projet supprimé'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Projet supprimé'),
+            backgroundColor: Colors.green,
+          ),
         );
         _loadData();
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: ${e.toString()}'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -247,80 +263,96 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
-        appBar: widget.showAppBar
-            ? AppBar(
-                title: const Text('Projets'),
-                backgroundColor: Colors.blue.shade700,
-                foregroundColor: Colors.white,
-                elevation: 0,
-              )
-            : null,
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // En-tête
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isMobile = constraints.maxWidth < 650;
-                        if (isMobile) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+        appBar:
+            widget.showAppBar
+                ? AppBar(
+                  title: const Text('Projets'),
+                  backgroundColor: Colors.blue.shade700,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                )
+                : null,
+        body:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // En-tête
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isMobile = constraints.maxWidth < 650;
+                          if (isMobile) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildPageTitle(),
+                                const SizedBox(height: 12),
+                                _buildHeaderActions(),
+                              ],
+                            );
+                          }
+                          return Row(
                             children: [
                               _buildPageTitle(),
-                              const SizedBox(height: 12),
+                              const Spacer(),
                               _buildHeaderActions(),
                             ],
                           );
-                        }
-                        return Row(
-                          children: [
-                            _buildPageTitle(),
-                            const Spacer(),
-                            _buildHeaderActions(),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    _buildFilterBar(),
-                    const SizedBox(height: 12),
-                    // Compteur
-                    Text(
-                      '${_filteredProjets.length} projet${_filteredProjets.length > 1 ? 's' : ''}',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
-                    ),
-                    const SizedBox(height: 12),
-                    // Contenu
-                    Expanded(
-                      child: _filteredProjets.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.folder_outlined, size: 80, color: Colors.grey.shade300),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    _searchQuery.isEmpty ? 'Aucun projet. Cliquez sur "Nouveau projet"' : 'Aucun projet trouvé',
-                                    style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      _buildFilterBar(),
+                      const SizedBox(height: 12),
+                      // Compteur
+                      Text(
+                        '${_filteredProjets.length} projet${_filteredProjets.length > 1 ? 's' : ''}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade500,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Contenu
+                      Expanded(
+                        child:
+                            _filteredProjets.isEmpty
+                                ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.folder_outlined,
+                                        size: 80,
+                                        color: Colors.grey.shade300,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        _searchQuery.isEmpty
+                                            ? 'Aucun projet. Cliquez sur "Nouveau projet"'
+                                            : 'Aucun projet trouvé',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            )
-                          : Column(
-                              children: [
-                                Expanded(child: _buildMainContent()),
-                                const SizedBox(height: 12),
-                                _buildPaginationControls(),
-                              ],
-                            ),
-                    ),
-                  ],
+                                )
+                                : Column(
+                                  children: [
+                                    Expanded(child: _buildMainContent()),
+                                    const SizedBox(height: 12),
+                                    _buildPaginationControls(),
+                                  ],
+                                ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
       ),
     );
   }
@@ -340,7 +372,11 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
         const SizedBox(width: 14),
         const Text(
           'Projets',
-          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black87),
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
         ),
       ],
     );
@@ -354,11 +390,16 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
       children: [
         ElevatedButton.icon(
           onPressed: () {
-            final data = _filteredProjets.map((p) => {
-              'code': p['code']?.toString() ?? '',
-              'designation': p['designation']?.toString() ?? '',
-              'bailleur': p['bailleur']?.toString() ?? '',
-            }).toList();
+            final data =
+                _filteredProjets
+                    .map(
+                      (p) => {
+                        'code': p['code']?.toString() ?? '',
+                        'designation': p['designation']?.toString() ?? '',
+                        'bailleur': p['bailleur']?.toString() ?? '',
+                      },
+                    )
+                    .toList();
             ExportService.exportProjetsPDF(
               projets: data,
               context: context,
@@ -376,11 +417,16 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
         ),
         ElevatedButton.icon(
           onPressed: () {
-            final data = _filteredProjets.map((p) => {
-              'code': p['code']?.toString() ?? '',
-              'designation': p['designation']?.toString() ?? '',
-              'bailleur': p['bailleur']?.toString() ?? '',
-            }).toList();
+            final data =
+                _filteredProjets
+                    .map(
+                      (p) => {
+                        'code': p['code']?.toString() ?? '',
+                        'designation': p['designation']?.toString() ?? '',
+                        'bailleur': p['bailleur']?.toString() ?? '',
+                      },
+                    )
+                    .toList();
             ExportService.exportProjetsExcel(projets: data, context: context);
           },
           icon: const Icon(Icons.table_chart, size: 16, color: Colors.white),
@@ -401,7 +447,10 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
               backgroundColor: Colors.blue.shade700,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              textStyle: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
               elevation: 3,
               shadowColor: Colors.blue.shade200,
             ),
@@ -411,7 +460,10 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
   }
 
   Widget _buildFilterBar() {
-    final hasActiveFilter = _searchQuery.isNotEmpty || _sortBy != 'code' || _filterStatus != 'actifs';
+    final hasActiveFilter =
+        _searchQuery.isNotEmpty ||
+        _sortBy != 'code' ||
+        _filterStatus != 'actifs';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -422,7 +474,11 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
           width: hasActiveFilter ? 1.5 : 1,
         ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: LayoutBuilder(
@@ -464,58 +520,131 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
 
   Widget _buildSearchField() {
     return TextField(
-      onChanged: (value) { setState(() => _searchQuery = value); _resetPagination(); },
+      onChanged: (value) {
+        setState(() => _searchQuery = value);
+        _resetPagination();
+      },
       decoration: InputDecoration(
         isDense: true,
         hintText: 'Rechercher un projet…',
         prefixIcon: Icon(Icons.search, color: Colors.grey.shade500, size: 18),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.blue.shade400, width: 1.5)),
-        filled: true, fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.blue.shade400, width: 1.5),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
       ),
     );
   }
 
   Widget _buildSortDropdown() {
     return DropdownButtonFormField<String>(
-      isExpanded: true, isDense: true, initialValue: _sortBy,
+      isExpanded: true,
+      isDense: true,
+      value: _sortBy,
       decoration: InputDecoration(
-        labelText: 'Trier par', labelStyle: const TextStyle(fontSize: 12),
+        labelText: 'Trier par',
+        labelStyle: const TextStyle(fontSize: 12),
         prefixIcon: Icon(Icons.sort, size: 18, color: Colors.grey.shade500),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.blue.shade400, width: 1.5)),
-        filled: true, fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.blue.shade400, width: 1.5),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 10,
+        ),
       ),
       items: const [
-        DropdownMenuItem(value: 'code', child: Text('Code', style: TextStyle(fontSize: 12))),
-        DropdownMenuItem(value: 'designation', child: Text('Désignation', style: TextStyle(fontSize: 12))),
+        DropdownMenuItem(
+          value: 'code',
+          child: Text('Code', style: TextStyle(fontSize: 12)),
+        ),
+        DropdownMenuItem(
+          value: 'designation',
+          child: Text('Désignation', style: TextStyle(fontSize: 12)),
+        ),
       ],
-      onChanged: (value) { setState(() => _sortBy = value ?? 'code'); _resetPagination(); },
+      onChanged: (value) {
+        setState(() => _sortBy = value ?? 'code');
+        _resetPagination();
+      },
     );
   }
 
   Widget _buildStatusDropdown() {
     return DropdownButtonFormField<String>(
-      isExpanded: true, isDense: true, initialValue: _filterStatus,
+      isExpanded: true,
+      isDense: true,
+      value: _filterStatus,
       decoration: InputDecoration(
-        labelText: 'Statut', labelStyle: const TextStyle(fontSize: 12),
-        prefixIcon: Icon(Icons.filter_alt, size: 18, color: Colors.grey.shade500),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.blue.shade400, width: 1.5)),
-        filled: true, fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        labelText: 'Statut',
+        labelStyle: const TextStyle(fontSize: 12),
+        prefixIcon: Icon(
+          Icons.filter_alt,
+          size: 18,
+          color: Colors.grey.shade500,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.blue.shade400, width: 1.5),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 10,
+        ),
       ),
       items: const [
-        DropdownMenuItem(value: 'actifs', child: Text('Actifs', style: TextStyle(fontSize: 12))),
-        DropdownMenuItem(value: 'inactifs', child: Text('Inactifs', style: TextStyle(fontSize: 12))),
-        DropdownMenuItem(value: 'tous', child: Text('Tous', style: TextStyle(fontSize: 12))),
+        DropdownMenuItem(
+          value: 'actifs',
+          child: Text('Actifs', style: TextStyle(fontSize: 12)),
+        ),
+        DropdownMenuItem(
+          value: 'inactifs',
+          child: Text('Inactifs', style: TextStyle(fontSize: 12)),
+        ),
+        DropdownMenuItem(
+          value: 'tous',
+          child: Text('Tous', style: TextStyle(fontSize: 12)),
+        ),
       ],
-      onChanged: (value) { setState(() => _filterStatus = value ?? 'actifs'); _resetPagination(); },
+      onChanged: (value) {
+        setState(() => _filterStatus = value ?? 'actifs');
+        _resetPagination();
+      },
     );
   }
 
@@ -525,17 +654,30 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: () {
-          setState(() { _searchQuery = ''; _sortBy = 'code'; _filterStatus = 'actifs'; });
+          setState(() {
+            _searchQuery = '';
+            _sortBy = 'code';
+            _filterStatus = 'actifs';
+          });
           _resetPagination();
         },
         child: Container(
-          width: 38, height: 38,
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
             color: hasActiveFilter ? Colors.blue.shade50 : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: hasActiveFilter ? Colors.blue.shade300 : Colors.grey.shade300),
+            border: Border.all(
+              color:
+                  hasActiveFilter ? Colors.blue.shade300 : Colors.grey.shade300,
+            ),
           ),
-          child: Icon(Icons.clear, size: 18, color: hasActiveFilter ? Colors.blue.shade600 : Colors.grey.shade500),
+          child: Icon(
+            Icons.clear,
+            size: 18,
+            color:
+                hasActiveFilter ? Colors.blue.shade600 : Colors.grey.shade500,
+          ),
         ),
       ),
     );
@@ -547,7 +689,8 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
         if (constraints.maxWidth < 650) {
           return ListView.builder(
             itemCount: _paginatedProjets.length,
-            itemBuilder: (context, index) => _buildMobileCard(_paginatedProjets[index]),
+            itemBuilder:
+                (context, index) => _buildMobileCard(_paginatedProjets[index]),
           );
         }
         return Container(
@@ -555,35 +698,61 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey.shade200),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: SingleChildScrollView(
               child: LayoutBuilder(
                 builder: (context, inner) {
-                  final tw = inner.maxWidth.isFinite ? inner.maxWidth : (MediaQuery.of(context).size.width - 48);
-                  double cw(double v, double mn, double mxf) => v.clamp(mn, math.max(mn, tw * mxf));
-                  final codeW   = cw(tw * 0.13, 80,  0.16);
-                  final desigW  = cw(tw * 0.30, 150, 0.38);
-                  final bailW   = cw(tw * 0.25, 120, 0.30);
-                  final dateW   = cw(tw * 0.12, 80,  0.15);
-                  final actW    = cw(tw * 0.08, 60,  0.12);
+                  final tw =
+                      inner.maxWidth.isFinite
+                          ? inner.maxWidth
+                          : (MediaQuery.of(context).size.width - 48);
+                  double cw(double v, double mn, double mxf) =>
+                      v.clamp(mn, math.max(mn, tw * mxf));
+                  final codeW = cw(tw * 0.13, 80, 0.16);
+                  final desigW = cw(tw * 0.30, 150, 0.38);
+                  final bailW = cw(tw * 0.25, 120, 0.30);
+                  final dateW = cw(tw * 0.12, 80, 0.15);
+                  final actW = cw(tw * 0.08, 60, 0.12);
                   return SizedBox(
                     width: tw,
                     child: DataTable(
-                      headingRowColor: WidgetStateProperty.all(Colors.blue.shade700),
+                      headingRowColor: WidgetStateProperty.all(
+                        Colors.blue.shade700,
+                      ),
                       headingRowHeight: 22,
-                      headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.3),
+                      headingTextStyle: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        letterSpacing: 0.3,
+                      ),
                       dataRowMinHeight: 20,
                       dataRowMaxHeight: 24,
                       columnSpacing: 8,
                       horizontalMargin: 12,
                       dividerThickness: 0.5,
                       border: TableBorder(
-                        horizontalInside: BorderSide(color: Colors.grey.shade200, width: 1),
-                        verticalInside: BorderSide(color: Colors.grey.shade200, width: 1),
-                        bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+                        horizontalInside: BorderSide(
+                          color: Colors.grey.shade200,
+                          width: 1,
+                        ),
+                        verticalInside: BorderSide(
+                          color: Colors.grey.shade200,
+                          width: 1,
+                        ),
+                        bottom: BorderSide(
+                          color: Colors.grey.shade200,
+                          width: 1,
+                        ),
                       ),
                       columns: const [
                         DataColumn(label: Text('Code')),
@@ -593,28 +762,127 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                         DataColumn(label: Text('Fin')),
                         DataColumn(label: Text('Actions')),
                       ],
-                      rows: _paginatedProjets.map((p) {
-                        return DataRow(
-                          color: WidgetStateProperty.resolveWith<Color?>((states) {
-                            if (states.contains(WidgetState.hovered)) return Colors.blue.shade50;
-                            return Colors.white;
-                          }),
-                          cells: [
-                            DataCell(SizedBox(width: codeW, child: Text(p['code']?.toString() ?? '—', overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'monospace', fontSize: 11)))),
-                            DataCell(SizedBox(width: desigW, child: Text(p['designation']?.toString() ?? '—', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: Colors.grey.shade800)))),
-                            DataCell(SizedBox(width: bailW, child: Text(_getBailleursString(p), overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)))),
-                            DataCell(SizedBox(width: dateW, child: Text(_formatDate(p['date_debut']), overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)))),
-                            DataCell(SizedBox(width: dateW, child: Text(_formatDate(p['date_fin']), overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)))),
-                            DataCell(SizedBox(
-                              width: actW,
-                              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                if (_canUpdate) IconButton(icon: const Icon(Icons.edit, size: 15), color: Colors.blue.shade700, onPressed: () => _showProjetDialog(p), tooltip: 'Modifier', padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 24, minHeight: 24)),
-                                if (_canDelete) IconButton(icon: const Icon(Icons.delete, size: 15), color: Colors.red.shade700, onPressed: () => _deleteProjet(p), tooltip: 'Supprimer', padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 24, minHeight: 24)),
-                              ]),
-                            )),
-                          ],
-                        );
-                      }).toList(),
+                      rows:
+                          _paginatedProjets.map((p) {
+                            return DataRow(
+                              color: WidgetStateProperty.resolveWith<Color?>((
+                                states,
+                              ) {
+                                if (states.contains(WidgetState.hovered))
+                                  return Colors.blue.shade50;
+                                return Colors.white;
+                              }),
+                              cells: [
+                                DataCell(
+                                  SizedBox(
+                                    width: codeW,
+                                    child: Text(
+                                      p['code']?.toString() ?? '—',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'monospace',
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  SizedBox(
+                                    width: desigW,
+                                    child: Text(
+                                      p['designation']?.toString() ?? '—',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade800,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  SizedBox(
+                                    width: bailW,
+                                    child: Text(
+                                      _getBailleursString(p),
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  SizedBox(
+                                    width: dateW,
+                                    child: Text(
+                                      _formatDate(p['date_debut']),
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  SizedBox(
+                                    width: dateW,
+                                    child: Text(
+                                      _formatDate(p['date_fin']),
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  SizedBox(
+                                    width: actW,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (_canUpdate)
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.edit,
+                                              size: 15,
+                                            ),
+                                            color: Colors.blue.shade700,
+                                            onPressed:
+                                                () => _showProjetDialog(p),
+                                            tooltip: 'Modifier',
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(
+                                              minWidth: 24,
+                                              minHeight: 24,
+                                            ),
+                                          ),
+                                        if (_canDelete)
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.delete,
+                                              size: 15,
+                                            ),
+                                            color: Colors.red.shade700,
+                                            onPressed: () => _deleteProjet(p),
+                                            tooltip: 'Supprimer',
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(
+                                              minWidth: 24,
+                                              minHeight: 24,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
                     ),
                   );
                 },
@@ -637,32 +905,87 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: Colors.grey.shade200)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
       color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
-            Container(width: 4, height: 54, decoration: BoxDecoration(color: Colors.blue.shade700, borderRadius: BorderRadius.circular(2))),
+            Container(
+              width: 4,
+              height: 54,
+              decoration: BoxDecoration(
+                color: Colors.blue.shade700,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(p['code']?.toString() ?? '—', style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(
+                    p['code']?.toString() ?? '—',
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
                   const SizedBox(height: 3),
-                  Text(p['designation']?.toString() ?? '—', style: TextStyle(fontSize: 12, color: Colors.grey.shade800)),
+                  Text(
+                    p['designation']?.toString() ?? '—',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
+                  ),
                   if (_getBailleursString(p) != 'Aucun') ...[
                     const SizedBox(height: 2),
-                    Text(_getBailleursString(p), style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                    Text(
+                      _getBailleursString(p),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
                   ],
                 ],
               ),
             ),
-            Column(mainAxisSize: MainAxisSize.min, children: [
-              if (_canUpdate) IconButton(icon: Icon(Icons.edit, size: 16, color: Colors.blue.shade700), onPressed: () => _showProjetDialog(p), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 32, minHeight: 32)),
-              if (_canDelete) IconButton(icon: Icon(Icons.delete, size: 16, color: Colors.red.shade700), onPressed: () => _deleteProjet(p), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 32, minHeight: 32)),
-            ]),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_canUpdate)
+                  IconButton(
+                    icon: Icon(
+                      Icons.edit,
+                      size: 16,
+                      color: Colors.blue.shade700,
+                    ),
+                    onPressed: () => _showProjetDialog(p),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                  ),
+                if (_canDelete)
+                  IconButton(
+                    icon: Icon(
+                      Icons.delete,
+                      size: 16,
+                      color: Colors.red.shade700,
+                    ),
+                    onPressed: () => _deleteProjet(p),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
@@ -674,51 +997,145 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
     final total = _filteredProjets.length;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade200)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final isMobile = constraints.maxWidth < 500;
           if (isMobile) {
-            return Column(children: [
-              Text('Page $_currentPage / $totalPages  •  $total projet${total > 1 ? 's' : ''}', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-              const SizedBox(height: 8),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                _pagBtn(Icons.arrow_back, '', _currentPage > 1, () => setState(() => _currentPage--)),
-                const SizedBox(width: 8),
-                _pagBtn(Icons.arrow_forward, '', _currentPage < totalPages, () => setState(() => _currentPage++)),
-              ]),
-            ]);
+            return Column(
+              children: [
+                Text(
+                  'Page $_currentPage / $totalPages  •  $total projet${total > 1 ? 's' : ''}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _pagBtn(
+                      Icons.arrow_back,
+                      '',
+                      _currentPage > 1,
+                      () => setState(() => _currentPage--),
+                    ),
+                    const SizedBox(width: 8),
+                    _pagBtn(
+                      Icons.arrow_forward,
+                      '',
+                      _currentPage < totalPages,
+                      () => setState(() => _currentPage++),
+                    ),
+                  ],
+                ),
+              ],
+            );
           }
           return Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Page $_currentPage sur $totalPages  •  $total projet${total > 1 ? 's' : ''}',
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade700, fontWeight: FontWeight.w500)),
-              Row(children: [
-                _pagBtn(Icons.arrow_back, 'Précédent', _currentPage > 1, () => setState(() => _currentPage--)),
-                const SizedBox(width: 10),
-                SizedBox(
-                  width: 90,
-                  child: DropdownButtonFormField<int>(
-                    isDense: true, initialValue: _currentPage,
-                    decoration: InputDecoration(labelText: 'Page', labelStyle: const TextStyle(fontSize: 12), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), filled: true, fillColor: Colors.white, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
-                    items: List.generate(totalPages, (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}', style: const TextStyle(fontSize: 13)))),
-                    onChanged: (v) { if (v != null) setState(() => _currentPage = v); },
-                  ),
+              Text(
+                'Page $_currentPage sur $totalPages  •  $total projet${total > 1 ? 's' : ''}',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade700,
+                  fontWeight: FontWeight.w500,
                 ),
-                const SizedBox(width: 10),
-                SizedBox(
-                  width: 110,
-                  child: DropdownButtonFormField<int>(
-                    isDense: true, initialValue: _itemsPerPage,
-                    decoration: InputDecoration(labelText: 'Par page', labelStyle: const TextStyle(fontSize: 12), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), filled: true, fillColor: Colors.white, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
-                    items: [5, 10, 15, 20, 50].map((v) => DropdownMenuItem(value: v, child: Text('$v', style: const TextStyle(fontSize: 13)))).toList(),
-                    onChanged: (v) { if (v != null) setState(() { _itemsPerPage = v; _currentPage = 1; }); },
+              ),
+              Row(
+                children: [
+                  _pagBtn(
+                    Icons.arrow_back,
+                    'Précédent',
+                    _currentPage > 1,
+                    () => setState(() => _currentPage--),
                   ),
-                ),
-                const SizedBox(width: 10),
-                _pagBtn(Icons.arrow_forward, 'Suivant', _currentPage < totalPages, () => setState(() => _currentPage++)),
-              ]),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 90,
+                    child: DropdownButtonFormField<int>(
+                      isDense: true,
+                      value: _currentPage,
+                      decoration: InputDecoration(
+                        labelText: 'Page',
+                        labelStyle: const TextStyle(fontSize: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                      ),
+                      items: List.generate(
+                        totalPages,
+                        (i) => DropdownMenuItem(
+                          value: i + 1,
+                          child: Text(
+                            '${i + 1}',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                      onChanged: (v) {
+                        if (v != null) setState(() => _currentPage = v);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 110,
+                    child: DropdownButtonFormField<int>(
+                      isDense: true,
+                      value: _itemsPerPage,
+                      decoration: InputDecoration(
+                        labelText: 'Par page',
+                        labelStyle: const TextStyle(fontSize: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                      ),
+                      items:
+                          [5, 10, 15, 20, 50]
+                              .map(
+                                (v) => DropdownMenuItem(
+                                  value: v,
+                                  child: Text(
+                                    '$v',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                      onChanged: (v) {
+                        if (v != null)
+                          setState(() {
+                            _itemsPerPage = v;
+                            _currentPage = 1;
+                          });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _pagBtn(
+                    Icons.arrow_forward,
+                    'Suivant',
+                    _currentPage < totalPages,
+                    () => setState(() => _currentPage++),
+                  ),
+                ],
+              ),
             ],
           );
         },
@@ -726,7 +1143,12 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
     );
   }
 
-  Widget _pagBtn(IconData icon, String label, bool enabled, VoidCallback onPressed) {
+  Widget _pagBtn(
+    IconData icon,
+    String label,
+    bool enabled,
+    VoidCallback onPressed,
+  ) {
     return ElevatedButton.icon(
       onPressed: enabled ? onPressed : null,
       icon: Icon(icon, size: 16),
@@ -736,7 +1158,10 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
         foregroundColor: Colors.white,
         disabledBackgroundColor: Colors.grey.shade200,
         disabledForegroundColor: Colors.grey.shade500,
-        padding: EdgeInsets.symmetric(horizontal: label.isNotEmpty ? 14 : 10, vertical: 10),
+        padding: EdgeInsets.symmetric(
+          horizontal: label.isNotEmpty ? 14 : 10,
+          vertical: 10,
+        ),
         textStyle: const TextStyle(fontSize: 13),
       ),
     );

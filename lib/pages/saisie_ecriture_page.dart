@@ -1830,9 +1830,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
                   child: Autocomplete<Compte>(
-                    initialValue: TextEditingValue(
-                      text: _compteController.text,
-                    ),
+                    initialValue: TextEditingValue(text: _compteController.text),
                     displayStringForOption:
                         (Compte option) => option.numeroCompte,
                     optionsBuilder: (TextEditingValue textEditingValue) {
@@ -1996,7 +1994,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
                   child: DropdownButtonFormField<String>(
-                    initialValue: _selectedTiersNumero,
+                    value: _selectedTiersNumero,
                     decoration: InputDecoration(
                       hintText: 'Tiers',
                       border: OutlineInputBorder(
@@ -3352,7 +3350,7 @@ class _VentilationDialogState extends State<VentilationDialog> {
     required String label,
   }) {
     return DropdownButtonFormField<T>(
-      initialValue: value,
+      value: value,
       isDense: true,
       isExpanded: true,
       decoration: InputDecoration(
@@ -3405,7 +3403,7 @@ class _VentilationDialogState extends State<VentilationDialog> {
     }
 
     return DropdownButtonFormField<int?>(
-      initialValue: value,
+      value: value,
       isDense: true,
       isExpanded: true,
       decoration: InputDecoration(

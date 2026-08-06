@@ -481,7 +481,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
           final sortField = DropdownButtonFormField<String>(
             isExpanded: true,
             isDense: true,
-            initialValue: _sortBy,
+            value: _sortBy,
             decoration: InputDecoration(
               labelText: 'Trier par',
               labelStyle: const TextStyle(fontSize: 12),
@@ -527,7 +527,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
           final statusField = DropdownButtonFormField<String>(
             isExpanded: true,
             isDense: true,
-            initialValue: _filterStatus,
+            value: _filterStatus,
             decoration: InputDecoration(
               labelText: 'Statut',
               labelStyle: const TextStyle(fontSize: 12),
@@ -977,7 +977,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                     width: 90,
                     child: DropdownButtonFormField<int>(
                       isDense: true,
-                      initialValue: _currentPage,
+                      value: _currentPage,
                       decoration: InputDecoration(
                         labelText: 'Page',
                         labelStyle: const TextStyle(fontSize: 12),
@@ -1011,7 +1011,7 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
                     width: 110,
                     child: DropdownButtonFormField<int>(
                       isDense: true,
-                      initialValue: _itemsPerPage,
+                      value: _itemsPerPage,
                       decoration: InputDecoration(
                         labelText: 'Par page',
                         labelStyle: const TextStyle(fontSize: 12),

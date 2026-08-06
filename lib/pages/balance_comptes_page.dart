@@ -546,7 +546,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                         if (!_isLoadingProjets &&
                                             _projets.isNotEmpty)
                                           DropdownButtonFormField<int>(
-                                            initialValue: _projetSelectionne,
+                                            value: _projetSelectionne,
                                             isExpanded: true,
                                             menuMaxHeight: 320,
                                             decoration: InputDecoration(

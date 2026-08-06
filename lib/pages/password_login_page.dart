@@ -190,7 +190,14 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
       children: [
         Icon(icon, size: 16, color: Colors.blue.shade600),
         const SizedBox(width: 6),
-        Text(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade700,
+          ),
+        ),
       ],
     );
   }
@@ -227,7 +234,11 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: Colors.grey.shade200),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 16, offset: const Offset(0, 4)),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.07),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
             ],
           ),
           child: Column(
@@ -236,24 +247,51 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
               // En-tête
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 28),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 24,
+                  horizontal: 28,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.blue.shade700,
-                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(14), topRight: Radius.circular(14)),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(14),
+                    topRight: Radius.circular(14),
+                  ),
                 ),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-                      child: const Icon(Icons.lock_outline, color: Colors.white, size: 24),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.lock_outline,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Fichier protégé', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white)),
-                        Text(fileName, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.75)), overflow: TextOverflow.ellipsis),
+                        const Text(
+                          'Fichier protégé',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          fileName,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.75),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ],
                     ),
                   ],
@@ -278,101 +316,217 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                       ),
                       children: [
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
                           child: _label('Utilisateur', Icons.person_outline),
                         ),
                         Padding(
-                          padding: const EdgeInsets.only(right: 16, top: 10, bottom: 10),
-                          child: _users.isNotEmpty
-                              ? DropdownButtonHideUnderline(
-                                  child: DropdownButtonFormField<String>(
-                                    initialValue: _selectedLogin,
-                                    isExpanded: true,
+                          padding: const EdgeInsets.only(
+                            right: 16,
+                            top: 10,
+                            bottom: 10,
+                          ),
+                          child:
+                              _users.isNotEmpty
+                                  ? DropdownButtonHideUnderline(
+                                    child: DropdownButtonFormField<String>(
+                                      value: _selectedLogin,
+                                      isExpanded: true,
+                                      decoration: InputDecoration(
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: Colors.grey.shade300,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: Colors.grey.shade300,
+                                          ),
+                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 10,
+                                            ),
+                                        filled: true,
+                                        fillColor: Colors.white,
+                                        isDense: true,
+                                      ),
+                                      items: [
+                                        ..._users.map(
+                                          (u) => DropdownMenuItem(
+                                            value: u['login'] as String,
+                                            child: Text(
+                                              u['login'] as String,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const DropdownMenuItem(
+                                          value: '__manual__',
+                                          child: Text(
+                                            'Saisir manuellement…',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                      onChanged:
+                                          _isLoading
+                                              ? null
+                                              : (v) {
+                                                setState(() {
+                                                  if (v == '__manual__') {
+                                                    _selectedLogin = null;
+                                                    _loginController.clear();
+                                                  } else {
+                                                    _selectedLogin = v;
+                                                    _loginController.text = v!;
+                                                  }
+                                                });
+                                              },
+                                    ),
+                                  )
+                                  : TextField(
+                                    controller: _loginController,
+                                    focusNode: _loginFocusNode,
+                                    autofocus: true,
+                                    style: const TextStyle(fontSize: 13),
                                     decoration: InputDecoration(
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-                                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 10,
+                                          ),
                                       filled: true,
                                       fillColor: Colors.white,
                                       isDense: true,
                                     ),
-                                    items: [
-                                      ..._users.map((u) => DropdownMenuItem(value: u['login'] as String, child: Text(u['login'] as String, style: const TextStyle(fontSize: 13)))),
-                                      const DropdownMenuItem(value: '__manual__', child: Text('Saisir manuellement…', style: TextStyle(fontSize: 13, color: Colors.grey))),
-                                    ],
-                                    onChanged: _isLoading ? null : (v) {
-                                      setState(() {
-                                        if (v == '__manual__') { _selectedLogin = null; _loginController.clear(); }
-                                        else { _selectedLogin = v; _loginController.text = v!; }
-                                      });
-                                    },
+                                    enabled: !_isLoading,
                                   ),
-                                )
-                              : TextField(
-                                  controller: _loginController,
-                                  focusNode: _loginFocusNode,
-                                  autofocus: true,
-                                  style: const TextStyle(fontSize: 13),
-                                  decoration: InputDecoration(
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                    filled: true, fillColor: Colors.white, isDense: true,
-                                  ),
-                                  enabled: !_isLoading,
-                                ),
                         ),
                       ],
                     ),
 
                     // Séparateur
-                    TableRow(children: [
-                      Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
-                      Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
-                    ]),
+                    TableRow(
+                      children: [
+                        Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: Colors.grey.shade200,
+                        ),
+                        Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: Colors.grey.shade200,
+                        ),
+                      ],
+                    ),
 
                     // Ligne saisie manuelle (si sélectionné)
                     if (_selectedLogin == null && _users.isNotEmpty) ...[
                       TableRow(
-                        decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(8)),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         children: [
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
                             child: _label('Login', Icons.edit_outlined),
                           ),
                           Padding(
-                            padding: const EdgeInsets.only(right: 16, top: 10, bottom: 10),
+                            padding: const EdgeInsets.only(
+                              right: 16,
+                              top: 10,
+                              bottom: 10,
+                            ),
                             child: TextField(
                               controller: _loginController,
                               autofocus: true,
                               style: const TextStyle(fontSize: 13),
                               decoration: InputDecoration(
                                 hintText: 'Entrez votre login',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.orange.shade300)),
-                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.orange.shade300)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                filled: true, fillColor: Colors.white, isDense: true,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(
+                                    color: Colors.orange.shade300,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(
+                                    color: Colors.orange.shade300,
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                filled: true,
+                                fillColor: Colors.white,
+                                isDense: true,
                               ),
                               enabled: !_isLoading,
                             ),
                           ),
                         ],
                       ),
-                      TableRow(children: [
-                        Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
-                        Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
-                      ]),
+                      TableRow(
+                        children: [
+                          Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: Colors.grey.shade200,
+                          ),
+                          Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: Colors.grey.shade200,
+                          ),
+                        ],
+                      ),
                     ],
 
                     // Ligne Mot de passe
                     TableRow(
-                      decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(8)),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                       children: [
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
                           child: _label('Mot de passe', Icons.key_outlined),
                         ),
                         Padding(
-                          padding: const EdgeInsets.only(right: 16, top: 10, bottom: 10),
+                          padding: const EdgeInsets.only(
+                            right: 16,
+                            top: 10,
+                            bottom: 10,
+                          ),
                           child: TextField(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
@@ -380,15 +534,42 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                             enabled: !_isLoading,
                             style: const TextStyle(fontSize: 13),
                             decoration: InputDecoration(
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              filled: true, fillColor: Colors.white, isDense: true,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade300,
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade300,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                              isDense: true,
                               suffixIcon: IconButton(
-                                icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 18),
-                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                  size: 18,
+                                ),
+                                onPressed:
+                                    () => setState(
+                                      () =>
+                                          _obscurePassword = !_obscurePassword,
+                                    ),
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                constraints: const BoxConstraints(
+                                  minWidth: 36,
+                                  minHeight: 36,
+                                ),
                               ),
                             ),
                           ),
@@ -407,14 +588,34 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                   height: 44,
                   child: ElevatedButton.icon(
                     onPressed: _isLoading ? null : _login,
-                    icon: _isLoading
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Icon(Icons.login, color: Colors.white, size: 18),
-                    label: Text(_isLoading ? 'Connexion…' : 'Se connecter', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    icon:
+                        _isLoading
+                            ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                            : const Icon(
+                              Icons.login,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                    label: Text(
+                      _isLoading ? 'Connexion…' : 'Se connecter',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue.shade700,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                       elevation: 2,
                     ),
                   ),

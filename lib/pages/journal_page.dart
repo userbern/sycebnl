@@ -60,10 +60,11 @@ class _JournalPageState extends State<JournalPage> {
   Future<void> _pickCodeJournal() async {
     final result = await showDialog<String>(
       context: context,
-      builder: (context) => _JournalSearchDialog(
-        journals: _journals,
-        selected: _selectedCodeJournal,
-      ),
+      builder:
+          (context) => _JournalSearchDialog(
+            journals: _journals,
+            selected: _selectedCodeJournal,
+          ),
     );
     if (result != null) {
       setState(() => _selectedCodeJournal = result);
@@ -90,23 +91,26 @@ class _JournalPageState extends State<JournalPage> {
 
   Widget _buildPeriodDropdown({required bool isStart}) {
     final months = _exerciceMonths();
-    final selectedMonth = isStart
-        ? (_moisDebut != null && _anneeDebut != null
-            ? DateTime(_anneeDebut!, _moisDebut!)
-            : null)
-        : (_moisFin != null && _anneeFin != null
-            ? DateTime(_anneeFin!, _moisFin!)
-            : null);
+    final selectedMonth =
+        isStart
+            ? (_moisDebut != null && _anneeDebut != null
+                ? DateTime(_anneeDebut!, _moisDebut!)
+                : null)
+            : (_moisFin != null && _anneeFin != null
+                ? DateTime(_anneeFin!, _moisFin!)
+                : null);
 
-    final validValue = months.any(
-          (m) =>
-              m.year == selectedMonth?.year && m.month == selectedMonth?.month,
-        )
-        ? selectedMonth
-        : null;
+    final validValue =
+        months.any(
+              (m) =>
+                  m.year == selectedMonth?.year &&
+                  m.month == selectedMonth?.month,
+            )
+            ? selectedMonth
+            : null;
 
     return DropdownButtonFormField<DateTime>(
-      initialValue: validValue,
+      value: validValue,
       decoration: InputDecoration(
         labelText: isStart ? 'Début' : 'Fin',
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -126,14 +130,15 @@ class _JournalPageState extends State<JournalPage> {
         fillColor: Colors.white,
       ),
       hint: const Text('Sélectionner'),
-      items: months
-          .map(
-            (m) => DropdownMenuItem<DateTime>(
-              value: m,
-              child: Text('${_getMonthLabel(m.month)} ${m.year}'),
-            ),
-          )
-          .toList(),
+      items:
+          months
+              .map(
+                (m) => DropdownMenuItem<DateTime>(
+                  value: m,
+                  child: Text('${_getMonthLabel(m.month)} ${m.year}'),
+                ),
+              )
+              .toList(),
       onChanged: (value) {
         if (value == null) return;
         setState(() {
@@ -151,8 +156,18 @@ class _JournalPageState extends State<JournalPage> {
 
   String _getMonthLabel(int month) {
     const months = [
-      'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+      'Janvier',
+      'Février',
+      'Mars',
+      'Avril',
+      'Mai',
+      'Juin',
+      'Juillet',
+      'Août',
+      'Septembre',
+      'Octobre',
+      'Novembre',
+      'Décembre',
     ];
     return months[month - 1];
   }
@@ -182,16 +197,17 @@ class _JournalPageState extends State<JournalPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => JournalResultsPage(
-          codeJournal:
-              _selectedCodeJournal != 'ALL' ? _selectedCodeJournal : null,
-          moisDebut: _moisDebut,
-          anneeDebut: _anneeDebut,
-          moisFin: _moisFin,
-          anneeFin: _anneeFin,
-          typeEtat: _typeEtat,
-          showAppBar: true,
-        ),
+        builder:
+            (context) => JournalResultsPage(
+              codeJournal:
+                  _selectedCodeJournal != 'ALL' ? _selectedCodeJournal : null,
+              moisDebut: _moisDebut,
+              anneeDebut: _anneeDebut,
+              moisFin: _moisFin,
+              anneeFin: _anneeFin,
+              typeEtat: _typeEtat,
+              showAppBar: true,
+            ),
       ),
     );
   }
@@ -212,31 +228,32 @@ class _JournalPageState extends State<JournalPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Center(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 680),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 32,
-                    ),
-                    child: Column(
-                      children: [
-                        /* _buildHeaderCard(), */
-                        const SizedBox(height: 20),
-                        _buildFiltersCard(),
-                      ],
+        child:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : Center(
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 680),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 32,
+                      ),
+                      child: Column(
+                        children: [
+                          /* _buildHeaderCard(), */
+                          const SizedBox(height: 20),
+                          _buildFiltersCard(),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
       ),
     );
   }
 
-/*   Widget _buildHeaderCard() {
+  /*   Widget _buildHeaderCard() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(28),
@@ -427,8 +444,7 @@ class _JournalPageState extends State<JournalPage> {
           color: selected ? Colors.blue : Colors.grey.shade400,
           width: selected ? 1.5 : 1,
         ),
-        foregroundColor:
-            selected ? Colors.blue : Colors.grey.shade700,
+        foregroundColor: selected ? Colors.blue : Colors.grey.shade700,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
@@ -467,10 +483,11 @@ class _JournalSearchDialogState extends State<_JournalSearchDialog> {
   void _onSearch() {
     final q = _searchController.text.toLowerCase();
     setState(() {
-      _filtered = widget.journals.where((j) {
-        return j.code.toLowerCase().contains(q) ||
-            j.intitule.toLowerCase().contains(q);
-      }).toList();
+      _filtered =
+          widget.journals.where((j) {
+            return j.code.toLowerCase().contains(q) ||
+                j.intitule.toLowerCase().contains(q);
+          }).toList();
     });
   }
 
@@ -519,9 +536,8 @@ class _JournalSearchDialogState extends State<_JournalSearchDialog> {
                   ListTile(
                     leading: Icon(
                       Icons.all_inclusive,
-                      color: widget.selected == 'ALL'
-                          ? Colors.blue
-                          : Colors.blue,
+                      color:
+                          widget.selected == 'ALL' ? Colors.blue : Colors.blue,
                     ),
                     title: const Text('Tous les codes journaux'),
                     selected: widget.selected == 'ALL',
@@ -532,17 +548,19 @@ class _JournalSearchDialogState extends State<_JournalSearchDialog> {
                   ..._filtered.map(
                     (j) => ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: widget.selected == j.code
-                            ? Colors.blue.shade100
-                            : Colors.grey.shade100,
+                        backgroundColor:
+                            widget.selected == j.code
+                                ? Colors.blue.shade100
+                                : Colors.grey.shade100,
                         child: Text(
                           j.code.length > 2 ? j.code.substring(0, 2) : j.code,
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: widget.selected == j.code
-                                ? Colors.blue
-                                : Colors.blue,
+                            color:
+                                widget.selected == j.code
+                                    ? Colors.blue
+                                    : Colors.blue,
                           ),
                         ),
                       ),

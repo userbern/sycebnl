@@ -353,7 +353,7 @@ class _JournalPeriodeSelectionPageState
               ),
               const SizedBox(height: 20),
               DropdownButtonFormField<String>(
-                initialValue: _selectedJournalValue,
+                value: _selectedJournalValue,
                 decoration: _buildDropdownDecoration('Journal'),
                 isExpanded: true,
                 hint: const Text('Sélectionnez un journal'),
@@ -372,7 +372,7 @@ class _JournalPeriodeSelectionPageState
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
-                initialValue: _selectedMoisValue,
+                value: _selectedMoisValue,
                 decoration: _buildDropdownDecoration('Mois de saisie'),
                 isExpanded: true,
                 menuMaxHeight: 320,

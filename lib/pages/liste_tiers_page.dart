@@ -1550,7 +1550,6 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                         'numeroCompte': t.numeroCompte,
                         'intitule': t.intitule,
                         'type': t.type.toLabel(),
-                        'nif': t.nif ?? '',
                         'compteCollectif': t.compteCollectif,
                       },
                     )
@@ -1579,7 +1578,6 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
                         'numeroCompte': t.numeroCompte,
                         'intitule': t.intitule,
                         'type': t.type.toLabel(),
-                        'nif': t.nif ?? '',
                         'compteCollectif': t.compteCollectif,
                       },
                     )

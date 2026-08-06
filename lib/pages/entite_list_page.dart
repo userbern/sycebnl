@@ -242,7 +242,7 @@ class _EntiteListPageState extends State<EntiteListPage> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: DropdownButtonFormField<String>(
-                                initialValue: selectedOngType,
+                                value: selectedOngType,
                                 decoration: InputDecoration(
                                   labelText: 'Forme juridique',
                                   prefixIcon: const Icon(Icons.account_balance),

@@ -90,8 +90,8 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
       final periodes =
           exercice != null && exercice.id != null
               ? await SaisieComptableService.getJournalPeriodes(
-                  exerciceId: exercice.id!,
-                )
+                exerciceId: exercice.id!,
+              )
               : <JournalPeriode>[];
       final entriesByPeriode =
           await SaisieComptableService.getEcritureCountsByPeriode();
@@ -311,18 +311,18 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
       appBar:
           widget.showAppBar
               ? AppBar(
-                  title: const Text('Journaux de saisie'),
-                  backgroundColor: Colors.blue.shade200,
-                  elevation: 0,
-                )
+                title: const Text('Journaux de saisie'),
+                backgroundColor: Colors.blue.shade200,
+                elevation: 0,
+              )
               : null,
       body:
           _isLoading
               ? const Center(child: CircularProgressIndicator())
               : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [_buildHeader(), Expanded(child: _buildBody())],
-                ),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [_buildHeader(), Expanded(child: _buildBody())],
+              ),
     );
   }
 
@@ -370,9 +370,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
                 final total = _rows.length;
                 final filtered = _filteredRows.length;
                 final infoText =
-                    _hasActiveFilters
-                        ? '$filtered / $total'
-                        : '$total entrées';
+                    _hasActiveFilters ? '$filtered / $total' : '$total entrées';
                 return Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -620,7 +618,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
                   width: isNarrow ? constraints.maxWidth : 170,
                   height: 36,
                   child: DropdownButtonFormField<String?>(
-                    initialValue: _selectedMonthValue(monthOptions),
+                    value: _selectedMonthValue(monthOptions),
                     isExpanded: true,
                     style: const TextStyle(fontSize: 12, color: Colors.black87),
                     decoration: InputDecoration(
@@ -682,7 +680,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
                   width: isNarrow ? constraints.maxWidth : 130,
                   height: 36,
                   child: DropdownButtonFormField<int>(
-                    initialValue: _selectedYear ?? 0,
+                    value: _selectedYear ?? 0,
                     isExpanded: true,
                     style: const TextStyle(fontSize: 12, color: Colors.black87),
                     decoration: InputDecoration(
@@ -866,10 +864,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
               ),
             ),
             DataColumn(
-              label: Text(
-                'Statut',
-                style: TextStyle(color: Colors.white),
-              ),
+              label: Text('Statut', style: TextStyle(color: Colors.white)),
             ),
           ],
           rows: rows.map(_buildDataRow).toList(),

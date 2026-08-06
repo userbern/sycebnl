@@ -12420,7 +12420,7 @@ kotlin.jvm.internal.ReflectionFactory:
 kotlin.random.AbstractPlatformRandom:
     public abstract int nextInt()
 kotlin.random.FallbackThreadLocalRandom$implStorage$1:
-    public static java.util.Random initialValue()
+    public static java.util.Random value()
 kotlin.random.Random$Default:
     public final int nextInt()
 kotlin.random.Random:

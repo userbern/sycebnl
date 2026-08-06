@@ -3076,7 +3076,7 @@ class __CreateBudgetDialogState extends State<_CreateBudgetDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<int>(
-              initialValue: selectedProjetId,
+              value: selectedProjetId,
               autofocus: true,
               hint: const Text('Sélectionner un projet'),
               items:
@@ -3121,7 +3121,7 @@ class __CreateBudgetDialogState extends State<_CreateBudgetDialog> {
               )
             else
               DropdownButtonFormField<int>(
-                initialValue: selectedBailleurId,
+                value: selectedBailleurId,
                 hint: const Text('Sélectionner un bailleur'),
                 items:
                     bailleursFiltres
