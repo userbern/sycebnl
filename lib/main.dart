@@ -130,13 +130,22 @@ class _MyAppState extends State<MyApp> with WindowListener {
           ),
         );
       }
+      final closeStopwatch = Stopwatch()..start();
       if (DatabaseService.isConnected) {
         await DatabaseService.database.close();
+        debugPrint(
+            '[Fermeture] DB fermée en ${closeStopwatch.elapsedMilliseconds} ms');
       }
       if (DossierCryptoService.hasOpenEncryptedSession) {
+        closeStopwatch.reset();
         await DossierCryptoService.closeOpenSessionAndReencrypt();
+        debugPrint(
+            '[Fermeture] Rechiffrement terminé en ${closeStopwatch.elapsedMilliseconds} ms');
       }
+      closeStopwatch.reset();
       await windowManager.destroy();
+      debugPrint(
+          '[Fermeture] windowManager.destroy() en ${closeStopwatch.elapsedMilliseconds} ms');
     }
   }
 

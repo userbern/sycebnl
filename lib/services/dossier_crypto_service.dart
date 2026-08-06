@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:cryptography/cryptography.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -424,20 +425,29 @@ class DossierCryptoService {
     final wrappedByRecovery =
         oldBytes.sublist(offset, offset + _wrappedKeyLength);
 
+    final sw = Stopwatch()..start();
     List<int> dataKeyBytes;
     try {
       dataKeyBytes = await _unwrapDataKey(wrappedByPassword, password, passwordSalt);
     } on SecretBoxAuthenticationError {
       throw WrongPasswordException();
     }
+    debugPrint('[Crypto] Argon2id (unwrap clé) : ${sw.elapsedMilliseconds} ms');
 
+    sw.reset();
     final plainBytes = await File(tempPath).readAsBytes();
+    debugPrint(
+        '[Crypto] Lecture fichier temp (${plainBytes.length} octets) : ${sw.elapsedMilliseconds} ms');
+
+    sw.reset();
     final nonce = _randomBytes(_nonceLength);
     final secretBox = await _aesGcm.encrypt(
       plainBytes,
       secretKey: SecretKey(dataKeyBytes),
       nonce: nonce,
     );
+    debugPrint('[Crypto] AES-256-GCM chiffrement : ${sw.elapsedMilliseconds} ms');
+    sw.reset();
 
     final header = BytesBuilder()
       ..add(_magic)

@@ -54,6 +54,8 @@ mounir  →  develop
 
 Après validation, fusionner le Pull Request.
 
+git pull origin develop/main en local
+
 > Il est aussi possible de faire le merge en local, mais le Pull Request est recommandé pour garder un historique clair et détecter les conflits avant la fusion.
 
 ---
