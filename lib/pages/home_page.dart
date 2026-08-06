@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:sycebnl_accounting/widgets/app_icon.dart';
 import 'package:sycebnl_accounting/widgets/company_header_card.dart';
 import '../services/database_service.dart';
-import '../services/exercice_service.dart';
 import '../models/user_session.dart';
 import 'entite_identification_page.dart';
 import 'nouvel_exercice_page.dart';
@@ -998,35 +997,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _cloturerExercice(int id) async {
-    if (!_session.isAdmin && !_session.canModify('exercices')) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Permission insuffisante pour clôturer un exercice.'),
-        backgroundColor: Colors.red,
-      ));
-      return;
-    }
-    try {
-      await ExerciceService.cloturerExercice(id);
-      await _refreshExercices();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Exercice clôturé avec succès'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur : ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
   Future<void> _switchExercice(int exerciceId) async {
     if (_isSwitchingExercice) return;
     setState(() => _isSwitchingExercice = true);
@@ -1130,6 +1100,7 @@ class _HomePageState extends State<HomePage> {
         return NouvelExercicePage(
           userSession: _session,
           showAppBar: false,
+          onExerciceCreated: _refreshExercices,
         );
       case 17:
         return ListeExercicesPage(
@@ -1138,8 +1109,6 @@ class _HomePageState extends State<HomePage> {
           onSwitch: _switchExercice,
           onCreateNew: () => _showPage(12),
           onEdit: _editExercice,
-          onCloture: _cloturerExercice,
-          onCheckPeriodesEquilibre: DatabaseService.getPeriodesNonEquilibrees,
           onViewJournalAN: (exerciceId) => Navigator.push(
             context,
             MaterialPageRoute(
