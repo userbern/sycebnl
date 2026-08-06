@@ -7,6 +7,7 @@ import 'package:sycebnl_accounting/models/user_session.dart';
 import 'package:sycebnl_accounting/services/saisie_comptable_service.dart';
 import 'package:sycebnl_accounting/services/database_service.dart';
 import 'package:sycebnl_accounting/services/auth_service_local.dart' as auth;
+import 'package:sycebnl_accounting/services/exercice_service.dart';
 
 // Fonction utilitaire globale pour formater les montants
 String formatMontantCFA(double montant) {
@@ -44,6 +45,8 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
   List<Compte> _comptes = [];
   List<Tiers> _tiers = [];
   bool _isLoading = true;
+  bool _isPeriodeDeReport = false;
+  bool _isRegenerating = false;
 
   // Formulaire
   late TextEditingController _jourController;
@@ -229,6 +232,10 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
             widget.journalPeriode.exerciceId ?? 0,
           );
 
+      final isPeriodeDeReport = await ExerciceService.estPeriodeDeReport(
+        widget.journalPeriode,
+      );
+
       setState(() {
         _comptes = comptes;
         _filteredComptes = comptes;
@@ -236,6 +243,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         _journal = journal;
         _ecritures = ecritures;
         _isLoading = false;
+        _isPeriodeDeReport = isPeriodeDeReport;
 
         // Initialiser le numéro d'enregistrement courant
         _initializeCurrentEnregistrement();
@@ -1293,6 +1301,25 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               onPressed: _loadData,
               tooltip: 'Rafraîchir',
             ),
+            if (_isPeriodeDeReport)
+              TextButton.icon(
+                onPressed: _isRegenerating ? null : _regenererReportSoldes,
+                icon:
+                    _isRegenerating
+                        ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                        : const Icon(Icons.autorenew, color: Colors.white),
+                label: const Text(
+                  'Régénérer le report',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
             TextButton.icon(
               onPressed: () => _handleClose(context),
               icon: const Icon(Icons.close, color: Colors.white),
@@ -1350,6 +1377,213 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       } else if (context.mounted) {
         Navigator.of(context).pop();
       }
+    }
+  }
+
+  Widget _buildSoldeTotalBanner(
+    ({double totalDebit, double totalCredit}) totaux,
+  ) {
+    final totalDebit = totaux.totalDebit;
+    final totalCredit = totaux.totalCredit;
+    // Solde total = Crédit - Débit : positif → excédent créditeur (on
+    // débitera le compte d'équilibrage), négatif → excédent débiteur (on
+    // créditera le compte d'équilibrage).
+    final soldeCreditMoinsDebit = totalCredit - totalDebit;
+    final estEquilibre = soldeCreditMoinsDebit.abs() <= 0.01;
+    final estCrediteur = soldeCreditMoinsDebit > 0;
+    final sens =
+        estEquilibre
+            ? 'Équilibré'
+            : (estCrediteur ? 'Créditeur' : 'Débiteur');
+    final color = estEquilibre || estCrediteur ? Colors.green : Colors.orange;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.functions, size: 16, color: color.shade700),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Total débit : ${totalDebit.toStringAsFixed(2)}   ·   '
+                  'Total crédit : ${totalCredit.toStringAsFixed(2)}',
+                  style: TextStyle(fontSize: 12, color: color.shade700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.only(left: 24),
+            child: Text(
+              estEquilibre
+                  ? 'Solde total (Crédit − Débit) : équilibré, aucune '
+                      'écriture d\'équilibrage nécessaire.'
+                  : 'Solde total (Crédit − Débit) : '
+                      '${soldeCreditMoinsDebit >= 0 ? '' : '-'}'
+                      '${soldeCreditMoinsDebit.abs().toStringAsFixed(2)} '
+                      '($sens) — c\'est ce montant qui sera imputé sur le '
+                      'compte d\'équilibrage ci-dessous.',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color.shade700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _regenererReportSoldes() async {
+    final compteActuel =
+        await ExerciceService.compteEquilibrageActuel(widget.journalPeriode) ??
+        '';
+    final precedentId = await ExerciceService.exercicePrecedentIdPourPeriode(
+      widget.journalPeriode,
+    );
+    final totaux =
+        precedentId == null
+            ? null
+            : await ExerciceService.calculerTotauxReport(precedentId);
+    if (!mounted) return;
+
+    final compteController = TextEditingController(text: compteActuel);
+    final compteChoisi = await showDialog<String>(
+      context: context,
+      builder:
+          (ctx) => StatefulBuilder(
+            builder: (ctx, setDialogState) {
+              final query = compteController.text.toLowerCase();
+              final suggestions =
+                  query.isEmpty
+                      ? const <Compte>[]
+                      : _comptes
+                          .where(
+                            (c) =>
+                                c.numeroCompte.toLowerCase().contains(query) ||
+                                c.intitule.toLowerCase().contains(query),
+                          )
+                          .take(6)
+                          .toList();
+              return AlertDialog(
+                title: const Text('Régénérer le report'),
+                content: SizedBox(
+                  width: 420,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Les soldes de report seront recalculés à partir des '
+                        'écritures actuelles de l\'exercice précédent, en '
+                        'remplacement des écritures d\'ouverture existantes '
+                        'de ce journal.',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      const SizedBox(height: 16),
+                      if (totaux != null) ...[
+                        _buildSoldeTotalBanner(totaux),
+                        const SizedBox(height: 16),
+                      ],
+                      const Text(
+                        'Compte d\'équilibrage',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: compteController,
+                        decoration: const InputDecoration(
+                          hintText: 'Ex : 120000',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (_) => setDialogState(() {}),
+                      ),
+                      if (suggestions.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        ...suggestions.map(
+                          (c) => ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              '${c.numeroCompte} — ${c.intitule}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            onTap: () {
+                              compteController.text = c.numeroCompte;
+                              setDialogState(() {});
+                            },
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Annuler'),
+                  ),
+                  ElevatedButton(
+                    onPressed:
+                        compteController.text.trim().isEmpty
+                            ? null
+                            : () =>
+                                Navigator.pop(ctx, compteController.text.trim()),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade600,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Régénérer'),
+                  ),
+                ],
+              );
+            },
+          ),
+    );
+
+    if (compteChoisi == null || compteChoisi.isEmpty) return;
+    if (!mounted) return;
+
+    setState(() => _isRegenerating = true);
+    try {
+      await ExerciceService.regenererReportSoldes(
+        periode: widget.journalPeriode,
+        compteEquilibrage: compteChoisi,
+      );
+      await _loadData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Report régénéré avec succès'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e is ExerciceOperationException ? e.message : 'Erreur : $e',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isRegenerating = false);
     }
   }
 

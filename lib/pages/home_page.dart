@@ -394,58 +394,165 @@ class _HomePageState extends State<HomePage> {
     showDialog(
       context: context,
       builder:
-          (context) => AlertDialog(
-            title: Row(
-              children: [
-                Icon(Icons.calendar_today, color: Colors.blue.shade400),
-                const SizedBox(width: 12),
-                const Text('Changer d\'exercice'),
-              ],
+          (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            content: SizedBox(
-              width: 400,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children:
-                    _exercices.map((exercice) {
-                      final isActive = exercice['id'] == _activeExerciceId;
-                      return ListTile(
-                        leading: Icon(
-                          isActive
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                          color: isActive ? Colors.green : Colors.grey,
-                        ),
-                        title: Text(
-                          exercice['code'].toString(),
-                          style: TextStyle(
-                            fontWeight:
-                                isActive ? FontWeight.bold : FontWeight.normal,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.calendar_today,
+                            color: Colors.blue.shade600,
+                            size: 20,
                           ),
                         ),
-                        subtitle: Text(
-                          '${exercice['date_debut']} - ${exercice['date_fin']}',
-                          style: TextStyle(fontSize: 12),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Text(
+                            'Changer d\'exercice',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
-                        tileColor: isActive ? Colors.green.shade50 : null,
-                        onTap: () async {
-                          if (!isActive) {
-                            Navigator.pop(context);
-                            await _switchExercice(exercice['id']);
-                          }
-                        },
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    ..._exercices.map((exercice) {
+                      final isActive = exercice['id'] == _activeExerciceId;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () async {
+                            if (!isActive) {
+                              Navigator.pop(context);
+                              await _switchExercice(exercice['id']);
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  isActive
+                                      ? Colors.green.shade50
+                                      : Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color:
+                                    isActive
+                                        ? Colors.green.shade200
+                                        : Colors.grey.shade200,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isActive
+                                      ? Icons.check_circle
+                                      : Icons.radio_button_unchecked,
+                                  color:
+                                      isActive
+                                          ? Colors.green.shade600
+                                          : Colors.grey.shade400,
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        exercice['code'].toString(),
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight:
+                                              isActive
+                                                  ? FontWeight.bold
+                                                  : FontWeight.w600,
+                                          color:
+                                              isActive
+                                                  ? Colors.green.shade800
+                                                  : Colors.black87,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${_fmtExerciceDate(exercice['date_debut'])} → '
+                                        '${_fmtExerciceDate(exercice['date_fin'])}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (isActive)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade100,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      'Actif',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green.shade800,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
                       );
-                    }).toList(),
+                    }),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Annuler'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Annuler'),
-              ),
-            ],
           ),
     );
+  }
+
+  String _fmtExerciceDate(Object? raw) {
+    final dt = DateTime.tryParse(raw?.toString() ?? '');
+    if (dt == null) return raw?.toString() ?? '-';
+    return '${dt.day.toString().padLeft(2, '0')}/'
+        '${dt.month.toString().padLeft(2, '0')}/${dt.year}';
   }
 
   @override
