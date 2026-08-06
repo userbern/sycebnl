@@ -1672,25 +1672,28 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                           );
                         }),
                       )
-                      : Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 48),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.receipt_long_outlined,
-                              size: 44,
-                              color: Colors.grey.shade300,
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              'Aucune écriture saisie',
-                              style: TextStyle(
-                                color: Colors.grey.shade400,
-                                fontSize: 13,
+                      : Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 48),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.receipt_long_outlined,
+                                size: 44,
+                                color: Colors.grey.shade300,
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 10),
+                              Text(
+                                'Aucune écriture saisie',
+                                style: TextStyle(
+                                  color: Colors.grey.shade400,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
             ),
@@ -2090,46 +2093,52 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
           // LIGNE 2: Boutons d'action (Annuler / Équilibrer / Ajouter l'écriture)
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 10),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _clearForm,
-                  icon: const Icon(Icons.close, size: 14),
-                  label: Text(
-                    _editingIndex != null ? 'Réinitialiser' : 'Annuler',
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed:
-                      !_isCurrentEnregistrementBalanced
-                          ? _balanceEnregistrement
-                          : null,
-                  icon: const Icon(Icons.balance, size: 14),
-                  label: const Text('Équilibrer'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange.shade600,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                  ),
-                ),
-                if (_editingIndex != null ? _canModify : _canCreate)
-                  ElevatedButton.icon(
-                    onPressed: _submitForm,
-                    icon: Icon(
-                      _editingIndex != null ? Icons.edit : Icons.add,
-                      size: 14,
-                      color: Colors.white,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _clearForm,
+                    icon: const Icon(Icons.close, size: 14),
+                    label: Text(
+                      _editingIndex != null ? 'Réinitialiser' : 'Annuler',
                     ),
-                    label: Text(_editingIndex != null ? 'Modifier' : 'Ajouter'),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed:
+                        !_isCurrentEnregistrementBalanced
+                            ? _balanceEnregistrement
+                            : null,
+                    icon: const Icon(Icons.balance, size: 14),
+                    label: const Text('Équilibrer'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade500,
+                      backgroundColor: Colors.orange.shade600,
                       foregroundColor: Colors.white,
                       elevation: 0,
                     ),
                   ),
-              ],
+                  if (_editingIndex != null ? _canModify : _canCreate)
+                    ElevatedButton.icon(
+                      onPressed: _submitForm,
+                      icon: Icon(
+                        _editingIndex != null ? Icons.edit : Icons.add,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                      label: Text(
+                        _editingIndex != null ? 'Modifier' : 'Ajouter',
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.shade500,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ],
