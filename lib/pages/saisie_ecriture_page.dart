@@ -7,6 +7,7 @@ import 'package:sycebnl_accounting/models/user_session.dart';
 import 'package:sycebnl_accounting/services/saisie_comptable_service.dart';
 import 'package:sycebnl_accounting/services/database_service.dart';
 import 'package:sycebnl_accounting/services/auth_service_local.dart' as auth;
+import 'package:sycebnl_accounting/services/exercice_service.dart';
 
 // Fonction utilitaire globale pour formater les montants
 String formatMontantCFA(double montant) {
@@ -44,6 +45,8 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
   List<Compte> _comptes = [];
   List<Tiers> _tiers = [];
   bool _isLoading = true;
+  bool _isPeriodeDeReport = false;
+  bool _isRegenerating = false;
 
   // Formulaire
   late TextEditingController _jourController;
@@ -54,10 +57,18 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
   late TextEditingController _creditController;
   late TextEditingController _compteController;
   final _jourFocusNode = FocusNode();
+  final _numeroDocFocusNode = FocusNode();
+  final _libelleFocusNode = FocusNode();
+  final _debitFocusNode = FocusNode();
+  final _creditFocusNode = FocusNode();
   FocusNode? _compteFocusNode;
 
   // Contrôleur utilisé par le champ Autocomplete pour pouvoir le nettoyer / compléter
   TextEditingController? _compteFieldController;
+
+  // Validation contextuelle du formulaire de saisie
+  final _formKey = GlobalKey<FormState>();
+  String? _compteFieldError;
 
   String? _selectedCompteNumero;
   String? _selectedTiersNumero;
@@ -179,6 +190,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         _compteFieldController!.text = compte.numeroCompte;
       }
       _selectedCompteNumero = compte.numeroCompte;
+      _compteFieldError = null;
       _updateTiersForCompte(compte.numeroCompte);
 
       setState(() {});
@@ -220,6 +232,10 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
             widget.journalPeriode.exerciceId ?? 0,
           );
 
+      final isPeriodeDeReport = await ExerciceService.estPeriodeDeReport(
+        widget.journalPeriode,
+      );
+
       setState(() {
         _comptes = comptes;
         _filteredComptes = comptes;
@@ -227,6 +243,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         _journal = journal;
         _ecritures = ecritures;
         _isLoading = false;
+        _isPeriodeDeReport = isPeriodeDeReport;
 
         // Initialiser le numéro d'enregistrement courant
         _initializeCurrentEnregistrement();
@@ -309,6 +326,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     _compteController.clear();
     _compteFieldController?.clear();
     _selectedCompteNumero = null;
+    _compteFieldError = null;
     _selectedTiersNumero = null;
     _showTiersField = false;
     _filteredTiers = [];
@@ -416,6 +434,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
   void _onCompteSelected(String numeroCompte) {
     setState(() {
       _selectedCompteNumero = numeroCompte;
+      _compteFieldError = null;
       _compteController.text = numeroCompte;
       _compteFieldController?.text = numeroCompte;
       _selectedTiersNumero = null;
@@ -542,66 +561,20 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       return;
     }
 
-    final compteNumero = _selectedCompteNumero;
-
-    if (compteNumero == null || compteNumero.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez sélectionner un compte')),
-      );
-      return;
-    }
-
-    if (_showTiersField) {
-      if (_selectedTiersNumero == null || _selectedTiersNumero!.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ce compte nécessite un tiers')),
-        );
-        return;
-      }
-    }
-
-    if (_numeroDocController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Le numéro de document est obligatoire')),
-      );
-      return;
-    }
-
-    final jour = int.tryParse(_jourController.text);
-    if (jour == null || jour < 1 || jour > 31) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Jour invalide (1-31)')));
-      return;
-    }
-
-    final daysInMonth = DateUtils.getDaysInMonth(
-      widget.journalPeriode.annee,
-      widget.journalPeriode.mois,
-    );
-
-    if (jour > daysInMonth) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Jour invalide pour cette période (max $daysInMonth)'),
-        ),
-      );
-      return;
-    }
-
-    final debit = double.tryParse(_debitController.text) ?? 0;
-    final credit = double.tryParse(_creditController.text) ?? 0;
-
-    if ((debit > 0 && credit > 0) || (debit == 0 && credit == 0)) {
+    if (!_validateFormAndFocusFirstError()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Exactement un des champs Débit/Crédit doit être saisi',
-          ),
+          content: Text('Certains champs doivent être corrigés'),
+          backgroundColor: Colors.red,
         ),
       );
       return;
     }
+
+    final compteNumero = _selectedCompteNumero!;
+    final jour = int.parse(_jourController.text);
+    final debit = double.tryParse(_debitController.text) ?? 0;
+    final credit = double.tryParse(_creditController.text) ?? 0;
 
     int numeroEnregistrement;
     if (_editingEcriture != null) {
@@ -757,7 +730,21 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     }
   }
 
-  void _showVentilationDialog(LigneEcriture ligne) {
+  void _showVentilationDialog(LigneEcriture ligne) async {
+    // Une ligne qui possède déjà ses propres ventilations enregistrées reste
+    // toujours éditable, même si le calcul ci-dessous la détecte aussi comme
+    // ligne d'équilibre (cas ambigu d'un enregistrement à seulement 2 lignes,
+    // où les deux montants se compensent exactement dans les deux sens).
+    if (ligne.id != null) {
+      final ownVentilations = await SaisieComptableService.getVentilations(
+        ligne.id!,
+      );
+      if (ownVentilations.isNotEmpty) {
+        _openVentilationEditor(ligne);
+        return;
+      }
+    }
+
     // Récupérer toutes les lignes de cet enregistrement
     final lignesEnregistrement =
         _ecritures
@@ -777,6 +764,10 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     }
 
     // Pour les autres lignes : dialog normal
+    _openVentilationEditor(ligne);
+  }
+
+  void _openVentilationEditor(LigneEcriture ligne) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1265,6 +1256,10 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     _compteController.removeListener(_filterComptes);
     _compteController.dispose();
     _jourFocusNode.dispose();
+    _numeroDocFocusNode.dispose();
+    _libelleFocusNode.dispose();
+    _debitFocusNode.dispose();
+    _creditFocusNode.dispose();
     super.dispose();
   }
 
@@ -1275,8 +1270,12 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       if (widget.showAppBar) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Saisie Écriture'),
-            backgroundColor: Colors.blue.shade500,
+            title: const Text(
+              'Saisie Écriture',
+              style: TextStyle(color: Colors.white),
+            ),
+            iconTheme: const IconThemeData(color: Colors.white),
+            backgroundColor: Colors.blue.shade700,
           ),
           body: loader,
         );
@@ -1289,8 +1288,12 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     if (widget.showAppBar) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Saisie Écriture'),
-          backgroundColor: Colors.blue.shade500,
+          title: const Text(
+            'Saisie Écriture',
+            style: TextStyle(color: Colors.white),
+          ),
+          iconTheme: const IconThemeData(color: Colors.white),
+          backgroundColor: Colors.blue.shade700,
           elevation: 0,
           actions: [
             IconButton(
@@ -1298,6 +1301,34 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               onPressed: _loadData,
               tooltip: 'Rafraîchir',
             ),
+            if (_isPeriodeDeReport)
+              TextButton.icon(
+                onPressed: _isRegenerating ? null : _regenererReportSoldes,
+                icon:
+                    _isRegenerating
+                        ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                        : const Icon(Icons.autorenew, color: Colors.white),
+                label: const Text(
+                  'Régénérer le report',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            TextButton.icon(
+              onPressed: () => _handleClose(context),
+              icon: const Icon(Icons.close, color: Colors.white),
+              label: const Text(
+                'Fermer',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+            const SizedBox(width: 8),
           ],
         ),
         body: body,
@@ -1307,50 +1338,261 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     return body;
   }
 
+  Future<void> _handleClose(BuildContext context) async {
+    if (_totaux.isEquilibre) {
+      if (widget.onClose != null) {
+        widget.onClose!(true);
+      } else if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Journal déséquilibré'),
+            content: Text(
+              'Le solde n\'est pas équilibré (${_totaux.solde.toStringAsFixed(2)}).\nVoulez-vous quitter quand même ?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Rester'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Quitter quand même'),
+              ),
+            ],
+          ),
+    );
+    if (confirm == true) {
+      if (widget.onClose != null) {
+        widget.onClose!(true);
+      } else if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+    }
+  }
+
+  Widget _buildSoldeTotalBanner(
+    ({double totalDebit, double totalCredit}) totaux,
+  ) {
+    final totalDebit = totaux.totalDebit;
+    final totalCredit = totaux.totalCredit;
+    // Solde total = Crédit - Débit : positif → excédent créditeur (on
+    // débitera le compte d'équilibrage), négatif → excédent débiteur (on
+    // créditera le compte d'équilibrage).
+    final soldeCreditMoinsDebit = totalCredit - totalDebit;
+    final estEquilibre = soldeCreditMoinsDebit.abs() <= 0.01;
+    final estCrediteur = soldeCreditMoinsDebit > 0;
+    final sens =
+        estEquilibre
+            ? 'Équilibré'
+            : (estCrediteur ? 'Créditeur' : 'Débiteur');
+    final color = estEquilibre || estCrediteur ? Colors.green : Colors.orange;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.functions, size: 16, color: color.shade700),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Total débit : ${totalDebit.toStringAsFixed(2)}   ·   '
+                  'Total crédit : ${totalCredit.toStringAsFixed(2)}',
+                  style: TextStyle(fontSize: 12, color: color.shade700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.only(left: 24),
+            child: Text(
+              estEquilibre
+                  ? 'Solde total (Crédit − Débit) : équilibré, aucune '
+                      'écriture d\'équilibrage nécessaire.'
+                  : 'Solde total (Crédit − Débit) : '
+                      '${soldeCreditMoinsDebit >= 0 ? '' : '-'}'
+                      '${soldeCreditMoinsDebit.abs().toStringAsFixed(2)} '
+                      '($sens) — c\'est ce montant qui sera imputé sur le '
+                      'compte d\'équilibrage ci-dessous.',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color.shade700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _regenererReportSoldes() async {
+    final compteActuel =
+        await ExerciceService.compteEquilibrageActuel(widget.journalPeriode) ??
+        '';
+    final precedentId = await ExerciceService.exercicePrecedentIdPourPeriode(
+      widget.journalPeriode,
+    );
+    final totaux =
+        precedentId == null
+            ? null
+            : await ExerciceService.calculerTotauxReport(precedentId);
+    if (!mounted) return;
+
+    final compteController = TextEditingController(text: compteActuel);
+    final compteChoisi = await showDialog<String>(
+      context: context,
+      builder:
+          (ctx) => StatefulBuilder(
+            builder: (ctx, setDialogState) {
+              final query = compteController.text.toLowerCase();
+              final suggestions =
+                  query.isEmpty
+                      ? const <Compte>[]
+                      : _comptes
+                          .where(
+                            (c) =>
+                                c.numeroCompte.toLowerCase().contains(query) ||
+                                c.intitule.toLowerCase().contains(query),
+                          )
+                          .take(6)
+                          .toList();
+              return AlertDialog(
+                title: const Text('Régénérer le report'),
+                content: SizedBox(
+                  width: 420,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Les soldes de report seront recalculés à partir des '
+                        'écritures actuelles de l\'exercice précédent, en '
+                        'remplacement des écritures d\'ouverture existantes '
+                        'de ce journal.',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      const SizedBox(height: 16),
+                      if (totaux != null) ...[
+                        _buildSoldeTotalBanner(totaux),
+                        const SizedBox(height: 16),
+                      ],
+                      const Text(
+                        'Compte d\'équilibrage',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: compteController,
+                        decoration: const InputDecoration(
+                          hintText: 'Ex : 120000',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (_) => setDialogState(() {}),
+                      ),
+                      if (suggestions.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        ...suggestions.map(
+                          (c) => ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              '${c.numeroCompte} — ${c.intitule}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            onTap: () {
+                              compteController.text = c.numeroCompte;
+                              setDialogState(() {});
+                            },
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Annuler'),
+                  ),
+                  ElevatedButton(
+                    onPressed:
+                        compteController.text.trim().isEmpty
+                            ? null
+                            : () =>
+                                Navigator.pop(ctx, compteController.text.trim()),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade600,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Régénérer'),
+                  ),
+                ],
+              );
+            },
+          ),
+    );
+
+    if (compteChoisi == null || compteChoisi.isEmpty) return;
+    if (!mounted) return;
+
+    setState(() => _isRegenerating = true);
+    try {
+      await ExerciceService.regenererReportSoldes(
+        periode: widget.journalPeriode,
+        compteEquilibrage: compteChoisi,
+      );
+      await _loadData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Report régénéré avec succès'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e is ExerciceOperationException ? e.message : 'Erreur : $e',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isRegenerating = false);
+    }
+  }
+
   Widget _buildPageBody() {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        if (_totaux.isEquilibre) {
-          if (widget.onClose != null) {
-            widget.onClose!(true);
-          } else if (context.mounted) {
-            Navigator.of(context).pop();
-          }
-          return;
-        }
-        final confirm = await showDialog<bool>(
-          context: context,
-          builder:
-              (ctx) => AlertDialog(
-                title: const Text('Journal déséquilibré'),
-                content: Text(
-                  'Le solde n\'est pas équilibré (${_totaux.solde.toStringAsFixed(2)}).\nVoulez-vous quitter quand même ?',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Rester'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Quitter quand même'),
-                  ),
-                ],
-              ),
-        );
-        if (confirm == true) {
-          if (widget.onClose != null) {
-            widget.onClose!(true);
-          } else if (mounted) {
-            Navigator.of(context).pop();
-          }
-        }
+        await _handleClose(context);
       },
       child: Column(
         children: [
@@ -1703,13 +1945,120 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     );
   }
 
-  InputDecoration _inputDeco(String hint) {
+  InputDecoration _inputDeco(
+    String hint, {
+    String? helperText,
+    String? errorText,
+  }) {
     return InputDecoration(
       hintText: hint,
+      helperText: helperText,
+      helperMaxLines: 2,
+      errorText: errorText,
+      errorMaxLines: 2,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       isDense: true,
     );
+  }
+
+  // ===== Validation contextuelle par champ (UI) =====
+  // Chaque validateur applique exactement les mêmes règles que celles
+  // vérifiées auparavant dans _submitForm, mais retourne un message
+  // spécifique au champ au lieu d'une SnackBar générique. Réutilisés à la
+  // fois par les `validator:` des champs et par _validateFormAndFocusFirstError
+  // pour garder une seule source de vérité par règle.
+
+  String? _validateJour(String? value) {
+    final text = value ?? '';
+    if (text.isEmpty) return 'Le jour est obligatoire';
+    final jour = int.tryParse(text);
+    if (jour == null) return 'Chiffres uniquement (1-31)';
+    if (jour < 1 || jour > 31) return 'Doit être entre 1 et 31';
+    final daysInMonth = DateUtils.getDaysInMonth(
+      widget.journalPeriode.annee,
+      widget.journalPeriode.mois,
+    );
+    if (jour > daysInMonth) return 'Max $daysInMonth pour ce mois';
+    return null;
+  }
+
+  String? _validateNumeroDoc(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Le numéro de document est obligatoire';
+    }
+    return null;
+  }
+
+  String? _validateCompte() {
+    if (_selectedCompteNumero == null || _selectedCompteNumero!.isEmpty) {
+      return 'Sélectionnez un compte dans la liste';
+    }
+    return null;
+  }
+
+  String? _validateTiers(String? value) {
+    if (_showTiersField && (value == null || value.isEmpty)) {
+      return 'Sélectionnez un tiers';
+    }
+    return null;
+  }
+
+  String? _validateDebit(String? value) {
+    final debit = double.tryParse(value ?? '') ?? 0;
+    final credit = double.tryParse(_creditController.text) ?? 0;
+    if (debit > 0 && credit > 0) {
+      return 'Un seul montant à la fois (Débit ou Crédit)';
+    }
+    if (debit == 0 && credit == 0) {
+      return 'Renseignez un montant ici ou en Crédit';
+    }
+    return null;
+  }
+
+  String? _validateCredit(String? value) {
+    final credit = double.tryParse(value ?? '') ?? 0;
+    final debit = double.tryParse(_debitController.text) ?? 0;
+    if (debit > 0 && credit > 0) {
+      return 'Un seul montant à la fois (Débit ou Crédit)';
+    }
+    if (debit == 0 && credit == 0) {
+      return 'Renseignez un montant ici ou en Débit';
+    }
+    return null;
+  }
+
+  /// Valide tous les champs du formulaire, affiche les erreurs
+  /// contextuelles (bordure rouge + message sous chaque champ) et place le
+  /// focus sur le premier champ en erreur. Retourne true si tout est valide.
+  bool _validateFormAndFocusFirstError() {
+    final jourError = _validateJour(_jourController.text);
+    final numDocError = _validateNumeroDoc(_numeroDocController.text);
+    final compteError = _validateCompte();
+    final tiersError = _validateTiers(_selectedTiersNumero);
+    final debitError = _validateDebit(_debitController.text);
+    final creditError = _validateCredit(_creditController.text);
+
+    // Déclenche l'affichage simultané de toutes les erreurs des champs du Form
+    _formKey.currentState?.validate();
+    setState(() => _compteFieldError = compteError);
+
+    if (jourError != null) {
+      _jourFocusNode.requestFocus();
+    } else if (numDocError != null) {
+      _numeroDocFocusNode.requestFocus();
+    } else if (compteError != null) {
+      _compteFocusNode?.requestFocus();
+    } else if (debitError != null || creditError != null) {
+      _debitFocusNode.requestFocus();
+    }
+
+    return jourError == null &&
+        numDocError == null &&
+        compteError == null &&
+        tiersError == null &&
+        debitError == null &&
+        creditError == null;
   }
 
   Widget _buildLabeledInputCell({
@@ -1755,337 +2104,362 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              // N° ENR (auto)
-              _buildLabeledInputCell(
-                label: 'N° ENR',
-                width: 120 * scale,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
-                  child: IgnorePointer(
-                    child: InputDecorator(
-                      decoration: _inputDeco(''),
-                      child: Text(
-                        _currentNumeroEnregistrement != null
-                            ? _currentNumeroEnregistrement.toString()
-                            : 'Auto',
+          Form(
+            key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // N° ENR (auto)
+                _buildLabeledInputCell(
+                  label: 'N° ENR',
+                  width: 120 * scale,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                    child: IgnorePointer(
+                      child: InputDecorator(
+                        decoration: _inputDeco(''),
+                        child: Text(
+                          _currentNumeroEnregistrement != null
+                              ? _currentNumeroEnregistrement.toString()
+                              : 'Auto',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Jour
+                _buildLabeledInputCell(
+                  label: 'JOUR',
+                  width: 85 * scale,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                    child: TextFormField(
+                      controller: _jourController,
+                      focusNode: _jourFocusNode,
+                      autofocus: true,
+                      keyboardType: TextInputType.number,
+                      validator: _validateJour,
+                      decoration: _inputDeco('JJ'),
+                    ),
+                  ),
+                ),
+
+                // N° Document
+                _buildLabeledInputCell(
+                  label: 'N° DOC',
+                  width: 130 * scale,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                    child: TextFormField(
+                      controller: _numeroDocController,
+                      focusNode: _numeroDocFocusNode,
+                      validator: _validateNumeroDoc,
+                      decoration: _inputDeco('N° Doc'),
+                    ),
+                  ),
+                ),
+
+                // Référence
+                _buildLabeledInputCell(
+                  label: 'RÉF',
+                  width: 120 * scale,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                    child: TextFormField(
+                      controller: _referenceController,
+                      decoration: _inputDeco('Réf'),
+                    ),
+                  ),
+                ),
+
+                // Compte
+                _buildLabeledInputCell(
+                  label: 'COMPTE',
+                  width: 170 * scale,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                    child: Autocomplete<Compte>(
+                      initialValue: TextEditingValue(
+                        text: _compteController.text,
+                      ),
+                      displayStringForOption:
+                          (Compte option) => option.numeroCompte,
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        if (textEditingValue.text.isEmpty) {
+                          return const Iterable<Compte>.empty();
+                        }
+                        final query = textEditingValue.text.toLowerCase();
+                        final matches =
+                            _comptes.where((compte) {
+                              return compte.numeroCompte.toLowerCase().contains(
+                                    query,
+                                  ) ||
+                                  compte.intitule.toLowerCase().contains(query);
+                            }).toList();
+                        return _applyJournalCompteFilter(matches);
+                      },
+                      onSelected: (Compte selection) {
+                        _compteController.text = selection.numeroCompte;
+                        _onCompteSelected(selection.numeroCompte);
+                      },
+                      fieldViewBuilder: (
+                        BuildContext context,
+                        TextEditingController textEditingController,
+                        FocusNode focusNode,
+                        VoidCallback onFieldSubmitted,
+                      ) {
+                        // Stocker le FocusNode pour pouvoir l'utiliser dans _clearAmountsOnly()
+                        _compteFocusNode = focusNode;
+                        _compteFieldController = textEditingController;
+
+                        return TextField(
+                          controller: textEditingController,
+                          focusNode: focusNode,
+                          onTapOutside: (_) {
+                            _autoCompleteCompteIfPrefix(
+                              textEditingController.text,
+                              textEditingController,
+                            );
+                          },
+                          onChanged: (value) {
+                            _compteController.text = value;
+                            setState(() {
+                              _selectedCompteNumero = value;
+                              _compteFieldError = null;
+                              try {
+                                final compte = _comptes.firstWhere(
+                                  (c) => c.numeroCompte == value,
+                                );
+                                _showTiersField = compte.liaisonTiers;
+                              } catch (e) {
+                                _showTiersField = false;
+                              }
+                            });
+                          },
+                          onSubmitted: (value) {
+                            _autoCompleteCompteIfPrefix(
+                              value,
+                              textEditingController,
+                            );
+                          },
+                          onEditingComplete: () {
+                            _autoCompleteCompteIfPrefix(
+                              textEditingController.text,
+                              textEditingController,
+                            );
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'Compte (code/nom)',
+                            errorText: _compteFieldError,
+                            errorMaxLines: 2,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 8,
+                            ),
+                            isDense: true,
+                            suffixIcon:
+                                textEditingController.text.isNotEmpty
+                                    ? IconButton(
+                                      icon: const Icon(Icons.clear, size: 18),
+                                      onPressed: () {
+                                        textEditingController.clear();
+                                        _compteController.clear();
+                                        setState(() {
+                                          _selectedCompteNumero = null;
+                                          _compteFieldError = null;
+                                          _showTiersField = false;
+                                        });
+                                      },
+                                    )
+                                    : null,
+                          ),
+                        );
+                      },
+                      optionsViewBuilder: (
+                        BuildContext context,
+                        AutocompleteOnSelected<Compte> onSelected,
+                        Iterable<Compte> options,
+                      ) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: Material(
+                            elevation: 4,
+                            child: Container(
+                              width: 170 * scale,
+                              constraints: const BoxConstraints(maxHeight: 250),
+                              child: ListView.builder(
+                                padding: EdgeInsets.zero,
+                                shrinkWrap: true,
+                                itemCount: options.length,
+                                itemBuilder: (BuildContext context, int index) {
+                                  final Compte option = options.elementAt(
+                                    index,
+                                  );
+                                  return InkWell(
+                                    onTap: () => onSelected(option),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                      color:
+                                          index % 2 == 0
+                                              ? Colors.white
+                                              : Colors.grey.shade50,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            option.numeroCompte,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          Text(
+                                            option.intitule,
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
+                // Tiers
+                _buildLabeledInputCell(
+                  label: 'TIERS',
+                  width: 120 * scale,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedTiersNumero,
+                      validator: _validateTiers,
+                      decoration: InputDecoration(
+                        hintText: 'Tiers',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
+                        ),
+                        isDense: true,
+                        filled: !_showTiersField,
+                        fillColor:
+                            !_showTiersField ? Colors.grey.shade200 : null,
+                      ),
+                      isExpanded: true,
+                      disabledHint: Text(
+                        'Non requis',
                         style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
                           color: Colors.grey.shade600,
                         ),
                       ),
-                    ),
-                  ),
-                ),
-              ),
-
-              // Jour
-              _buildLabeledInputCell(
-                label: 'JOUR',
-                width: 85 * scale,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
-                  child: TextField(
-                    controller: _jourController,
-                    focusNode: _jourFocusNode,
-                    autofocus: true,
-                    keyboardType: TextInputType.number,
-                    decoration: _inputDeco('JJ'),
-                  ),
-                ),
-              ),
-
-              // N° Document
-              _buildLabeledInputCell(
-                label: 'N° DOC',
-                width: 130 * scale,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
-                  child: TextField(
-                    controller: _numeroDocController,
-                    decoration: _inputDeco('N° Doc'),
-                  ),
-                ),
-              ),
-
-              // Référence
-              _buildLabeledInputCell(
-                label: 'RÉF',
-                width: 120 * scale,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
-                  child: TextField(
-                    controller: _referenceController,
-                    decoration: _inputDeco('Réf'),
-                  ),
-                ),
-              ),
-
-              // Compte
-              _buildLabeledInputCell(
-                label: 'COMPTE',
-                width: 170 * scale,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
-                  child: Autocomplete<Compte>(
-                    initialValue: TextEditingValue(text: _compteController.text),
-                    displayStringForOption:
-                        (Compte option) => option.numeroCompte,
-                    optionsBuilder: (TextEditingValue textEditingValue) {
-                      if (textEditingValue.text.isEmpty) {
-                        return const Iterable<Compte>.empty();
-                      }
-                      final query = textEditingValue.text.toLowerCase();
-                      final matches =
-                          _comptes.where((compte) {
-                            return compte.numeroCompte.toLowerCase().contains(
-                                  query,
-                                ) ||
-                                compte.intitule.toLowerCase().contains(query);
-                          }).toList();
-                      return _applyJournalCompteFilter(matches);
-                    },
-                    onSelected: (Compte selection) {
-                      _compteController.text = selection.numeroCompte;
-                      _onCompteSelected(selection.numeroCompte);
-                    },
-                    fieldViewBuilder: (
-                      BuildContext context,
-                      TextEditingController textEditingController,
-                      FocusNode focusNode,
-                      VoidCallback onFieldSubmitted,
-                    ) {
-                      // Stocker le FocusNode pour pouvoir l'utiliser dans _clearAmountsOnly()
-                      _compteFocusNode = focusNode;
-                      _compteFieldController = textEditingController;
-
-                      return TextField(
-                        controller: textEditingController,
-                        focusNode: focusNode,
-                        onTapOutside: (_) {
-                          _autoCompleteCompteIfPrefix(
-                            textEditingController.text,
-                            textEditingController,
-                          );
-                        },
-                        onChanged: (value) {
-                          _compteController.text = value;
-                          setState(() {
-                            _selectedCompteNumero = value;
-                            try {
-                              final compte = _comptes.firstWhere(
-                                (c) => c.numeroCompte == value,
-                              );
-                              _showTiersField = compte.liaisonTiers;
-                            } catch (e) {
-                              _showTiersField = false;
-                            }
-                          });
-                        },
-                        onSubmitted: (value) {
-                          _autoCompleteCompteIfPrefix(
-                            value,
-                            textEditingController,
-                          );
-                        },
-                        onEditingComplete: () {
-                          _autoCompleteCompteIfPrefix(
-                            textEditingController.text,
-                            textEditingController,
-                          );
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Compte (code/nom)',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 8,
-                          ),
-                          isDense: true,
-                          suffixIcon:
-                              textEditingController.text.isNotEmpty
-                                  ? IconButton(
-                                    icon: const Icon(Icons.clear, size: 18),
-                                    onPressed: () {
-                                      textEditingController.clear();
-                                      _compteController.clear();
-                                      setState(() {
-                                        _selectedCompteNumero = null;
-                                        _showTiersField = false;
-                                      });
-                                    },
+                      items:
+                          _showTiersField
+                              ? _filteredTiers
+                                  .map(
+                                    (tier) => DropdownMenuItem<String>(
+                                      value: tier.numeroCompte,
+                                      child: Text(
+                                        tier.numeroCompte,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
                                   )
-                                  : null,
-                        ),
-                      );
-                    },
-                    optionsViewBuilder: (
-                      BuildContext context,
-                      AutocompleteOnSelected<Compte> onSelected,
-                      Iterable<Compte> options,
-                    ) {
-                      return Align(
-                        alignment: Alignment.topLeft,
-                        child: Material(
-                          elevation: 4,
-                          child: Container(
-                            width: 170 * scale,
-                            constraints: const BoxConstraints(maxHeight: 250),
-                            child: ListView.builder(
-                              padding: EdgeInsets.zero,
-                              shrinkWrap: true,
-                              itemCount: options.length,
-                              itemBuilder: (BuildContext context, int index) {
-                                final Compte option = options.elementAt(index);
-                                return InkWell(
-                                  onTap: () => onSelected(option),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    color:
-                                        index % 2 == 0
-                                            ? Colors.white
-                                            : Colors.grey.shade50,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          option.numeroCompte,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        Text(
-                                          option.intitule,
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      );
-                    },
+                                  .toList()
+                              : null,
+                      onChanged:
+                          _showTiersField
+                              ? (value) =>
+                                  setState(() => _selectedTiersNumero = value)
+                              : null,
+                    ),
                   ),
                 ),
-              ),
 
-              // Tiers
-              _buildLabeledInputCell(
-                label: 'TIERS',
-                width: 120 * scale,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedTiersNumero,
-                    decoration: InputDecoration(
-                      hintText: 'Tiers',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(4),
+                // Libellé
+                _buildLabeledInputCell(
+                  label: 'LIBELLÉ',
+                  width: 200 * scale,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                    child: TextFormField(
+                      controller: _libelleController,
+                      focusNode: _libelleFocusNode,
+                      decoration: _inputDeco('Libellé'),
+                    ),
+                  ),
+                ),
+
+                // Débit
+                _buildLabeledInputCell(
+                  label: 'DÉBIT',
+                  width: 110 * scale,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                    child: TextFormField(
+                      controller: _debitController,
+                      focusNode: _debitFocusNode,
+                      keyboardType: TextInputType.numberWithOptions(
+                        decimal: true,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 8,
+                      textInputAction: TextInputAction.send,
+                      validator: _validateDebit,
+                      onChanged: (_) => _formKey.currentState?.validate(),
+                      onFieldSubmitted: (_) => _submitForm(),
+                      decoration: _inputDeco('0'),
+                    ),
+                  ),
+                ),
+
+                // Crédit
+                _buildLabeledInputCell(
+                  label: 'CRÉDIT',
+                  width: 110 * scale,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                    child: TextFormField(
+                      controller: _creditController,
+                      focusNode: _creditFocusNode,
+                      keyboardType: TextInputType.numberWithOptions(
+                        decimal: true,
                       ),
-                      isDense: true,
-                      filled: !_showTiersField,
-                      fillColor: !_showTiersField ? Colors.grey.shade200 : null,
+                      validator: _validateCredit,
+                      onChanged: (_) => _formKey.currentState?.validate(),
+                      decoration: _inputDeco('0'),
                     ),
-                    isExpanded: true,
-                    disabledHint: Text(
-                      'Non requis',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    items:
-                        _showTiersField
-                            ? _filteredTiers
-                                .map(
-                                  (tier) => DropdownMenuItem<String>(
-                                    value: tier.numeroCompte,
-                                    child: Text(
-                                      tier.numeroCompte,
-                                      style: const TextStyle(fontSize: 12),
-                                    ),
-                                  ),
-                                )
-                                .toList()
-                            : null,
-                    onChanged:
-                        _showTiersField
-                            ? (value) =>
-                                setState(() => _selectedTiersNumero = value)
-                            : null,
                   ),
                 ),
-              ),
-
-              // Libellé
-              _buildLabeledInputCell(
-                label: 'LIBELLÉ',
-                width: 200 * scale,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
-                  child: TextField(
-                    controller: _libelleController,
-                    decoration: _inputDeco('Libellé'),
-                  ),
-                ),
-              ),
-
-              // Débit
-              _buildLabeledInputCell(
-                label: 'DÉBIT',
-                width: 110 * scale,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
-                  child: TextField(
-                    controller: _debitController,
-                    keyboardType: TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _submitForm(),
-                    decoration: _inputDeco('0'),
-                  ),
-                ),
-              ),
-
-              // Crédit
-              _buildLabeledInputCell(
-                label: 'CRÉDIT',
-                width: 110 * scale,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
-                  child: TextField(
-                    controller: _creditController,
-                    keyboardType: TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: _inputDeco('0'),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
 
           // LIGNE 2: Boutons d'action (Annuler / Équilibrer / Ajouter l'écriture)
@@ -2987,196 +3361,218 @@ class _VentilationDialogState extends State<VentilationDialog> {
         border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildInputCell(
-            _buildDropdown<String>(
-              value: _selectedAxe,
-              items: const ['Projet', 'Fonctionnement'],
-              onChanged: (value) {
-                setState(() {
-                  final bool wasFonctionnement =
-                      _selectedAxe == 'Fonctionnement';
-                  _selectedAxe = value;
-                  if (!wasFonctionnement && value == 'Fonctionnement') {
-                    _selectedProjetId = null;
-                    _selectedVolet = null;
-                    _selectedBailleurId = null;
-                    _selectedPosteId = null;
-                    _selectedLigneId = null;
-                    _montantController.clear();
-                    _montantSaisie = _montantLigne;
-                    _rows.removeWhere((row) => row.axe == 'Fonctionnement');
-                  }
-                  if (wasFonctionnement && value != 'Fonctionnement') {
-                    _montantSaisie = 0;
-                    _rows.removeWhere((row) => row.axe == 'Fonctionnement');
-                  }
-                });
-              },
-              label: 'Axe',
-            ),
-            _columnWidths[0],
-          ),
-          _buildInputCell(
-            isFonctionnement
-                ? _buildReadOnlyField('Projet')
-                : _buildAutocompleteDropdown(
-                  value: _selectedProjetId,
-                  items: _projets,
-                  displayField: 'intitule',
-                  idField: 'id',
-                  onChanged: (id) {
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildInputCell(
+                _buildDropdown<String>(
+                  value: _selectedAxe,
+                  items: const ['Projet', 'Fonctionnement'],
+                  onChanged: (value) {
                     setState(() {
-                      _selectedProjetId = id;
-                      _selectedBailleurId = null;
-                      _selectedPosteId = null;
-                      _selectedLigneId = null;
-                    });
-                    if (id != null) {
-                      _loadBailleurs();
-                      _loadPostes();
-                    }
-                  },
-                  label: 'Projet',
-                ),
-            _columnWidths[1],
-          ),
-          _buildInputCell(
-            isFonctionnement
-                ? _buildReadOnlyField('Volet')
-                : _buildDropdown<String>(
-                  value: _selectedVolet,
-                  items: const ['Administration', 'Activités'],
-                  onChanged: (value) => setState(() => _selectedVolet = value),
-                  label: 'Volet',
-                ),
-            _columnWidths[2],
-          ),
-          _buildInputCell(
-            isFonctionnement
-                ? _buildReadOnlyField('Bailleur')
-                : _buildAutocompleteDropdown(
-                  value: _selectedBailleurId,
-                  items: _bailleurs,
-                  displayField: 'designation',
-                  idField: 'id',
-                  onChanged: (id) => setState(() => _selectedBailleurId = id),
-                  label: 'Bailleur',
-                ),
-            _columnWidths[3],
-          ),
-          _buildInputCell(
-            isFonctionnement
-                ? _buildReadOnlyField('Poste')
-                : _buildAutocompleteDropdown(
-                  value: _selectedPosteId,
-                  items: _postes,
-                  displayField: 'intitule',
-                  idField: 'id',
-                  onChanged: (id) {
-                    setState(() {
-                      _selectedPosteId = id;
-                      _selectedLigneId = null;
-                      if (id == null) {
-                        _lignes = [];
+                      final bool wasFonctionnement =
+                          _selectedAxe == 'Fonctionnement';
+                      _selectedAxe = value;
+                      if (!wasFonctionnement && value == 'Fonctionnement') {
+                        _selectedProjetId = null;
+                        _selectedVolet = null;
+                        _selectedBailleurId = null;
+                        _selectedPosteId = null;
+                        _selectedLigneId = null;
+                        _montantController.clear();
+                        _montantSaisie = _montantLigne;
+                        _rows.removeWhere((row) => row.axe == 'Fonctionnement');
+                      }
+                      if (wasFonctionnement && value != 'Fonctionnement') {
+                        _montantSaisie = 0;
+                        _rows.removeWhere((row) => row.axe == 'Fonctionnement');
                       }
                     });
-                    if (id != null) {
-                      _loadLignes();
-                    }
                   },
-                  label: 'Poste',
-                  allowEmpty: true,
-                  emptyLabel: 'Aucun poste',
+                  label: 'Axe',
                 ),
-            _columnWidths[4],
+                _columnWidths[0],
+              ),
+              _buildInputCell(
+                isFonctionnement
+                    ? _buildReadOnlyField('Projet')
+                    : _buildAutocompleteDropdown(
+                      value: _selectedProjetId,
+                      items: _projets,
+                      displayField: 'intitule',
+                      idField: 'id',
+                      onChanged: (id) {
+                        setState(() {
+                          _selectedProjetId = id;
+                          _selectedBailleurId = null;
+                          _selectedPosteId = null;
+                          _selectedLigneId = null;
+                        });
+                        if (id != null) {
+                          _loadBailleurs();
+                          _loadPostes();
+                        }
+                      },
+                      label: 'Projet',
+                    ),
+                _columnWidths[1],
+              ),
+              _buildInputCell(
+                isFonctionnement
+                    ? _buildReadOnlyField('Volet')
+                    : _buildDropdown<String>(
+                      value: _selectedVolet,
+                      items: const ['Administration', 'Activités'],
+                      onChanged:
+                          (value) => setState(() => _selectedVolet = value),
+                      label: 'Volet',
+                    ),
+                _columnWidths[2],
+              ),
+              _buildInputCell(
+                isFonctionnement
+                    ? _buildReadOnlyField('Bailleur')
+                    : _buildAutocompleteDropdown(
+                      value: _selectedBailleurId,
+                      items: _bailleurs,
+                      displayField: 'designation',
+                      idField: 'id',
+                      onChanged:
+                          (id) => setState(() => _selectedBailleurId = id),
+                      label: 'Bailleur',
+                    ),
+                _columnWidths[3],
+              ),
+              _buildInputCell(
+                isFonctionnement
+                    ? _buildReadOnlyField('Poste')
+                    : _buildAutocompleteDropdown(
+                      value: _selectedPosteId,
+                      items: _postes,
+                      displayField: 'intitule',
+                      idField: 'id',
+                      onChanged: (id) {
+                        setState(() {
+                          _selectedPosteId = id;
+                          _selectedLigneId = null;
+                          if (id == null) {
+                            _lignes = [];
+                          }
+                        });
+                        if (id != null) {
+                          _loadLignes();
+                        }
+                      },
+                      label: 'Poste',
+                      allowEmpty: true,
+                      emptyLabel: 'Aucun poste',
+                    ),
+                _columnWidths[4],
+              ),
+              _buildInputCell(
+                isFonctionnement
+                    ? _buildReadOnlyField('Ligne')
+                    : _buildAutocompleteDropdown(
+                      value: _selectedLigneId,
+                      items: _lignes,
+                      displayField: 'intitule',
+                      idField: 'id',
+                      onChanged: (id) => setState(() => _selectedLigneId = id),
+                      label: 'Ligne',
+                      allowEmpty: true,
+                      emptyLabel: 'Aucune ligne',
+                    ),
+                _columnWidths[5],
+              ),
+              _buildInputCell(
+                isFonctionnement
+                    ? _buildReadOnlyField(
+                      'Montant',
+                      value: formatMontantCFA(_montantLigne),
+                    )
+                    : _buildAmountField(),
+                _columnWidths[6],
+              ),
+            ],
           ),
-          _buildInputCell(
-            isFonctionnement
-                ? _buildReadOnlyField('Ligne')
-                : _buildAutocompleteDropdown(
-                  value: _selectedLigneId,
-                  items: _lignes,
-                  displayField: 'intitule',
-                  idField: 'id',
-                  onChanged: (id) => setState(() => _selectedLigneId = id),
-                  label: 'Ligne',
-                  allowEmpty: true,
-                  emptyLabel: 'Aucune ligne',
-                ),
-            _columnWidths[5],
-          ),
-          _buildInputCell(
-            isFonctionnement
-                ? _buildReadOnlyField(
-                  'Montant',
-                  value: formatMontantCFA(_montantLigne),
-                )
-                : _buildAmountField(),
-            _columnWidths[6],
-          ),
-          Expanded(
-            child: Align(
-              alignment: Alignment.bottomRight,
-              child: Wrap(
-                alignment: WrapAlignment.end,
-                crossAxisAlignment: WrapCrossAlignment.end,
-                spacing: 8,
-                runSpacing: 8,
-                children:
-                    isFonctionnement
-                        ? [
-                          SizedBox(
-                            width: 180,
-                            height: 44,
-                            child: ElevatedButton(
-                              onPressed: _enregistrerLigne,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue.shade600,
-                                foregroundColor: Colors.white,
-                              ),
-                              child: const FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text('Valider', softWrap: false),
-                              ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children:
+                  isFonctionnement
+                      ? [
+                        SizedBox(
+                          width: 180,
+                          height: 44,
+                          child: ElevatedButton(
+                            onPressed: _enregistrerLigne,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue.shade600,
+                              foregroundColor: Colors.white,
                             ),
-                          ),
-                        ]
-                        : [
-                          SizedBox(
-                            width: 160,
-                            height: 44,
-                            child: OutlinedButton(
-                              onPressed: _equilibrer,
-                              child: const FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  'Équilibrer',
-                                  softWrap: false,
-                                  style: TextStyle(fontSize: 16),
+                            child: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'Valider',
+                                softWrap: false,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
                           ),
-                          SizedBox(
-                            width: 160,
-                            height: 44,
-                            child: ElevatedButton(
-                              onPressed: _enregistrerLigne,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green.shade600,
-                                foregroundColor: Colors.white,
-                              ),
-                              child: const FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text('Ajouter', softWrap: false),
+                        ),
+                      ]
+                      : [
+                        SizedBox(
+                          width: 160,
+                          height: 44,
+                          child: OutlinedButton(
+                            onPressed: _equilibrer,
+                            child: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'Équilibrer',
+                                softWrap: false,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
-                        ],
-              ),
+                        ),
+                        SizedBox(
+                          width: 160,
+                          height: 44,
+                          child: ElevatedButton(
+                            onPressed: _enregistrerLigne,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green.shade600,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'Ajouter',
+                                softWrap: false,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
             ),
           ),
         ],

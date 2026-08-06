@@ -189,12 +189,14 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                 dateDebut: _dateDebut!,
                 dateFin: _dateFin!,
                 compteMode: _compteMode,
-                compteDebut: _compteMode == _CompteFilterMode.single
-                    ? _compteUniqueController.text.trim()
-                    : _compteDebutController.text.trim(),
-                compteFin: _compteMode == _CompteFilterMode.range
-                    ? _compteFinController.text.trim()
-                    : '',
+                compteDebut:
+                    _compteMode == _CompteFilterMode.single
+                        ? _compteUniqueController.text.trim()
+                        : _compteDebutController.text.trim(),
+                compteFin:
+                    _compteMode == _CompteFilterMode.range
+                        ? _compteFinController.text.trim()
+                        : '',
                 type: _type,
                 projetId: _projetId,
                 projetLabel: _selectedProjetLabel(),
@@ -236,7 +238,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50, 
+      backgroundColor: Colors.grey.shade50,
       body: Focus(
         autofocus: true,
         onKeyEvent: (node, event) {
@@ -248,59 +250,55 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
           return KeyEventResult.ignored;
         },
         child: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 800),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.only(bottom: 24),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.menu_book,
-                          size: 32,
-                          color: Colors.blue,
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Grand Livre',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.menu_book, size: 32, color: Colors.blue),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Grand Livre',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                    Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child:
+                            _errorMessage != null
+                                ? Text(
+                                  _errorMessage!,
+                                  style: const TextStyle(color: Colors.red),
+                                )
+                                : _buildFilters(),
+                      ),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child:
-                          _errorMessage != null
-                              ? Text(
-                                _errorMessage!,
-                                style: const TextStyle(color: Colors.red),
-                              )
-                              : _buildFilters(),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -341,12 +339,13 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                       groupValue: _type,
                       activeColor: Colors.blue,
                       dense: true,
-                      onChanged: (value) => setState(() {
-                        _type = value!;
-                        _projetId = null;
-                        _bailleurIds.clear();
-                        _bailleursProjet = [];
-                      }),
+                      onChanged:
+                          (value) => setState(() {
+                            _type = value!;
+                            _projetId = null;
+                            _bailleurIds.clear();
+                            _bailleursProjet = [];
+                          }),
                     ),
                   ),
                   Expanded(
@@ -356,12 +355,13 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                       groupValue: _type,
                       activeColor: Colors.blue,
                       dense: true,
-                      onChanged: (value) => setState(() {
-                        _type = value!;
-                        _projetId = null;
-                        _bailleurIds.clear();
-                        _bailleursProjet = [];
-                      }),
+                      onChanged:
+                          (value) => setState(() {
+                            _type = value!;
+                            _projetId = null;
+                            _bailleurIds.clear();
+                            _bailleursProjet = [];
+                          }),
                     ),
                   ),
                 ],
@@ -425,25 +425,27 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                               horizontal: 16,
                             ),
                           ),
-                          items: _projets
-                              .map(
-                                (p) => DropdownMenuItem<int>(
-                                  value: p.id,
-                                  child: Text(
-                                    '${p.code} - ${p.nom}',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              )
-                              .toList(),
+                          items:
+                              _projets
+                                  .map(
+                                    (p) => DropdownMenuItem<int>(
+                                      value: p.id,
+                                      child: Text(
+                                        '${p.code} - ${p.nom}',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
                           onChanged: (value) async {
                             setState(() => _projetId = value);
                             await _loadBailleursForProjet(value);
                           },
-                          validator: (_) =>
-                              _isAnalytique && _projetId == null
-                                  ? 'Obligatoire'
-                                  : null,
+                          validator:
+                              (_) =>
+                                  _isAnalytique && _projetId == null
+                                      ? 'Obligatoire'
+                                      : null,
                         ),
                       if (_projetId != null) ...[
                         const SizedBox(height: 12),
@@ -458,28 +460,28 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: (_bailleursProjet.isEmpty
-                                  ? _bailleurs
-                                  : _bailleursProjet)
-                              .map(
-                                (b) => FilterChip(
-                                  label: Text(b.sigle),
-                                  selected:
-                                      b.id != null &&
-                                      _bailleurIds.contains(b.id),
-                                  selectedColor:
-                                      Colors.blue.shade100,
-                                  onSelected: (selected) {
-                                    if (b.id == null) return;
-                                    setState(() {
-                                      selected
-                                          ? _bailleurIds.add(b.id!)
-                                          : _bailleurIds.remove(b.id);
-                                    });
-                                  },
-                                ),
-                              )
-                              .toList(),
+                          children:
+                              (_bailleursProjet.isEmpty
+                                      ? _bailleurs
+                                      : _bailleursProjet)
+                                  .map(
+                                    (b) => FilterChip(
+                                      label: Text(b.sigle),
+                                      selected:
+                                          b.id != null &&
+                                          _bailleurIds.contains(b.id),
+                                      selectedColor: Colors.blue.shade100,
+                                      onSelected: (selected) {
+                                        if (b.id == null) return;
+                                        setState(() {
+                                          selected
+                                              ? _bailleurIds.add(b.id!)
+                                              : _bailleurIds.remove(b.id);
+                                        });
+                                      },
+                                    ),
+                                  )
+                                  .toList(),
                         ),
                       ],
                     ],
@@ -495,9 +497,13 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
           title: '🔹 Période (OBLIGATOIRE)',
           child: Row(
             children: [
-              Expanded(child: _dateField('Date début *', _dateDebutController, true)),
+              Expanded(
+                child: _dateField('Date début *', _dateDebutController, true),
+              ),
               const SizedBox(width: 16),
-              Expanded(child: _dateField('Date fin *', _dateFinController, false)),
+              Expanded(
+                child: _dateField('Date fin *', _dateFinController, false),
+              ),
             ],
           ),
         ),
@@ -556,15 +562,23 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+                      borderSide: BorderSide(
+                        color: Colors.blue.shade700,
+                        width: 2,
+                      ),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
                   ),
                   keyboardType: TextInputType.number,
-                  validator: (_) => _compteMode == _CompteFilterMode.single &&
-                          _compteUniqueController.text.trim().isEmpty
-                      ? 'Obligatoire'
-                      : null,
+                  validator:
+                      (_) =>
+                          _compteMode == _CompteFilterMode.single &&
+                                  _compteUniqueController.text.trim().isEmpty
+                              ? 'Obligatoire'
+                              : null,
                 ),
               ],
               if (_compteMode == _CompteFilterMode.range) ...[
@@ -578,12 +592,20 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                           labelText: 'N° compte début',
                           hintText: 'Ex: 401',
                           prefixIcon: const Icon(Icons.account_balance_wallet),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+                            borderSide: BorderSide(
+                              color: Colors.blue.shade700,
+                              width: 2,
+                            ),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 16,
+                          ),
                         ),
                         keyboardType: TextInputType.number,
                       ),
@@ -596,12 +618,20 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
                           labelText: 'N° compte fin',
                           hintText: 'Ex: 499',
                           prefixIcon: const Icon(Icons.account_balance_wallet),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+                            borderSide: BorderSide(
+                              color: Colors.blue.shade700,
+                              width: 2,
+                            ),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 16,
+                          ),
                         ),
                         keyboardType: TextInputType.number,
                       ),
@@ -651,14 +681,15 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
         prefixIcon: const Icon(Icons.calendar_today),
         suffixIcon: IconButton(
           icon: const Icon(Icons.clear, size: 20),
-          onPressed: () => setState(() {
-            controller.clear();
-            if (isStart) {
-              _dateDebut = null;
-            } else {
-              _dateFin = null;
-            }
-          }),
+          onPressed:
+              () => setState(() {
+                controller.clear();
+                if (isStart) {
+                  _dateDebut = null;
+                } else {
+                  _dateFin = null;
+                }
+              }),
         ),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         focusedBorder: OutlineInputBorder(
@@ -671,8 +702,8 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
         ),
       ),
       onTap: () => _selectDate(isStart: isStart),
-      validator: (value) =>
-          value == null || value.isEmpty ? 'Obligatoire' : null,
+      validator:
+          (value) => value == null || value.isEmpty ? 'Obligatoire' : null,
     );
   }
 
@@ -1007,6 +1038,12 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
         foregroundColor: Colors.white,
         actions: [
           TextButton.icon(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            label: const Text('Retour', style: TextStyle(color: Colors.white)),
+          ),
+          const SizedBox(width: 8),
+          TextButton.icon(
             onPressed: _isExporting ? null : _exportPdf,
             icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
             label: const Text('PDF', style: TextStyle(color: Colors.white)),
@@ -1021,55 +1058,54 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
       ),
       backgroundColor: Colors.grey.shade50,
       body: SafeArea(
-        child: _errorMessage != null
-            ? Center(
-                child: Text(
-                  _errorMessage!,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              )
-            : ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  Center(
-                    child: Text(
-                      'GRAND LIVRE ${_typeLabel(_criteria.type)}',
-                      style: TextStyle(
-                        color: Colors.blue,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+        child:
+            _errorMessage != null
+                ? Center(
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: Colors.red),
                   ),
-                  const SizedBox(height: 12),
-                  _buildDocumentHeader(),
-                  const SizedBox(height: 12),
-                  if (_isLoading)
-                    const Center(child: CircularProgressIndicator())
-                  else if (_groups.isEmpty)
-                    const Card(
-                      child: Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Text(
-                          'Aucune ecriture ne correspond aux filtres.',
+                )
+                : ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    Center(
+                      child: Text(
+                        'GRAND LIVRE ${_typeLabel(_criteria.type)}',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                    )
-                  else
-                    Column(
-                      children: _groups
-                          .map((g) => _buildAccountTable(g))
-                          .toList(),
                     ),
-                ],
-              ),
+                    const SizedBox(height: 12),
+                    _buildDocumentHeader(),
+                    const SizedBox(height: 12),
+                    if (_isLoading)
+                      const Center(child: CircularProgressIndicator())
+                    else if (_groups.isEmpty)
+                      const Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            'Aucune ecriture ne correspond aux filtres.',
+                          ),
+                        ),
+                      )
+                    else
+                      Column(
+                        children:
+                            _groups.map((g) => _buildAccountTable(g)).toList(),
+                      ),
+                  ],
+                ),
       ),
     );
   }
 
   Widget _buildDocumentHeader() {
-    final denSociale =
-        _entite?['denomination_sociale']?.toString() ?? '-';
+    final denSociale = _entite?['denomination_sociale']?.toString() ?? '-';
     final nif = _entite?['numero_fiscal']?.toString() ?? '-';
     final adresse = [
       _entite?['ville'],
@@ -1080,53 +1116,48 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
     final type = _typeLabel(_criteria.type);
 
     return Table(
-          border: TableBorder.all(color: Colors.black54, width: 0.7),
-          columnWidths: const {
-            0: FlexColumnWidth(1.6),
-            1: FlexColumnWidth(2.0),
-            2: FlexColumnWidth(0.7),
-            3: FlexColumnWidth(1.4),
-            4: FlexColumnWidth(0.8),
-            5: FlexColumnWidth(1.6),
-            6: FlexColumnWidth(0.8),
-            7: FlexColumnWidth(1.6),
-          },
+      border: TableBorder.all(color: Colors.black54, width: 0.7),
+      columnWidths: const {
+        0: FlexColumnWidth(1.6),
+        1: FlexColumnWidth(2.0),
+        2: FlexColumnWidth(0.7),
+        3: FlexColumnWidth(1.4),
+        4: FlexColumnWidth(0.8),
+        5: FlexColumnWidth(1.6),
+        6: FlexColumnWidth(0.8),
+        7: FlexColumnWidth(1.6),
+      },
+      children: [
+        TableRow(
+          decoration: const BoxDecoration(color: Colors.white),
           children: [
-            TableRow(
-              decoration: const BoxDecoration(color: Colors.white),
-              children: [
-                _headerCell('Dénomination sociale', bold: true),
-                _headerCell(denSociale),
-                _headerCell('NIF', bold: true),
-                _headerCell(nif),
-                _headerCell('Adresse', bold: true),
-                _headerCell(adresse),
-                _headerCell('Période', bold: true),
-                _headerCell(periode),
-              ],
-            ),
-            TableRow(
-              decoration: const BoxDecoration(color: Colors.white),
-              children: [
-                _headerCell('GRAND LIVRE', bold: true),
-                _headerCell(type),
-                _headerCell(''),
-                _headerCell('TYPE', bold: true),
-                _headerCell(type),
-                _headerCell(
-                  _isAnalytique ? 'PROJET : ${_criteria.projetLabel}' : '',
-                ),
-                _headerCell(
-                  _isAnalytique ? 'BAILLEUR' : '',
-                  bold: _isAnalytique,
-                ),
-                _headerCell(
-                  _isAnalytique ? _criteria.bailleursLabel : '',
-                ),
-              ],
-            ),
+            _headerCell('Dénomination sociale', bold: true),
+            _headerCell(denSociale),
+            _headerCell('NIF', bold: true),
+            _headerCell(nif),
+            _headerCell('Adresse', bold: true),
+            _headerCell(adresse),
+            _headerCell('Période', bold: true),
+            _headerCell(periode),
           ],
-        );
+        ),
+        TableRow(
+          decoration: const BoxDecoration(color: Colors.white),
+          children: [
+            _headerCell('GRAND LIVRE', bold: true),
+            _headerCell(type),
+            _headerCell(''),
+            _headerCell('TYPE', bold: true),
+            _headerCell(type),
+            _headerCell(
+              _isAnalytique ? 'PROJET : ${_criteria.projetLabel}' : '',
+            ),
+            _headerCell(_isAnalytique ? 'BAILLEUR' : '', bold: _isAnalytique),
+            _headerCell(_isAnalytique ? _criteria.bailleursLabel : ''),
+          ],
+        ),
+      ],
+    );
   }
 
   Widget _headerCell(String text, {bool bold = false}) {
@@ -1174,13 +1205,29 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
           },
           children: [
             _tableRow(
-              ['Date', 'Journal', 'N enregis.', 'Libelle', 'Debit', 'Credit', 'Solde'],
+              [
+                'Date',
+                'Journal',
+                'N enregis.',
+                'Libelle',
+                'Debit',
+                'Credit',
+                'Solde',
+              ],
               color: const Color(0xFFD8E7F1),
               bold: true,
             ),
             if (group.hasOpeningBalance)
               _tableRow(
-                ['', '', '', 'Solde d\'ouverture', '', '', _formatAmount(group.openingBalance)],
+                [
+                  '',
+                  '',
+                  '',
+                  'Solde d\'ouverture',
+                  '',
+                  '',
+                  _formatAmount(group.openingBalance),
+                ],
                 color: const Color(0xFFEEF6FB),
                 bold: true,
               ),
@@ -1199,7 +1246,9 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
             ),
             _tableRow(
               [
-                '', '', '',
+                '',
+                '',
+                '',
                 'TOTAL COMPTE ${group.numeroCompte}',
                 _formatAmount(group.totalDebit),
                 _formatAmount(group.totalCredit),
@@ -1217,25 +1266,29 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
   TableRow _tableRow(List<String> values, {Color? color, bool bold = false}) {
     return TableRow(
       decoration: BoxDecoration(color: color ?? Colors.white),
-      children: values
-          .asMap()
-          .entries
-          .map(
-            (entry) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-              child: Center(
-                child: Text(
-                  entry.value,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: bold ? FontWeight.w800 : FontWeight.normal,
+      children:
+          values
+              .asMap()
+              .entries
+              .map(
+                (entry) => Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 1,
+                  ),
+                  child: Center(
+                    child: Text(
+                      entry.value,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: bold ? FontWeight.w800 : FontWeight.normal,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          )
-          .toList(),
+              )
+              .toList(),
     );
   }
 }

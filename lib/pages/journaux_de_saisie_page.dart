@@ -334,16 +334,38 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
             : 'Exercice ${exercice.code} • ${_formatHeaderLabel(exercice.dateDebut)} - ${_formatHeaderLabel(exercice.dateFin)}';
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.blue.shade50, Colors.white],
+        ),
         border: Border(bottom: BorderSide(color: Colors.blue.shade100)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(Icons.menu_book_rounded, color: Colors.blue.shade700, size: 20),
-          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade600,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.shade200,
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.menu_book_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -352,14 +374,19 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
                 Text(
                   'Journaux de saisie',
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade800,
+                    color: Colors.blue.shade900,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: TextStyle(fontSize: 11, color: Colors.blue.shade600),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.blue.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
@@ -370,23 +397,44 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
                 final total = _rows.length;
                 final filtered = _filteredRows.length;
                 final infoText =
-                    _hasActiveFilters ? '$filtered / $total' : '$total entrées';
+                    _hasActiveFilters ? '$filtered / $total' : '$total';
                 return Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
+                    horizontal: 12,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade100,
-                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.blue.shade200),
                   ),
-                  child: Text(
-                    infoText,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.blue.shade800,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.receipt_long,
+                        size: 14,
+                        color: Colors.blue.shade700,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        infoText,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.blue.shade800,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _hasActiveFilters ? 'filtrées' : 'entrées',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.blue.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 );
               },
@@ -455,49 +503,66 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
     ];
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
       ),
       child: Row(
         children: [
+          Icon(Icons.info_outline, size: 13, color: Colors.grey.shade500),
+          const SizedBox(width: 6),
           Text(
-            'Légende : ',
+            'Légende',
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 11,
               color: Colors.grey.shade600,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
+          const SizedBox(width: 12),
           Expanded(
             child: Wrap(
-              spacing: 12,
-              runSpacing: 4,
+              spacing: 8,
+              runSpacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
               children:
                   items.map((item) {
-                    return Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: item.backgroundColor,
-                            borderRadius: BorderRadius.circular(2),
-                            border: Border.all(
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: item.backgroundColor,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: item.badgeColor,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
                               color: item.textColor,
-                              width: 0.8,
+                              shape: BoxShape.circle,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          item.label,
-                          style: TextStyle(fontSize: 10, color: item.textColor),
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          Text(
+                            item.label,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: item.textColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                   }).toList(),
             ),
@@ -512,10 +577,17 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
     final years = _availableYears;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        border: Border(bottom: BorderSide(color: Colors.blue.shade100)),
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -526,7 +598,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               SizedBox(
-                width: isNarrow ? constraints.maxWidth : 160,
+                width: isNarrow ? constraints.maxWidth : 170,
                 height: 36,
                 child: TextField(
                   controller: _codeSearchController,
@@ -570,7 +642,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
                 ),
               ),
               SizedBox(
-                width: isNarrow ? constraints.maxWidth : 180,
+                width: isNarrow ? constraints.maxWidth : 170,
                 height: 36,
                 child: TextField(
                   controller: _intituleSearchController,
@@ -677,7 +749,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
                 ),
               if (years.isNotEmpty)
                 SizedBox(
-                  width: isNarrow ? constraints.maxWidth : 130,
+                  width: isNarrow ? constraints.maxWidth : 170,
                   height: 36,
                   child: DropdownButtonFormField<int>(
                     value: _selectedYear ?? 0,
@@ -843,6 +915,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
           headingRowColor: WidgetStateProperty.resolveWith(
             (states) => Colors.blue.shade300,
           ),
+          headingRowHeight: 32,
           dataRowMinHeight: 8,
           dataRowMaxHeight: 14,
           horizontalMargin: 0,
@@ -851,20 +924,45 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
             DataColumn(
               label: Padding(
                 padding: EdgeInsets.only(left: 6),
-                child: Text('Période', style: TextStyle(color: Colors.white)),
+                child: Text(
+                  'Période',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
             DataColumn(
-              label: Text('Code', style: TextStyle(color: Colors.white)),
+              label: Text(
+                'Code',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+              ),
             ),
             DataColumn(
               label: Text(
                 'Intitulé du journal',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
               ),
             ),
             DataColumn(
-              label: Text('Statut', style: TextStyle(color: Colors.white)),
+              label: Text(
+                'Statut',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+              ),
             ),
           ],
           rows: rows.map(_buildDataRow).toList(),

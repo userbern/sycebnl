@@ -228,7 +228,7 @@ class _InterrogationsPageState extends State<InterrogationsPage> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<NatureCompte?>(
-                            initialValue: _selectedNature,
+                            value: _selectedNature,
                             decoration: InputDecoration(
                               labelText: 'Nature du compte',
                               prefixIcon: const Icon(Icons.category),
@@ -257,7 +257,7 @@ class _InterrogationsPageState extends State<InterrogationsPage> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: DropdownButtonFormField<TypeCompte?>(
-                            initialValue: _selectedType,
+                            value: _selectedType,
                             decoration: InputDecoration(
                               labelText: 'Type de compte',
                               prefixIcon: const Icon(Icons.type_specimen),

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import '../models/compte.dart';
+import '../models/journal.dart';
 import '../models/user_session.dart';
+import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/exercice_service.dart';
 
@@ -8,11 +11,13 @@ enum _ModeCreation { avecReport, sansReport, anterieur }
 class NouvelExercicePage extends StatefulWidget {
   final UserSession userSession;
   final bool showAppBar;
+  final VoidCallback? onExerciceCreated;
 
   const NouvelExercicePage({
     super.key,
     required this.userSession,
     this.showAppBar = true,
+    this.onExerciceCreated,
   });
 
   @override
@@ -30,6 +35,12 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
   int? _exercicePrecedentId;
   Future<AnPreview?>? _anPreviewFuture;
   bool _datesModifieesManuellement = false;
+
+  List<Journal> _journaux = [];
+  String? _journalSelectionne;
+  final _compteEquilibrageController = TextEditingController();
+  List<Compte> _comptes = [];
+  Future<({double totalDebit, double totalCredit})>? _totauxReportFuture;
 
   late int selectedDebutDay, selectedDebutMonth, selectedDebutYear;
   late int selectedFinDay, selectedFinMonth, selectedFinYear;
@@ -50,12 +61,15 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     selectedFinMonth = 12;
     selectedFinYear = now.year;
     _loadExercices();
+    _loadJournaux();
+    _loadComptes();
   }
 
   @override
   void dispose() {
     _anneeController.dispose();
     _anneeFocusNode.dispose();
+    _compteEquilibrageController.dispose();
     super.dispose();
   }
 
@@ -64,6 +78,24 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
       final exs = await DatabaseService.getExercices();
       if (mounted) setState(() => _exercices = exs);
     } catch (_) {}
+  }
+
+  Future<void> _loadJournaux() async {
+    try {
+      final journaux = await AuthService.getJournaux();
+      if (mounted) setState(() => _journaux = journaux);
+    } catch (e) {
+      debugPrint('Erreur chargement journaux: $e');
+    }
+  }
+
+  Future<void> _loadComptes() async {
+    try {
+      final comptes = await DatabaseService.getAllComptes();
+      if (mounted) setState(() => _comptes = comptes);
+    } catch (e) {
+      debugPrint('Erreur chargement comptes: $e');
+    }
   }
 
   // ── Computed ────────────────────────────────────────────────────────────────
@@ -112,6 +144,37 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
 
   String _fmtDateTime(DateTime d) => _fmtDate(d.day, d.month, d.year);
 
+  bool _memeJour(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  /// Message d'erreur si la période saisie ne chaîne pas exactement
+  /// (sans trou ni chevauchement) avec l'exercice adjacent existant, ou
+  /// `null` si tout est cohérent.
+  String? get _erreurContinuite {
+    if (_mode == _ModeCreation.anterieur) {
+      final plusAncien = _plusAncienDebut;
+      if (plusAncien == null) return null;
+      final attendu = plusAncien.subtract(const Duration(days: 1));
+      if (!_memeJour(_dateFin, attendu)) {
+        return 'La date de fin doit être exactement le ${_fmtDateTime(attendu)} '
+            '(veille du début de l\'exercice le plus ancien), sans écart.';
+      }
+    } else if (_mode == _ModeCreation.avecReport ||
+        _mode == _ModeCreation.sansReport) {
+      final dernier = _dernierExercice;
+      if (dernier == null) return null;
+      final finPrecedente = DateTime.tryParse(dernier['date_fin'].toString());
+      if (finPrecedente == null) return null;
+      final attendu = finPrecedente.add(const Duration(days: 1));
+      if (!_memeJour(_dateDebut, attendu)) {
+        return 'La date de début doit être exactement le ${_fmtDateTime(attendu)} '
+            '(lendemain de la fin de l\'exercice "${dernier['code']}"), sans '
+            'écart.';
+      }
+    }
+    return null;
+  }
+
   static final RegExp _codeAnneeRegExp = RegExp(r'^\d{4}$');
 
   void _onCodeChanged(String value) {
@@ -144,12 +207,17 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
       );
       return;
     }
-    if ((dernier['is_cloture'] as int? ?? 0) != 1) {
+    if (_journaux.isEmpty) {
+      // Re-vérifie au cas où le chargement initial (asynchrone, lancé dans
+      // initState) ne serait pas encore terminé au moment du clic.
+      await _loadJournaux();
+    }
+    if (_journaux.isEmpty) {
       _showBlockingMessage(
-        'Clôture requise',
-        'L\'exercice "${dernier['code']}" doit être clôturé avant de créer un '
-            'exercice avec report : c\'est la clôture qui génère le journal '
-            'des A-Nouveaux utilisé pour les comptes d\'ouverture.',
+        'Aucun journal disponible',
+        'Il n\'y a aucun journal dans ce dossier. Créez d\'abord un journal '
+            '(page Journaux) pour pouvoir y enregistrer les écritures de '
+            'report.',
       );
       return;
     }
@@ -163,6 +231,10 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     setState(() {
       _mode = _ModeCreation.avecReport;
       _exercicePrecedentId = dernier['id'] as int;
+      _journalSelectionne = null;
+      _compteEquilibrageController.clear();
+      _totauxReportFuture =
+          ExerciceService.calculerTotauxReport(dernier['id'] as int);
       selectedDebutDay = debut.day;
       selectedDebutMonth = debut.month;
       selectedDebutYear = debut.year;
@@ -252,6 +324,9 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
       _exercicePrecedentId = null;
       _anPreviewFuture = null;
       _datesModifieesManuellement = false;
+      _journalSelectionne = null;
+      _compteEquilibrageController.clear();
+      _totauxReportFuture = null;
     });
   }
 
@@ -418,12 +493,35 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     if (!_dateFin.isAfter(_dateDebut)) {
       return 'La date de fin doit être postérieure à la date de début.';
     }
+    if (_erreurContinuite != null) {
+      return _erreurContinuite;
+    }
+    if (_mode == _ModeCreation.avecReport) {
+      if (_journalSelectionne == null) {
+        return 'Veuillez choisir le journal de report.';
+      }
+      if (_compteEquilibrageController.text.trim().isEmpty) {
+        return 'Veuillez saisir le compte d\'équilibrage.';
+      }
+    }
     return null;
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearMaterialBanners();
+    messenger.showMaterialBanner(
+      MaterialBanner(
+        backgroundColor: Colors.red.shade50,
+        content: Text(message, style: TextStyle(color: Colors.red.shade700)),
+        leading: Icon(Icons.error_outline, color: Colors.red.shade700),
+        actions: [
+          TextButton(
+            onPressed: messenger.hideCurrentMaterialBanner,
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -435,7 +533,10 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     }
     setState(() {
       _step = 2;
-      _anPreviewFuture = ExerciceService.getAnPreview(_exercicePrecedentId!);
+      _anPreviewFuture = ExerciceService.previewReportSoldes(
+        _exercicePrecedentId!,
+        compteEquilibrage: _compteEquilibrageController.text.trim(),
+      );
     });
   }
 
@@ -477,6 +578,8 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
         dateDebut: _dateDebut,
         dateFin: _dateFin,
         exercicePrecedentId: _exercicePrecedentId!,
+        codeJournal: _journalSelectionne!,
+        compteEquilibrage: _compteEquilibrageController.text.trim(),
       );
       _onCreationReussie();
     } catch (e) {
@@ -495,6 +598,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
         backgroundColor: Colors.green,
       ),
     );
+    widget.onExerciceCreated?.call();
     if (widget.showAppBar) {
       Navigator.of(context).pop(true);
     } else {
@@ -511,6 +615,9 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
       _exercicePrecedentId = null;
       _anPreviewFuture = null;
       _datesModifieesManuellement = false;
+      _journalSelectionne = null;
+      _compteEquilibrageController.clear();
+      _totauxReportFuture = null;
       selectedDebutDay = 1;
       selectedDebutMonth = 1;
       selectedDebutYear = now.year;
@@ -569,7 +676,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     const subtitles = {
       0: 'Choisissez comment créer ce nouvel exercice',
       1: 'Définissez les dates de début et de fin',
-      2: 'Vérifiez le journal AN avant de confirmer',
+      2: 'Vérifiez les soldes à reporter avant de confirmer',
     };
     return Container(
       width: double.infinity,
@@ -629,9 +736,8 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           color: Colors.blue,
           title: 'Créer un exercice avec report',
           description:
-              'Reprend les soldes de clôture de l\'exercice précédent via son '
-              'journal des A-Nouveaux. Nécessite que l\'exercice précédent '
-              'soit clôturé.',
+              'Reprend les soldes de l\'exercice précédent (comptes classes '
+              '1 à 5), recalculés automatiquement.',
           onTap: _choisirAvecReport,
         ),
         const SizedBox(height: 12),
@@ -661,26 +767,11 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
   // ── Étape 2 : dates ───────────────────────────────────────────────────────────
 
   Widget _buildStepDates() {
-    final plusAncien = _plusAncienDebut;
-    final incoherenceAnterieur = _mode == _ModeCreation.anterieur &&
-        plusAncien != null &&
-        !_dateFin.isBefore(plusAncien);
+    final erreurContinuite = _erreurContinuite;
 
     return Column(
       children: [
-        _buildSection(
-          icon: Icons.tag,
-          title: 'IDENTIFICATION',
-          child: _buildIdentificationContent(),
-        ),
-        const SizedBox(height: 12),
-        _buildSection(
-          icon: Icons.date_range,
-          title: 'PÉRIODE',
-          child: _buildPeriodeContent(),
-        ),
-        if (_mode == _ModeCreation.anterieur && incoherenceAnterieur) ...[
-          const SizedBox(height: 12),
+        if (erreurContinuite != null) ...[
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -694,13 +785,32 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'La date de fin doit précéder le début du plus ancien '
-                    'exercice existant (${_fmtDateTime(plusAncien)}).',
+                    erreurContinuite,
                     style: TextStyle(fontSize: 12, color: Colors.red.shade700),
                   ),
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        _buildSection(
+          icon: Icons.tag,
+          title: 'IDENTIFICATION',
+          child: _buildIdentificationContent(),
+        ),
+        const SizedBox(height: 12),
+        _buildSection(
+          icon: Icons.date_range,
+          title: 'PÉRIODE',
+          child: _buildPeriodeContent(),
+        ),
+        if (_mode == _ModeCreation.avecReport) ...[
+          const SizedBox(height: 12),
+          _buildSection(
+            icon: Icons.repeat,
+            title: 'REPORT',
+            child: _buildReportContent(),
           ),
         ],
         const SizedBox(height: 24),
@@ -708,7 +818,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           children: [
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: isLoading || incoherenceAnterieur
+                onPressed: isLoading || erreurContinuite != null
                     ? null
                     : (_mode == _ModeCreation.avecReport
                         ? _continuerVersRecap
@@ -873,6 +983,270 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     );
   }
 
+  Widget _buildReportContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Journal de report',
+          style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 6),
+        Autocomplete<Journal>(
+          initialValue: TextEditingValue(
+            text: _journalSelectionne == null
+                ? ''
+                : _journalLabel(_journaux.firstWhere(
+                    (j) => j.code == _journalSelectionne,
+                    orElse: () => _journaux.first,
+                  )),
+          ),
+          displayStringForOption: _journalLabel,
+          optionsBuilder: (value) {
+            if (value.text.isEmpty) return _journaux;
+            final query = value.text.toLowerCase();
+            return _journaux.where((j) =>
+                j.code.toLowerCase().contains(query) ||
+                j.intitule.toLowerCase().contains(query));
+          },
+          onSelected: (j) => setState(() => _journalSelectionne = j.code),
+          fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
+            return TextField(
+              controller: controller,
+              focusNode: focusNode,
+              onChanged: (_) => setState(() => _journalSelectionne = null),
+              decoration: _fieldDecoration(
+                hint: 'Rechercher un journal…',
+                icon: Icons.menu_book_outlined,
+              ),
+            );
+          },
+          optionsViewBuilder: (context, onSelected, options) =>
+              _optionsListView<Journal>(
+            options: options,
+            onSelected: onSelected,
+            titleOf: (j) => j.code,
+            subtitleOf: (j) => j.intitule,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSoldeTotalBanner(),
+        const SizedBox(height: 12),
+        Text(
+          'Compte d\'équilibrage',
+          style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 6),
+        Autocomplete<Compte>(
+          initialValue:
+              TextEditingValue(text: _compteEquilibrageController.text),
+          displayStringForOption: (c) => c.numeroCompte,
+          optionsBuilder: (value) {
+            if (value.text.isEmpty) return const Iterable<Compte>.empty();
+            final query = value.text.toLowerCase();
+            return _comptes.where((c) =>
+                c.numeroCompte.toLowerCase().contains(query) ||
+                c.intitule.toLowerCase().contains(query));
+          },
+          onSelected: (c) => setState(
+              () => _compteEquilibrageController.text = c.numeroCompte),
+          fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
+            return TextField(
+              controller: controller,
+              focusNode: focusNode,
+              onChanged: (v) => _compteEquilibrageController.text = v,
+              decoration: _fieldDecoration(
+                hint: 'Ex : 120000',
+                icon: Icons.account_balance_outlined,
+              ),
+            );
+          },
+          optionsViewBuilder: (context, onSelected, options) =>
+              _optionsListView<Compte>(
+            options: options,
+            onSelected: onSelected,
+            titleOf: (c) => c.numeroCompte,
+            subtitleOf: (c) => c.intitule,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Compte sur lequel imputer l\'écart de balancement (excédent ou '
+          'déficit). Créé automatiquement s\'il n\'existe pas encore.',
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+        ),
+      ],
+    );
+  }
+
+  String _journalLabel(Journal j) => '${j.code} — ${j.intitule}';
+
+  Widget _buildSoldeTotalBanner() {
+    return FutureBuilder<({double totalDebit, double totalCredit})>(
+      future: _totauxReportFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: const [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 10),
+                Text('Calcul du solde à reporter…',
+                    style: TextStyle(fontSize: 12)),
+              ],
+            ),
+          );
+        }
+
+        final totalDebit = snapshot.data!.totalDebit;
+        final totalCredit = snapshot.data!.totalCredit;
+        // Solde total = Crédit - Débit : positif → excédent créditeur (on
+        // débitera le compte d'équilibrage), négatif → excédent débiteur
+        // (on créditera le compte d'équilibrage).
+        final soldeCreditMoinsDebit = totalCredit - totalDebit;
+        final estEquilibre = soldeCreditMoinsDebit.abs() <= 0.01;
+        final estCrediteur = soldeCreditMoinsDebit > 0;
+        final sens = estEquilibre
+            ? 'Équilibré'
+            : (estCrediteur ? 'Créditeur' : 'Débiteur');
+        final color = estEquilibre || estCrediteur
+            ? Colors.green
+            : Colors.orange;
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: color.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.functions, size: 16, color: color.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Total débit : ${totalDebit.toStringAsFixed(2)}   ·   '
+                      'Total crédit : ${totalCredit.toStringAsFixed(2)}',
+                      style: TextStyle(fontSize: 12, color: color.shade700),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.only(left: 24),
+                child: Text(
+                  estEquilibre
+                      ? 'Solde total (Crédit − Débit) : équilibré, aucune '
+                          'écriture d\'équilibrage nécessaire.'
+                      : 'Solde total (Crédit − Débit) : '
+                          '${soldeCreditMoinsDebit >= 0 ? '' : '-'}'
+                          '${soldeCreditMoinsDebit.abs().toStringAsFixed(2)} '
+                          '($sens) — c\'est ce montant qui sera imputé sur le '
+                          'compte d\'équilibrage ci-dessous.',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: color.shade700),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  InputDecoration _fieldDecoration({
+    required String hint,
+    required IconData icon,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      prefixIcon: Icon(icon, size: 18, color: Colors.grey.shade400),
+      border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300)),
+      enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300)),
+      focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.blue.shade500, width: 2)),
+      contentPadding:
+          const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+      isDense: true,
+    );
+  }
+
+  Widget _optionsListView<T extends Object>({
+    required Iterable<T> options,
+    required AutocompleteOnSelected<T> onSelected,
+    required String Function(T) titleOf,
+    required String Function(T) subtitleOf,
+  }) {
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Material(
+        elevation: 4,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 400,
+          constraints: const BoxConstraints(maxHeight: 250),
+          child: ListView.builder(
+            padding: EdgeInsets.zero,
+            shrinkWrap: true,
+            itemCount: options.length,
+            itemBuilder: (context, index) {
+              final option = options.elementAt(index);
+              return InkWell(
+                onTap: () => onSelected(option),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  color: index % 2 == 0 ? Colors.white : Colors.grey.shade50,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(titleOf(option),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 12)),
+                      Text(subtitleOf(option),
+                          style: const TextStyle(
+                              fontSize: 11, color: Colors.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDureeBadge() {
     final duree = _dureeMois;
     final isStandard = duree == 12;
@@ -987,16 +1361,29 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           children: [
             _buildSection(
               icon: Icons.summarize_outlined,
-              title: 'JOURNAL AN UTILISÉ',
-              child: aucuneEcriture
-                  ? Text(
-                      'L\'exercice précédent n\'a généré aucune écriture de '
-                      'report (aucun solde non nul sur les classes 1 à 5). '
-                      'L\'exercice sera créé sans compte d\'ouverture.',
-                      style:
-                          TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                    )
-                  : _buildRecapTable(preview),
+              title: 'SOLDES À REPORTER',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Journal : ${_journalSelectionne ?? '-'}',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 12),
+                  aucuneEcriture
+                      ? Text(
+                          'L\'exercice précédent n\'a aucun solde non nul sur '
+                          'les comptes classes 1 à 5. L\'exercice sera créé '
+                          'sans compte d\'ouverture.',
+                          style: TextStyle(
+                              fontSize: 13, color: Colors.grey.shade600),
+                        )
+                      : _buildRecapTable(preview),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
             Row(
@@ -1068,8 +1455,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
         ),
         const SizedBox(height: 10),
         ...preview.lignes.map((l) {
-          final estEquilibrage =
-              l.numeroCompte.startsWith('121') || l.numeroCompte.startsWith('129');
+          final estEquilibrage = l.numeroCompte == preview.compteEquilibrage;
           return Container(
             margin: const EdgeInsets.only(bottom: 6),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

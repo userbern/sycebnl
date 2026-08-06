@@ -13,9 +13,6 @@ class ListeExercicesPage extends StatefulWidget {
     String dateDebut,
     String dateFin,
   ) onEdit;
-  final Future<void> Function(int id) onCloture;
-  final Future<List<Map<String, dynamic>>> Function(int id)
-      onCheckPeriodesEquilibre;
   final void Function(int id) onViewJournalAN;
   final UserSession? userSession;
 
@@ -26,8 +23,6 @@ class ListeExercicesPage extends StatefulWidget {
     required this.onSwitch,
     required this.onCreateNew,
     required this.onEdit,
-    required this.onCloture,
-    required this.onCheckPeriodesEquilibre,
     required this.onViewJournalAN,
     this.userSession,
   });
@@ -213,7 +208,6 @@ class _ListeExercicesPageState extends State<ListeExercicesPage> {
                         moisEcoules: ecoules,
                         onSwitch: () => widget.onSwitch(ex['id'] as int),
                         onEdit: _canModify ? () => _showEditDialog(context, ex) : () {},
-                        onCloture: _canModify ? () => _showClotureDialog(context, ex) : () {},
                         onViewJournalAN: () =>
                             widget.onViewJournalAN(ex['id'] as int),
                         canModify: _canModify,
@@ -225,143 +219,6 @@ class _ListeExercicesPageState extends State<ListeExercicesPage> {
       ),
       ),
     );
-  }
-
-  Future<void> _showClotureDialog(
-      BuildContext context, Map<String, dynamic> ex) async {
-    final id = ex['id'] as int;
-    final code = ex['code']?.toString() ?? '';
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => FutureBuilder<List<Map<String, dynamic>>>(
-        future: widget.onCheckPeriodesEquilibre(id),
-        builder: (ctx, snapshot) {
-          final loading = !snapshot.hasData && !snapshot.hasError;
-          final periodes = snapshot.data ?? [];
-
-          return AlertDialog(
-            title: Row(
-              children: [
-                Icon(Icons.lock_outline,
-                    color: Colors.orange.shade700, size: 20),
-                const SizedBox(width: 8),
-                Text('Clôturer $code'),
-              ],
-            ),
-            content: SizedBox(
-              width: 400,
-              child: loading
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (snapshot.hasError)
-                          Row(
-                            children: [
-                              Icon(Icons.error_outline,
-                                  color: Colors.red.shade600, size: 18),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  'Impossible de vérifier les périodes.',
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                            ],
-                          )
-                        else if (periodes.isEmpty)
-                          Row(
-                            children: [
-                              Icon(Icons.check_circle_outline,
-                                  color: Colors.green.shade600, size: 18),
-                              const SizedBox(width: 8),
-                              const Text(
-                                  'Toutes les périodes sont équilibrées.',
-                                  style: TextStyle(fontSize: 13)),
-                            ],
-                          )
-                        else ...[
-                          Row(
-                            children: [
-                              Icon(Icons.warning_amber_outlined,
-                                  color: Colors.orange.shade700, size: 18),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${periodes.length} période${periodes.length > 1 ? 's' : ''} non équilibrée${periodes.length > 1 ? 's' : ''} :',
-                                style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.orange.shade700,
-                                    fontWeight: FontWeight.w600),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          ...periodes.map((p) => Padding(
-                                padding: const EdgeInsets.only(
-                                    left: 26, bottom: 3),
-                                child: Text(
-                                  '• ${p['code_journal']}  —  ${_moisLabel(p['mois'] as int?)}  ${p['annee']}',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade700),
-                                ),
-                              )),
-                        ],
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border:
-                                Border.all(color: Colors.grey.shade200),
-                          ),
-                          child: const Text(
-                            'Cette action est irréversible. L\'exercice clôturé ne pourra plus être modifié.',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Annuler'),
-              ),
-              if (!loading)
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange.shade700,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Clôturer'),
-                ),
-            ],
-          );
-        },
-      ),
-    );
-
-    if (confirm == true) {
-      await widget.onCloture(id);
-    }
-  }
-
-  String _moisLabel(int? mois) {
-    const noms = [
-      'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun',
-      'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc',
-    ];
-    if (mois == null || mois < 1 || mois > 12) return '-';
-    return noms[mois - 1];
   }
 
   Future<void> _showEditDialog(
@@ -568,7 +425,6 @@ class _ExerciceCard extends StatelessWidget {
   final int moisEcoules;
   final VoidCallback onSwitch;
   final VoidCallback onEdit;
-  final VoidCallback onCloture;
   final VoidCallback onViewJournalAN;
   final bool canModify;
 
@@ -580,7 +436,6 @@ class _ExerciceCard extends StatelessWidget {
     required this.moisEcoules,
     required this.onSwitch,
     required this.onEdit,
-    required this.onCloture,
     required this.onViewJournalAN,
     this.canModify = true,
   });
@@ -684,24 +539,6 @@ class _ExerciceCard extends StatelessWidget {
               child:
                   const Text('Activer', style: TextStyle(fontSize: 13)),
             ),
-          if (!_isCloture && canModify) ...[
-            const SizedBox(width: 8),
-            OutlinedButton(
-              onPressed: onCloture,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.orange.shade700,
-                side: BorderSide(color: Colors.orange.shade300),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child:
-                  const Text('Clôturer', style: TextStyle(fontSize: 13)),
-            ),
-          ],
           if (_isCloture) ...[
             const SizedBox(width: 8),
             OutlinedButton.icon(
