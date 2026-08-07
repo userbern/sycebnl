@@ -536,10 +536,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
                       decoration: BoxDecoration(
                         color: item.backgroundColor,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: item.badgeColor,
-                          width: 1,
-                        ),
+                        border: Border.all(color: item.badgeColor, width: 1),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -938,30 +935,30 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
               label: Text(
                 'Code',
                 style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             DataColumn(
               label: Text(
                 'Intitulé du journal',
                 style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             DataColumn(
               label: Text(
                 'Statut',
                 style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -1070,7 +1067,7 @@ class _JournauxDeSaisiePageState extends State<JournauxDeSaisiePage> {
       return _RowStatus(
         label: entryLabel,
         backgroundColor: Colors.green.shade50,
-        badgeColor: Colors.green.shade100,
+        badgeColor: Colors.green.shade50,
         textColor: Colors.green.shade700,
       );
     }
