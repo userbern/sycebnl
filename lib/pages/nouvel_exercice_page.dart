@@ -737,7 +737,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           title: 'Créer un exercice avec report',
           description:
               'Reprend les soldes de l\'exercice précédent (comptes classes '
-              '1 à 5), recalculés automatiquement.',
+              '1 à 5)',
           onTap: _choisirAvecReport,
         ),
         const SizedBox(height: 12),
@@ -746,8 +746,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           color: Colors.green,
           title: 'Créer un exercice sans report',
           description:
-              'Crée un exercice totalement vide, sans compte d\'ouverture. '
-              'Idéal pour le tout premier exercice du dossier.',
+              'Crée un exercice totalement vide, sans compte d\'ouverture.',
           onTap: _choisirSansReport,
         ),
         const SizedBox(height: 12),
