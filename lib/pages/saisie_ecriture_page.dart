@@ -1117,25 +1117,32 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         _referenceController.text = derniere.reference ?? '';
         _libelleController.text = derniere.libelle;
 
-        // Utilise le compte de trésorerie s'il est défini sur le journal
-        final compteTresorerie = _journal?.compteTresorerie;
+        // Ne pas écraser le compte si l'utilisateur l'a déjà saisi lui-même
+        final compteDejaSaisi =
+            _selectedCompteNumero != null &&
+            _selectedCompteNumero!.isNotEmpty;
 
-        if (compteTresorerie != null && compteTresorerie.isNotEmpty) {
-          // Chercher le compte de trésorerie; s'il manque, laisser vide
-          try {
-            final compte = _comptes.firstWhere(
-              (c) => c.numeroCompte == compteTresorerie,
-            );
-            _setCompteSelectionFromNumero(compte.numeroCompte);
-          } catch (_) {
+        if (!compteDejaSaisi) {
+          // Utilise le compte de trésorerie s'il est défini sur le journal
+          final compteTresorerie = _journal?.compteTresorerie;
+
+          if (compteTresorerie != null && compteTresorerie.isNotEmpty) {
+            // Chercher le compte de trésorerie; s'il manque, laisser vide
+            try {
+              final compte = _comptes.firstWhere(
+                (c) => c.numeroCompte == compteTresorerie,
+              );
+              _setCompteSelectionFromNumero(compte.numeroCompte);
+            } catch (_) {
+              _resetCompteSelection();
+            }
+          } else {
+            // Pas de trésorerie : ne pré-remplit pas le compte
             _resetCompteSelection();
           }
-        } else {
-          // Pas de trésorerie : ne pré-remplit pas le compte
-          _resetCompteSelection();
-        }
 
-        _selectedTiersNumero = null;
+          _selectedTiersNumero = null;
+        }
 
         if (difference > 0) {
           _creditController.text = difference.toStringAsFixed(2);
@@ -1150,6 +1157,16 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
           _showTiersField = false;
           _filteredTiers = [];
         }
+      }
+    });
+
+    // Donner le focus au champ montant rempli pour permettre
+    // l'enregistrement immédiat par Entrée
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (difference > 0) {
+        _creditFocusNode.requestFocus();
+      } else {
+        _debitFocusNode.requestFocus();
       }
     });
 
@@ -2452,8 +2469,10 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                       keyboardType: TextInputType.numberWithOptions(
                         decimal: true,
                       ),
+                      textInputAction: TextInputAction.send,
                       validator: _validateCredit,
                       onChanged: (_) => _formKey.currentState?.validate(),
+                      onFieldSubmitted: (_) => _submitForm(),
                       decoration: _inputDeco('0'),
                     ),
                   ),
