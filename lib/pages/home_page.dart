@@ -52,6 +52,7 @@ class _HomePageState extends State<HomePage> {
   int _contentRefreshSeed = 0;
   bool _isSidebarCollapsed = false;
   final List<int> _pageHistory = [];
+  final List<int> _pageForwardStack = [];
   static const List<_QuickAccessItem> _quickAccessItems = [
     _QuickAccessItem(
       label: 'Plan comptable',
@@ -109,7 +110,6 @@ class _HomePageState extends State<HomePage> {
         _activeExerciceId = activeExercice['id'];
       });
       print('DEBUG: State mis à jour avec succès!');
-
     } catch (e) {
       print('DEBUG: Erreur lors du chargement: $e');
       // Ignorer les erreurs de chargement
@@ -151,11 +151,21 @@ class _HomePageState extends State<HomePage> {
   void _showPage(int index, {bool recordHistory = true}) async {
     // Vérifier permission de lecture
     const pageModules = <int, String>{
-      1: 'identification',   4: 'plan_comptable',    5: 'liste_tiers',
-      6: 'codes_journaux',   7: 'liste_bailleurs',   8: 'liste_projets',
-      9: 'gestion_budgets', 10: 'saisie_comptable', 16: 'journaux_de_saisie',
-     11: 'interrogations',  13: 'balance_comptes',  14: 'grand_livre',
-     15: 'journal',         12: 'exercices',         17: 'exercices',
+      1: 'identification',
+      4: 'plan_comptable',
+      5: 'liste_tiers',
+      6: 'codes_journaux',
+      7: 'liste_bailleurs',
+      8: 'liste_projets',
+      9: 'gestion_budgets',
+      10: 'saisie_comptable',
+      16: 'journaux_de_saisie',
+      11: 'interrogations',
+      13: 'balance_comptes',
+      14: 'grand_livre',
+      15: 'journal',
+      12: 'exercices',
+      17: 'exercices',
     };
     if (!_canRead(pageModules[index])) {
       if (mounted) {
@@ -170,24 +180,35 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Rafraîchir la liste si on quitte la page Nouvel Exercice ou Liste exercices
-    if ((_currentPageIndex == 12 || _currentPageIndex == 17) && index != _currentPageIndex) {
+    if ((_currentPageIndex == 12 || _currentPageIndex == 17) &&
+        index != _currentPageIndex) {
       await _refreshExercices();
     }
 
     setState(() {
       if (recordHistory && index != _currentPageIndex) {
         _pageHistory.add(_currentPageIndex);
+        _pageForwardStack.clear();
       }
       _currentPageIndex = index;
     });
   }
 
   bool get _canGoBack => _pageHistory.isNotEmpty;
+  bool get _canGoForward => _pageForwardStack.isNotEmpty;
 
   void _goBack() {
     if (_pageHistory.isEmpty) return;
     final previous = _pageHistory.removeLast();
+    _pageForwardStack.add(_currentPageIndex);
     _showPage(previous, recordHistory: false);
+  }
+
+  void _goForward() {
+    if (_pageForwardStack.isEmpty) return;
+    final next = _pageForwardStack.removeLast();
+    _pageHistory.add(_currentPageIndex);
+    _showPage(next, recordHistory: false);
   }
 
   void _toggleMenu(String menuName) {
@@ -578,223 +599,305 @@ class _HomePageState extends State<HomePage> {
       child: Focus(
         autofocus: true,
         child: Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Gauche: SYCEBNL + fichier
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          backgroundColor: Colors.grey[100],
+          appBar: AppBar(
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'SYCEBNL Accounting',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                if (dbPath != null)
-                  Text(
-                    ' $fileName',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-              ],
-            ),
-            // Centre: Entité + Exercice (cliquable)
-            Expanded(
-              child: InkWell(
-                onTap: _isSwitchingExercice ? null : _showExerciceSelector,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                // Gauche: SYCEBNL + fichier
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: Text(
-                        '$entiteName - EXERCICE $exerciceCode',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    const Text(
+                      'SYCEBNL Accounting',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    _isSwitchingExercice
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.edit, size: 18),
+                    if (dbPath != null)
+                      Text(
+                        ' $fileName',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
                   ],
                 ),
-              ),
-            ),
-            // Droite: actions
-            const SizedBox(width: 100), // Espace pour équilibrer
-          ],
-        ),
-        backgroundColor: Colors.blue.shade400,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: _showDatabaseInfo,
-            tooltip: 'Informations base de données',
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _reloadCurrentPage,
-            tooltip: 'Actualiser la page',
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              Navigator.of(context).pushReplacementNamed('/');
-            },
-            tooltip: 'Fermer le fichier',
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: Row(
-        children: [
-          // Sidebar VSCode style
-          Container(
-            width: _isSidebarCollapsed ? 72 : 280,
-            color: Colors.blue.shade50,
-            child: Column(
-              children: [
-                Container(
-                  alignment:
-                      _isSidebarCollapsed
-                          ? Alignment.center
-                          : Alignment.centerRight,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
+                // Centre: Entité + Exercice (cliquable)
+                Expanded(
+                  child: InkWell(
+                    onTap: _isSwitchingExercice ? null : _showExerciceSelector,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            '$entiteName - EXERCICE $exerciceCode',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _isSwitchingExercice
+                            ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                            : const Icon(Icons.edit, size: 18),
+                      ],
+                    ),
                   ),
-                  child: Tooltip(
-                    message:
-                        _isSidebarCollapsed
-                            ? 'Développer le menu'
-                            : 'Réduire le menu',
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: _toggleSidebarCollapse,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade200,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Icon(
-                          _isSidebarCollapsed
-                              ? Icons.keyboard_arrow_right
-                              : Icons.keyboard_arrow_left,
-                          color: Colors.blue.shade900,
-                          size: 20,
-                        ),
+                ),
+                // Droite: actions
+                const SizedBox(width: 100), // Espace pour équilibrer
+              ],
+            ),
+            backgroundColor: Colors.blue.shade400,
+            foregroundColor: Colors.white,
+            actions: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Tooltip(
+                  message: 'Retour à la page précédente',
+                  child: OutlinedButton.icon(
+                    onPressed: _canGoBack ? _goBack : null,
+                    icon: const Icon(Icons.arrow_back, size: 16),
+                    label: const Text('Precedent'),
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.blue.shade900,
+                      disabledForegroundColor: Colors.grey.shade400,
+                      side: BorderSide(color: Colors.grey.shade300),
+                      shape: const StadiumBorder(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
                       ),
                     ),
                   ),
                 ),
-                // Entity info compact
-                if (!_isSidebarCollapsed)
-                  CompanyHeaderCard(
-                    companyName: entiteName,
-                    exerciceCode:
-                        _exercices.isNotEmpty && _activeExerciceId != null
-                            ? _exercices.firstWhere(
-                              (e) => e['id'] == _activeExerciceId,
-                              orElse: () => {'code': 'N/A'},
-                            )['code']?.toString()
-                            : null,
-                  )
-                else
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: AppIcon(size: 32),
-                  ),
-                // Menu items
-                Expanded(
-                  child: ListView(
-                    padding: EdgeInsets.zero,
-                    children: [
-                      _buildMenuItem('NOTRE ENTITE', Icons.business, [
-                        _SubMenuItem('Identification', 1,    moduleNom: 'identification'),
-                        _SubMenuItem('Autorisations d\'accès', 2),
-                        _SubMenuItem('Sécurité du dossier', 3),
-                      ]),
-                      _buildMenuItem('PARAMETRAGES', Icons.settings, [
-                        _SubMenuItem('Plan comptable', 4,      moduleNom: 'plan_comptable'),
-                        _SubMenuItem('Liste des tiers', 5,     moduleNom: 'liste_tiers'),
-                        _SubMenuItem('Codes journaux', 6,      moduleNom: 'codes_journaux'),
-                        _SubMenuItem('Liste des bailleurs', 7, moduleNom: 'liste_bailleurs'),
-                        _SubMenuItem('Liste des projets', 8,   moduleNom: 'liste_projets'),
-                        _SubMenuItem('Gestion des budgets', 9, moduleNom: 'gestion_budgets'),
-                      ]),
-                      _buildMenuItem('TRAITEMENTS', Icons.description, [
-                        _SubMenuItem('Saisie comptable', 10,           moduleNom: 'saisie_comptable'),
-                        _SubMenuItem('Journaux de saisie', 16,         moduleNom: 'journaux_de_saisie'),
-                        _SubMenuItem('Interrogations & Lettrages', 11, moduleNom: 'interrogations'),
-                      ]),
-                      _buildMenuItem('EXERCICE', Icons.calendar_today, [
-                        _SubMenuItem('Exercices', 17,       moduleNom: 'exercices'),
-                        _SubMenuItem('Nouvel exercice', 12, moduleNom: 'exercices'),
-                      ]),
-                      _buildMenuItem('EDITION', Icons.print, [
-                        _SubMenuItem('Balance des comptes', 13, moduleNom: 'balance_comptes'),
-                        _SubMenuItem('Grand livre', 14,         moduleNom: 'grand_livre'),
-                        _SubMenuItem('Journal', 15,             moduleNom: 'journal'),
-                      ]),
-                    ],
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Tooltip(
+                  message: 'Revenir à la page que vous venez de quitter',
+                  child: OutlinedButton.icon(
+                    onPressed: _canGoForward ? _goForward : null,
+                    icon: const Icon(Icons.arrow_forward, size: 16),
+                    label: const Text('Suivant'),
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.blue.shade900,
+                      disabledForegroundColor: Colors.grey.shade400,
+                      side: BorderSide(color: Colors.grey.shade300),
+                      shape: const StadiumBorder(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                    ),
                   ),
                 ),
-                _buildQuickAccessSection(),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.info_outline),
+                onPressed: _showDatabaseInfo,
+                tooltip: 'Informations base de données',
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: _reloadCurrentPage,
+                tooltip: 'Actualiser la page',
+              ),
+              IconButton(
+                icon: const Icon(Icons.logout),
+                onPressed: () {
+                  Navigator.of(context).pushReplacementNamed('/');
+                },
+                tooltip: 'Fermer le fichier',
+              ),
+              const SizedBox(width: 8),
+            ],
           ),
-          // Main content area
-          Expanded(
-            child: Stack(
-              children: [
-                KeyedSubtree(
-                  key: ValueKey(_contentRefreshSeed),
-                  child: _buildContentPage(),
-                ),
-                if (_canGoBack)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Tooltip(
-                      message: 'Retour à la page précédente',
-                      child: Material(
-                        color: Colors.white,
-                        shape: const CircleBorder(),
-                        elevation: 2,
+          body: Row(
+            children: [
+              // Sidebar VSCode style
+              Container(
+                width: _isSidebarCollapsed ? 72 : 280,
+                color: Colors.blue.shade50,
+                child: Column(
+                  children: [
+                    Container(
+                      alignment:
+                          _isSidebarCollapsed
+                              ? Alignment.center
+                              : Alignment.centerRight,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      child: Tooltip(
+                        message:
+                            _isSidebarCollapsed
+                                ? 'Développer le menu'
+                                : 'Réduire le menu',
                         child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: _goBack,
-                          child: const Padding(
-                            padding: EdgeInsets.all(6),
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: _toggleSidebarCollapse,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade200,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
                             child: Icon(
-                              Icons.arrow_back,
-                              size: 18,
-                              color: Colors.black87,
+                              _isSidebarCollapsed
+                                  ? Icons.keyboard_arrow_right
+                                  : Icons.keyboard_arrow_left,
+                              color: Colors.blue.shade900,
+                              size: 20,
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
+                    // Entity info compact
+                    if (!_isSidebarCollapsed)
+                      CompanyHeaderCard(
+                        companyName: entiteName,
+                        exerciceCode:
+                            _exercices.isNotEmpty && _activeExerciceId != null
+                                ? _exercices
+                                    .firstWhere(
+                                      (e) => e['id'] == _activeExerciceId,
+                                      orElse: () => {'code': 'N/A'},
+                                    )['code']
+                                    ?.toString()
+                                : null,
+                      )
+                    else
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: AppIcon(size: 32),
+                      ),
+                    // Menu items
+                    Expanded(
+                      child: ListView(
+                        padding: EdgeInsets.zero,
+                        children: [
+                          _buildMenuItem('NOTRE ENTITE', Icons.business, [
+                            _SubMenuItem(
+                              'Identification',
+                              1,
+                              moduleNom: 'identification',
+                            ),
+                            _SubMenuItem('Autorisations d\'accès', 2),
+                            _SubMenuItem('Sécurité du dossier', 3),
+                          ]),
+                          _buildMenuItem('PARAMETRAGES', Icons.settings, [
+                            _SubMenuItem(
+                              'Plan comptable',
+                              4,
+                              moduleNom: 'plan_comptable',
+                            ),
+                            _SubMenuItem(
+                              'Liste des tiers',
+                              5,
+                              moduleNom: 'liste_tiers',
+                            ),
+                            _SubMenuItem(
+                              'Codes journaux',
+                              6,
+                              moduleNom: 'codes_journaux',
+                            ),
+                            _SubMenuItem(
+                              'Liste des bailleurs',
+                              7,
+                              moduleNom: 'liste_bailleurs',
+                            ),
+                            _SubMenuItem(
+                              'Liste des projets',
+                              8,
+                              moduleNom: 'liste_projets',
+                            ),
+                            _SubMenuItem(
+                              'Gestion des budgets',
+                              9,
+                              moduleNom: 'gestion_budgets',
+                            ),
+                          ]),
+                          _buildMenuItem('TRAITEMENTS', Icons.description, [
+                            _SubMenuItem(
+                              'Saisie comptable',
+                              10,
+                              moduleNom: 'saisie_comptable',
+                            ),
+                            _SubMenuItem(
+                              'Journaux de saisie',
+                              16,
+                              moduleNom: 'journaux_de_saisie',
+                            ),
+                            _SubMenuItem(
+                              'Interrogations & Lettrages',
+                              11,
+                              moduleNom: 'interrogations',
+                            ),
+                          ]),
+                          _buildMenuItem('EXERCICE', Icons.calendar_today, [
+                            _SubMenuItem(
+                              'Exercices',
+                              17,
+                              moduleNom: 'exercices',
+                            ),
+                            _SubMenuItem(
+                              'Nouvel exercice',
+                              12,
+                              moduleNom: 'exercices',
+                            ),
+                          ]),
+                          _buildMenuItem('EDITION', Icons.print, [
+                            _SubMenuItem(
+                              'Balance des comptes',
+                              13,
+                              moduleNom: 'balance_comptes',
+                            ),
+                            _SubMenuItem(
+                              'Grand livre',
+                              14,
+                              moduleNom: 'grand_livre',
+                            ),
+                            _SubMenuItem('Journal', 15, moduleNom: 'journal'),
+                          ]),
+                        ],
+                      ),
+                    ),
+                    _buildQuickAccessSection(),
+                  ],
+                ),
+              ),
+              // Main content area
+              Expanded(
+                child: Stack(
+                  children: [
+                    KeyedSubtree(
+                      key: ValueKey(_contentRefreshSeed),
+                      child: _buildContentPage(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
         ),
       ),
     );
@@ -1002,46 +1105,53 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         if (isExpanded)
-          ...subItems.where((s) => _canRead(s.moduleNom)).map(
-            (subItem) => InkWell(
-              onTap: () => _showPage(subItem.index),
-              child: Container(
-                padding: const EdgeInsets.only(left: 52, top: 8, bottom: 8),
-                decoration: BoxDecoration(
-                  color:
-                      _currentPageIndex == subItem.index
-                          ? Colors.blue.shade200
-                          : Colors.transparent,
-                ),
-                child: Text(
-                  subItem.title,
-                  style: TextStyle(
-                    color:
-                        _currentPageIndex == subItem.index
-                            ? Colors.blue.shade900
-                            : Colors.blue.shade400,
-                    fontSize: 12.5,
-                    fontWeight:
-                        _currentPageIndex == subItem.index
-                            ? FontWeight.w600
-                            : FontWeight.w500,
+          ...subItems
+              .where((s) => _canRead(s.moduleNom))
+              .map(
+                (subItem) => InkWell(
+                  onTap: () => _showPage(subItem.index),
+                  child: Container(
+                    padding: const EdgeInsets.only(left: 52, top: 8, bottom: 8),
+                    decoration: BoxDecoration(
+                      color:
+                          _currentPageIndex == subItem.index
+                              ? Colors.blue.shade200
+                              : Colors.transparent,
+                    ),
+                    child: Text(
+                      subItem.title,
+                      style: TextStyle(
+                        color:
+                            _currentPageIndex == subItem.index
+                                ? Colors.blue.shade900
+                                : Colors.blue.shade400,
+                        fontSize: 12.5,
+                        fontWeight:
+                            _currentPageIndex == subItem.index
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
       ],
     );
   }
 
-
   Future<void> _editExercice(
-      int id, String code, String dateDebut, String dateFin) async {
+    int id,
+    String code,
+    String dateDebut,
+    String dateFin,
+  ) async {
     if (!_session.isAdmin && !_session.canModify('exercices')) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Permission insuffisante pour modifier un exercice.'),
-        backgroundColor: Colors.red,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Permission insuffisante pour modifier un exercice.'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
     try {
@@ -1157,9 +1267,15 @@ class _HomePageState extends State<HomePage> {
       case 6:
         return JournauxPage(userSession: _session, showAppBar: false);
       case 7:
-        return ListeBailleursPage(showAppBar: false, userSession: widget.userSession);
+        return ListeBailleursPage(
+          showAppBar: false,
+          userSession: widget.userSession,
+        );
       case 8:
-        return ListeProjetsPage(showAppBar: false, userSession: widget.userSession);
+        return ListeProjetsPage(
+          showAppBar: false,
+          userSession: widget.userSession,
+        );
       case 9:
         return GestionBudgetsPage(
           showAppBar: false,
@@ -1191,12 +1307,13 @@ class _HomePageState extends State<HomePage> {
           onSwitch: _switchExercice,
           onCreateNew: () => _showPage(12),
           onEdit: _editExercice,
-          onViewJournalAN: (exerciceId) => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => JournalAnPage(exerciceId: exerciceId),
-            ),
-          ),
+          onViewJournalAN:
+              (exerciceId) => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => JournalAnPage(exerciceId: exerciceId),
+                ),
+              ),
           userSession: widget.userSession,
         );
       case 13:
