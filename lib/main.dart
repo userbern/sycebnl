@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
 import 'dart:io';
@@ -28,6 +29,9 @@ Future<void> main(List<String> args) async {
     // Intercepte la fermeture de la fenêtre pour demander confirmation.
     await windowManager.setPreventClose(true);
   }
+
+  // Initialiser les données de formatage de date en français.
+  await initializeDateFormatting('fr_FR', null);
 
   // Initialiser la base de données de configuration de l'application
   await AppConfigService.initialize();

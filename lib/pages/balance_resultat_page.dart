@@ -2,6 +2,7 @@
 import '../models/exercice.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
+import '../utils/format_utils.dart';
 
 class BalanceResultatPage extends StatefulWidget {
   final String typeEtat; // 'general' ou 'analytique'
@@ -762,7 +763,11 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                             ),
                             children: [
                               _cell('N° COMPTE', bold: true),
-                              _cell('INTITULES', bold: true),
+                              _cell(
+                                'INTITULES',
+                                bold: true,
+                                align: TextAlign.left,
+                              ),
                               _cell(
                                 'DEBITEUR',
                                 bold: true,
@@ -807,7 +812,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                               ),
                               children: [
                                 _cell(c['numero'], bold: true),
-                                _cell(c['intitule']),
+                                _cell(c['intitule'], align: TextAlign.left),
                                 _cell(
                                   (c['ouvertureDebit'] as double? ?? 0) > 0
                                       ? _formatMontant(c['ouvertureDebit'])
@@ -902,9 +907,15 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
     TextAlign align = TextAlign.center,
     Widget? child,
   }) {
+    final alignment = switch (align) {
+      TextAlign.left || TextAlign.start => Alignment.centerLeft,
+      TextAlign.right || TextAlign.end => Alignment.centerRight,
+      _ => Alignment.center,
+    };
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      child: Center(
+      child: Align(
+        alignment: alignment,
         child: child ??
             Text(
               text,
@@ -1051,7 +1062,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         title: 'BALANCE GÉNÉRALE DES COMPTES',
         entityName: _entite?['denomination_sociale'] ?? 'Non spécifiée',
         periodInfo:
-            'Période: ${widget.dateDebut.toString().split(' ')[0]} au ${widget.dateFin.toString().split(' ')[0]}',
+            'Période: ${formatDateFr(widget.dateDebut)} au ${formatDateFr(widget.dateFin)}',
         comptes: _comptes,
         totals: null,
         context: context,
@@ -1082,7 +1093,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         title: 'BALANCE GÉNÉRALE DES COMPTES',
         entityName: _entite?['denomination_sociale'] ?? 'Non spécifiée',
         periodInfo:
-            'Période: ${widget.dateDebut.toString().split(' ')[0]} au ${widget.dateFin.toString().split(' ')[0]}',
+            'Période: ${formatDateFr(widget.dateDebut)} au ${formatDateFr(widget.dateFin)}',
         comptes: _comptes,
         totals: null,
         context: context,

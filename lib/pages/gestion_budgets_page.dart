@@ -1170,14 +1170,11 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
         (value is num)
             ? value.toDouble()
             : (value == null ? 0.0 : double.tryParse(value.toString()) ?? 0.0);
-    final parts = numVal.toStringAsFixed(2).split('.');
-    final intPart = parts[0];
-    final decPart = parts.length > 1 ? parts[1] : '00';
-    final intWithSep = intPart.replaceAllMapped(
+    final intWithSep = numVal.round().toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (m) => '${m[1]} ',
     );
-    return '$intWithSep.$decPart XOF';
+    return '$intWithSep XOF';
   }
 
   Widget _buildMontantCard(String title, double montant) {
