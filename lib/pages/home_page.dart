@@ -265,139 +265,24 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _reloadCurrentPage() {
-    setState(() {
-      _contentRefreshSeed++;
-    });
-  }
-
-  void _showDatabaseInfo() {
-    final dbPath = DatabaseService.currentDatabasePath;
-    if (dbPath == null) {
+    // La page Nouvel exercice est un assistant à plusieurs étapes : la
+    // remonter détruirait sa progression (retour forcé au choix du mode).
+    // Elle recharge déjà ses propres données, un rafraîchissement forcé
+    // n'est donc pas nécessaire ici.
+    if (_currentPageIndex == 12) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Aucune base de données connectée'),
-          backgroundColor: Colors.orange,
+          content: Text(
+            'Actualisation non nécessaire : les données de cette page se '
+            'rechargent automatiquement.',
+          ),
         ),
       );
       return;
     }
-
-    final file = File(dbPath);
-    final fileSize = file.existsSync() ? file.lengthSync() : 0;
-    final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
-    final lastModified =
-        file.existsSync()
-            ? file.lastModifiedSync().toString().substring(0, 19)
-            : 'N/A';
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Row(
-              children: [
-                /* Icon(Icons.storage, color: Colors.blue.shade400), */
-                IconButton(
-                  icon: Icon(Icons.storage, color: Colors.blue.shade400),
-                  onPressed: () {
-                    print('Bouton stockage cliqué');
-                  },
-                  tooltip: 'Stockage', // texte d'aide au survol
-                ),
-                const SizedBox(width: 12),
-                const Text('Informations sur la base de données'),
-              ],
-            ),
-            content: SizedBox(
-              width: 500,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildInfoRow('Emplacement', dbPath, canCopy: true),
-                  const Divider(),
-                  _buildInfoRow('Taille', '$fileSizeMB MB'),
-                  const Divider(),
-                  _buildInfoRow('Dernière modification', lastModified),
-                  const Divider(),
-                  _buildInfoRow(
-                    'Statut',
-                    file.existsSync() ? 'Connecté' : 'Introuvable',
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Fermer'),
-              ),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: dbPath));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Chemin copié dans le presse-papiers'),
-                      backgroundColor: Colors.green,
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.copy),
-                label: const Text('Copier le chemin'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value, {bool canCopy = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              if (canCopy)
-                IconButton(
-                  icon: const Icon(Icons.copy, size: 16),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: value));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Copié!'),
-                        duration: Duration(seconds: 1),
-                      ),
-                    );
-                  },
-                  tooltip: 'Copier',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
+    setState(() {
+      _contentRefreshSeed++;
+    });
   }
 
   void _showExerciceSelector() {
@@ -709,11 +594,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.info_outline),
-                onPressed: _showDatabaseInfo,
-                tooltip: 'Informations base de données',
-              ),
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: _reloadCurrentPage,

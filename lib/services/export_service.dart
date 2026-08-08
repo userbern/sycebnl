@@ -3693,8 +3693,17 @@ class ExportService {
     required AnPreview preview,
     required Map<String, dynamic>? entite,
     required BuildContext context,
+    String? exerciceLabel,
+    String? journalLabel,
   }) async {
     try {
+      final journal =
+          (journalLabel != null && journalLabel.isNotEmpty)
+              ? journalLabel
+              : 'DES A-NOUVEAUX';
+      final titre = (exerciceLabel != null && exerciceLabel.isNotEmpty)
+          ? 'REPORT DU JOURNAL $journal DE L\'EXERCICE $exerciceLabel'
+          : 'JOURNAL $journal';
       final pdf = pw.Document();
       pdf.addPage(
         pw.MultiPage(
@@ -3707,7 +3716,7 @@ class ExportService {
                 _pdfEntiteHeader(entite?['denomination_sociale']?.toString()),
                 pw.Center(
                   child: pw.Text(
-                    'JOURNAL DES A-NOUVEAUX',
+                    titre,
                     style: pw.TextStyle(
                       fontSize: 14,
                       fontWeight: pw.FontWeight.bold,
@@ -3789,6 +3798,9 @@ class ExportService {
   static Future<void> exportAnPreviewExcel({
     required AnPreview preview,
     required BuildContext context,
+    String? entiteNom,
+    String? exerciceLabel,
+    String? journalLabel,
   }) async {
     try {
       final excel = Excel.createExcel();
@@ -3799,6 +3811,12 @@ class ExportService {
       }
       final sheet = excel[sheetName];
 
+      final entiteStyle = CellStyle(bold: true);
+      final titleStyle = CellStyle(
+        bold: true,
+        fontSize: 14,
+        horizontalAlign: HorizontalAlign.Center,
+      );
       final headerStyle = CellStyle(
         bold: true,
         horizontalAlign: HorizontalAlign.Center,
@@ -3806,6 +3824,33 @@ class ExportService {
       );
 
       int row = 0;
+      if (entiteNom != null && entiteNom.isNotEmpty) {
+        final entiteCell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
+        );
+        entiteCell.value = TextCellValue('Dénomination sociale : $entiteNom');
+        entiteCell.cellStyle = entiteStyle;
+        row += 1;
+      }
+      if (exerciceLabel != null && exerciceLabel.isNotEmpty) {
+        final journal =
+            (journalLabel != null && journalLabel.isNotEmpty)
+                ? journalLabel
+                : 'DES A-NOUVEAUX';
+        final titleCell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
+        );
+        titleCell.value = TextCellValue(
+          'REPORT DU JOURNAL $journal DE L\'EXERCICE $exerciceLabel',
+        );
+        titleCell.cellStyle = titleStyle;
+        sheet.merge(
+          CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
+          CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row),
+        );
+        row += 1;
+      }
+      if (row > 0) row += 1;
       const headers = ['N° Compte', 'Intitulé', 'Débit', 'Crédit'];
       for (int col = 0; col < headers.length; col++) {
         final cell = sheet.cell(

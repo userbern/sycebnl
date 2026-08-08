@@ -1306,15 +1306,17 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     // créditera le compte d'équilibre).
     final soldeCreditMoinsDebit = totalCredit - totalDebit;
     final estEquilibre = soldeCreditMoinsDebit.abs() <= 0.01;
-    final estCrediteur = soldeCreditMoinsDebit > 0;
-    // Convention métier : crédit > débit → résultat précédé de "-", sinon
-    // précédé de "+".
-    final signe = estCrediteur ? '-' : '+';
+    // Le résultat affiché est le solde Crédit − Débit avec son signe
+    // naturel : "+" si crédit > débit, "-" sinon.
+    final signe = soldeCreditMoinsDebit >= 0 ? '+' : '-';
     final sens =
         estEquilibre
             ? 'Équilibré'
-            : (estCrediteur ? 'Créditeur' : 'Débiteur');
-    final color = estEquilibre || estCrediteur ? Colors.green : Colors.orange;
+            : (signe == '-' ? 'Excédent' : 'Déficit');
+    final color =
+        estEquilibre
+            ? Colors.green
+            : (signe == '-' ? Colors.red : Colors.orange);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

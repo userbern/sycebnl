@@ -18,12 +18,39 @@ class JournalAnPage extends StatefulWidget {
 class _JournalAnPageState extends State<JournalAnPage> {
   late Future<AnPreview?> _future;
   Map<String, dynamic>? _entite;
+  String? _exerciceCode;
+  Map<String, String> _journalLibelles = {};
 
   @override
   void initState() {
     super.initState();
     _future = ExerciceService.getAnPreview(widget.exerciceId);
     _loadEntite();
+    _loadExercice();
+    _loadJournaux();
+  }
+
+  Future<void> _loadJournaux() async {
+    try {
+      if (!DatabaseService.isConnected) return;
+      final rows = await DatabaseService.database.query('journal');
+      if (!mounted) return;
+      setState(() {
+        _journalLibelles = {
+          for (final r in rows)
+            r['code'].toString(): r['libelle']?.toString() ?? '',
+        };
+      });
+    } catch (_) {}
+  }
+
+  /// Nom lisible du journal utilisé pour le report (code + libellé), ou
+  /// juste le code si son libellé n'a pas pu être retrouvé. Utilise un
+  /// tiret simple pour rester lisible dans les polices PDF/Excel.
+  String? _journalLabelFor(String? code) {
+    if (code == null || code.isEmpty) return null;
+    final libelle = _journalLibelles[code];
+    return (libelle != null && libelle.isNotEmpty) ? '$code - $libelle' : code;
   }
 
   Future<void> _loadEntite() async {
@@ -32,6 +59,23 @@ class _JournalAnPageState extends State<JournalAnPage> {
       final rows = await DatabaseService.database.query('entite', limit: 1);
       if (!mounted) return;
       setState(() => _entite = rows.isNotEmpty ? rows.first : null);
+    } catch (_) {}
+  }
+
+  Future<void> _loadExercice() async {
+    try {
+      if (!DatabaseService.isConnected) return;
+      final rows = await DatabaseService.database.query(
+        'exercice',
+        where: 'id = ?',
+        whereArgs: [widget.exerciceId],
+        limit: 1,
+      );
+      if (!mounted) return;
+      setState(
+        () => _exerciceCode =
+            rows.isNotEmpty ? rows.first['code']?.toString() : null,
+      );
     } catch (_) {}
   }
 
@@ -60,6 +104,9 @@ class _JournalAnPageState extends State<JournalAnPage> {
                               preview: preview,
                               entite: _entite,
                               context: context,
+                              exerciceLabel: _exerciceCode,
+                              journalLabel:
+                                  _journalLabelFor(preview.codeJournal),
                             )
                         : null,
                   ),
@@ -70,6 +117,11 @@ class _JournalAnPageState extends State<JournalAnPage> {
                         ? () => ExportService.exportAnPreviewExcel(
                               preview: preview,
                               context: context,
+                              entiteNom:
+                                  _entite?['denomination_sociale']?.toString(),
+                              exerciceLabel: _exerciceCode,
+                              journalLabel:
+                                  _journalLabelFor(preview.codeJournal),
                             )
                         : null,
                   ),
