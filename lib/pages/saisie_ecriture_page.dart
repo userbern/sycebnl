@@ -19,6 +19,14 @@ String formatMontantCFA(double montant) {
       );
 }
 
+/// Texte brut d'un montant pour un champ de saisie, sans décimale inutile
+/// (ex: 10000.0 -> "10000").
+String _montantSaisieText(double montant) {
+  return montant == montant.roundToDouble()
+      ? montant.round().toString()
+      : montant.toString();
+}
+
 class SaisieEcriturePage extends StatefulWidget {
   final JournalPeriode journalPeriode;
   final bool showAppBar;
@@ -789,129 +797,20 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
 
     if (!mounted) return;
 
+    // Le récapitulatif de la ventilation agrégée des lignes précédentes est
+    // présenté directement sur le formulaire de ventilation habituel, en
+    // pré-remplissant le tableau ; les champs restent modifiables.
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(
-            'Ventilation automatique - Enregistrement ${ligne.numeroEnregistrement}',
+      barrierDismissible: false,
+      builder:
+          (context) => VentilationDialog(
+            ligne: ligne,
+            onSaved: (ventilation) async {
+              await _handleVentilationSaved(ligne, ventilation);
+            },
+            aggregatsInitiaux: agregats,
           ),
-          content:
-              agregats.isEmpty
-                  ? const Text(
-                    'Aucune ventilation trouvée sur les autres lignes de cet enregistrement',
-                  )
-                  : SizedBox(
-                    width: 500,
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Résumé
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            margin: const EdgeInsets.only(bottom: 16),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Total agrégé:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue.shade400,
-                                  ),
-                                ),
-                                Text(
-                                  formatMontantCFA(
-                                    agregats.fold(
-                                      0.0,
-                                      (sum, v) => sum + v.montantVentrle,
-                                    ),
-                                  ),
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue.shade400,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // Liste des ventilations
-                          ...agregats.map((v) {
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade50,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          v.type == 'projet'
-                                              ? 'Projet ${v.idProjet ?? ''}'
-                                              : 'Fonctionnement',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        if (v.typeActivite != null &&
-                                            v.typeActivite!.isNotEmpty)
-                                          Text(
-                                            'Volet: ${v.typeActivite}',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade600,
-                                            ),
-                                          ),
-                                        if (v.idBailleur != null &&
-                                            v.idBailleur!.isNotEmpty)
-                                          Text(
-                                            'Bailleur: ${v.idBailleur}',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade600,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  Text(
-                                    formatMontantCFA(v.montantVentrle),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                        ],
-                      ),
-                    ),
-                  ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Fermer'),
-            ),
-          ],
-        );
-      },
     );
   }
 
@@ -968,10 +867,10 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     _libelleController.text = ecriture.libelle;
 
     if (ecriture.montantDebit > 0) {
-      _debitController.text = ecriture.montantDebit.toString();
+      _debitController.text = _montantSaisieText(ecriture.montantDebit);
       _creditController.clear();
     } else {
-      _creditController.text = ecriture.montantCredit.toString();
+      _creditController.text = _montantSaisieText(ecriture.montantCredit);
       _debitController.clear();
     }
 
@@ -1117,31 +1016,38 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         _referenceController.text = derniere.reference ?? '';
         _libelleController.text = derniere.libelle;
 
-        // Utilise le compte de trésorerie s'il est défini sur le journal
-        final compteTresorerie = _journal?.compteTresorerie;
+        // Ne pas écraser le compte si l'utilisateur l'a déjà saisi lui-même
+        final compteDejaSaisi =
+            _selectedCompteNumero != null &&
+            _selectedCompteNumero!.isNotEmpty;
 
-        if (compteTresorerie != null && compteTresorerie.isNotEmpty) {
-          // Chercher le compte de trésorerie; s'il manque, laisser vide
-          try {
-            final compte = _comptes.firstWhere(
-              (c) => c.numeroCompte == compteTresorerie,
-            );
-            _setCompteSelectionFromNumero(compte.numeroCompte);
-          } catch (_) {
+        if (!compteDejaSaisi) {
+          // Utilise le compte de trésorerie s'il est défini sur le journal
+          final compteTresorerie = _journal?.compteTresorerie;
+
+          if (compteTresorerie != null && compteTresorerie.isNotEmpty) {
+            // Chercher le compte de trésorerie; s'il manque, laisser vide
+            try {
+              final compte = _comptes.firstWhere(
+                (c) => c.numeroCompte == compteTresorerie,
+              );
+              _setCompteSelectionFromNumero(compte.numeroCompte);
+            } catch (_) {
+              _resetCompteSelection();
+            }
+          } else {
+            // Pas de trésorerie : ne pré-remplit pas le compte
             _resetCompteSelection();
           }
-        } else {
-          // Pas de trésorerie : ne pré-remplit pas le compte
-          _resetCompteSelection();
+
+          _selectedTiersNumero = null;
         }
 
-        _selectedTiersNumero = null;
-
         if (difference > 0) {
-          _creditController.text = difference.toStringAsFixed(2);
+          _creditController.text = _montantSaisieText(difference);
           _debitController.clear();
         } else {
-          _debitController.text = (-difference).toStringAsFixed(2);
+          _debitController.text = _montantSaisieText(-difference);
           _creditController.clear();
         }
 
@@ -1150,6 +1056,16 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
           _showTiersField = false;
           _filteredTiers = [];
         }
+      }
+    });
+
+    // Donner le focus au champ montant rempli pour permettre
+    // l'enregistrement immédiat par Entrée
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (difference > 0) {
+        _creditFocusNode.requestFocus();
+      } else {
+        _debitFocusNode.requestFocus();
       }
     });
 
@@ -1353,7 +1269,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
           (ctx) => AlertDialog(
             title: const Text('Journal déséquilibré'),
             content: Text(
-              'Le solde n\'est pas équilibré (${_totaux.solde.toStringAsFixed(2)}).\nVoulez-vous quitter quand même ?',
+              'Le solde n\'est pas équilibré (${formatMontantCFA(_totaux.solde)}).\nVoulez-vous quitter quand même ?',
             ),
             actions: [
               TextButton(
@@ -1386,11 +1302,14 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     final totalDebit = totaux.totalDebit;
     final totalCredit = totaux.totalCredit;
     // Solde total = Crédit - Débit : positif → excédent créditeur (on
-    // débitera le compte d'équilibrage), négatif → excédent débiteur (on
-    // créditera le compte d'équilibrage).
+    // débitera le compte d'équilibre), négatif → excédent débiteur (on
+    // créditera le compte d'équilibre).
     final soldeCreditMoinsDebit = totalCredit - totalDebit;
     final estEquilibre = soldeCreditMoinsDebit.abs() <= 0.01;
     final estCrediteur = soldeCreditMoinsDebit > 0;
+    // Convention métier : crédit > débit → résultat précédé de "-", sinon
+    // précédé de "+".
+    final signe = estCrediteur ? '-' : '+';
     final sens =
         estEquilibre
             ? 'Équilibré'
@@ -1413,8 +1332,8 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Total débit : ${totalDebit.toStringAsFixed(2)}   ·   '
-                  'Total crédit : ${totalCredit.toStringAsFixed(2)}',
+                  'Total débit : ${formatMontantCFA(totalDebit)}   ·   '
+                  'Total crédit : ${formatMontantCFA(totalCredit)}',
                   style: TextStyle(fontSize: 12, color: color.shade700),
                 ),
               ),
@@ -1426,12 +1345,11 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
             child: Text(
               estEquilibre
                   ? 'Solde total (Crédit − Débit) : équilibré, aucune '
-                      'écriture d\'équilibrage nécessaire.'
-                  : 'Solde total (Crédit − Débit) : '
-                      '${soldeCreditMoinsDebit >= 0 ? '' : '-'}'
-                      '${soldeCreditMoinsDebit.abs().toStringAsFixed(2)} '
-                      '($sens) — c\'est ce montant qui sera imputé sur le '
-                      'compte d\'équilibrage ci-dessous.',
+                      'écriture d\'équilibre nécessaire.'
+                  : 'Le montant du déséquilibre est $signe'
+                      '${formatMontantCFA(soldeCreditMoinsDebit.abs())} '
+                      '($sens). Cela représente le résultat net de '
+                      'l\'exercice précédent.',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -1496,7 +1414,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                         const SizedBox(height: 16),
                       ],
                       const Text(
-                        'Compte d\'équilibrage',
+                        'Compte d\'équilibre',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -1506,7 +1424,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                       TextField(
                         controller: compteController,
                         decoration: const InputDecoration(
-                          hintText: 'Ex : 120000',
+                          hintText: 'Veuillez saisir le numéro de compte',
                           isDense: true,
                           border: OutlineInputBorder(),
                         ),
@@ -1805,7 +1723,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                         (ctx) => AlertDialog(
                           title: const Text('Journal déséquilibré'),
                           content: Text(
-                            'Le solde n\'est pas équilibré (${_totaux.solde.toStringAsFixed(2)}).\nVoulez-vous quitter quand même ?',
+                            'Le solde n\'est pas équilibré (${formatMontantCFA(_totaux.solde)}).\nVoulez-vous quitter quand même ?',
                           ),
                           actions: [
                             TextButton(
@@ -2452,8 +2370,10 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                       keyboardType: TextInputType.numberWithOptions(
                         decimal: true,
                       ),
+                      textInputAction: TextInputAction.send,
                       validator: _validateCredit,
                       onChanged: (_) => _formKey.currentState?.validate(),
+                      onFieldSubmitted: (_) => _submitForm(),
                       decoration: _inputDeco('0'),
                     ),
                   ),
@@ -2550,7 +2470,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     return Material(
       color: isEvenRow ? Colors.white : Colors.grey.shade50,
       child: InkWell(
-        onTap: () => _showLigneLibelle(ecriture),
+        onTap: () => _showVentilationDialog(ecriture),
         child: Container(
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
@@ -2653,30 +2573,6 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     );
   }
 
-  void _showLigneLibelle(LigneEcriture ecriture) {
-    final libelle = ecriture.libelle.trim();
-    showDialog<void>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Libelle de la ligne'),
-            content: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: SelectableText(
-                libelle.isEmpty ? 'Aucun libelle renseigne' : libelle,
-                style: const TextStyle(fontSize: 15, height: 1.35),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Fermer'),
-              ),
-            ],
-          ),
-    );
-  }
-
   // Cellule de contenu (données)
   Widget _buildDataCell(
     String content,
@@ -2763,10 +2659,16 @@ class VentilationDialog extends StatefulWidget {
   final LigneEcriture ligne;
   final Function(VentilationAnalytique?) onSaved;
 
+  /// Ventilations agrégées des autres lignes du même enregistrement, utilisées
+  /// pour pré-remplir le tableau (ligne d'équilibrage) quand cette ligne n'a
+  /// pas encore ses propres ventilations. Les champs restent modifiables.
+  final List<VentilationAnalytique>? aggregatsInitiaux;
+
   const VentilationDialog({
     super.key,
     required this.ligne,
     required this.onSaved,
+    this.aggregatsInitiaux,
   });
 
   @override
@@ -2842,6 +2744,19 @@ class _VentilationDialogState extends State<VentilationDialog> {
         );
         existingRows =
             ventilations
+                .map(
+                  (ventilation) =>
+                      _buildRowFromVentilation(ventilation, projetOptions),
+                )
+                .toList();
+      }
+
+      // Ligne d'équilibrage sans ventilation propre : pré-remplir le
+      // tableau avec la ventilation agrégée des autres lignes, modifiable.
+      if (existingRows.isEmpty &&
+          (widget.aggregatsInitiaux?.isNotEmpty ?? false)) {
+        existingRows =
+            widget.aggregatsInitiaux!
                 .map(
                   (ventilation) =>
                       _buildRowFromVentilation(ventilation, projetOptions),
@@ -3142,6 +3057,7 @@ class _VentilationDialogState extends State<VentilationDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final libelle = widget.ligne.libelle.trim();
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
@@ -3175,11 +3091,29 @@ class _VentilationDialogState extends State<VentilationDialog> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Ventilation Analytique',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Ventilation Analytique',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (libelle.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              libelle,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     IconButton(

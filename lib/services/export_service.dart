@@ -7,6 +7,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:sycebnl_accounting/widgets/app_icon.dart';
+import 'exercice_service.dart' show AnPreview;
 
 class ExportService {
   static Uint8List? _logoBytes;
@@ -3683,5 +3684,177 @@ class ExportService {
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (Match m) => '${m[1]} ',
     );
+  }
+
+  // ==================== EXPORT JOURNAL DES A-NOUVEAUX ====================
+
+  /// Exporte le récapitulatif des reports (journal des A-Nouveaux) en PDF.
+  static Future<void> exportAnPreviewPDF({
+    required AnPreview preview,
+    required Map<String, dynamic>? entite,
+    required BuildContext context,
+  }) async {
+    try {
+      final pdf = pw.Document();
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(20),
+          maxPages: 2000,
+          footer: (context) => _pdfFooter(),
+          build:
+              (context) => [
+                _pdfEntiteHeader(entite?['denomination_sociale']?.toString()),
+                pw.Center(
+                  child: pw.Text(
+                    'JOURNAL DES A-NOUVEAUX',
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.blue700,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+                pw.Table(
+                  defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
+                  border: pw.TableBorder.all(color: PdfColors.black, width: .5),
+                  columnWidths: const {
+                    0: pw.FlexColumnWidth(1.3),
+                    1: pw.FlexColumnWidth(3.2),
+                    2: pw.FlexColumnWidth(1.3),
+                    3: pw.FlexColumnWidth(1.3),
+                  },
+                  children: [
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(color: PdfColors.blue100),
+                      children: [
+                        _journalPdfCell('N° Compte', bold: true),
+                        _journalPdfCell('Intitulé', bold: true),
+                        _journalPdfCell('Débit', bold: true),
+                        _journalPdfCell('Crédit', bold: true),
+                      ],
+                    ),
+                    ...preview.lignes.map(
+                      (l) => pw.TableRow(
+                        children: [
+                          _journalPdfCell(l.numeroCompte),
+                          _journalPdfCell(l.intitule),
+                          _journalPdfCell(_formatNumber(l.montantDebit)),
+                          _journalPdfCell(_formatNumber(l.montantCredit)),
+                        ],
+                      ),
+                    ),
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(color: PdfColors.blue100),
+                      children: [
+                        _journalPdfCell(''),
+                        _journalPdfCell('TOTAL', bold: true),
+                        _journalPdfCell(_formatNumber(preview.totalDebit), bold: true),
+                        _journalPdfCell(_formatNumber(preview.totalCredit), bold: true),
+                      ],
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  'Compte d\'équilibre : ${preview.compteEquilibrage ?? '-'}',
+                  style: const pw.TextStyle(fontSize: 10),
+                ),
+              ],
+        ),
+      );
+
+      final fileName =
+          'journal_an_${DateTime.now().toString().split(' ').first}.pdf';
+      await _saveBytesWithPicker(
+        bytes: await pdf.save(),
+        suggestedFileName: fileName,
+        context: context,
+        label: 'PDF',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur export PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Exporte le récapitulatif des reports (journal des A-Nouveaux) en Excel.
+  static Future<void> exportAnPreviewExcel({
+    required AnPreview preview,
+    required BuildContext context,
+  }) async {
+    try {
+      final excel = Excel.createExcel();
+      const sheetName = 'Journal AN';
+      final defaultSheet = excel.getDefaultSheet();
+      if (defaultSheet != null && defaultSheet != sheetName) {
+        excel.rename(defaultSheet, sheetName);
+      }
+      final sheet = excel[sheetName];
+
+      final headerStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Center,
+        backgroundColorHex: ExcelColor.fromHexString('#DCE6F1'),
+      );
+
+      int row = 0;
+      const headers = ['N° Compte', 'Intitulé', 'Débit', 'Crédit'];
+      for (int col = 0; col < headers.length; col++) {
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+        );
+        cell.value = TextCellValue(headers[col]);
+        cell.cellStyle = headerStyle;
+      }
+      row++;
+
+      for (final l in preview.lignes) {
+        _excelText(sheet, 0, row, l.numeroCompte);
+        _excelText(sheet, 1, row, l.intitule);
+        _excelNumber(sheet, 2, row, l.montantDebit);
+        _excelNumber(sheet, 3, row, l.montantCredit);
+        row++;
+      }
+
+      _excelText(sheet, 0, row, '');
+      _excelText(sheet, 1, row, 'TOTAL');
+      _excelNumber(sheet, 2, row, preview.totalDebit);
+      _excelNumber(sheet, 3, row, preview.totalCredit);
+      for (int col = 0; col < 4; col++) {
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row))
+            .cellStyle = CellStyle(bold: true);
+      }
+
+      final fileName =
+          'journal_an_${DateTime.now().toString().split(' ').first}.xlsx';
+      final bytes = excel.encode();
+      if (bytes != null) {
+        await _saveBytesWithPicker(
+          bytes: Uint8List.fromList(bytes),
+          suggestedFileName: fileName,
+          context: context,
+          label: 'Excel',
+        );
+      }
+    } catch (e) {
+      debugPrint('Erreur Excel: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
