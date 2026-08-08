@@ -5,6 +5,7 @@ import '../models/user_session.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/exercice_service.dart';
+import '../services/export_service.dart';
 import '../utils/format_utils.dart';
 
 enum _ModeCreation { avecReport, sansReport, anterieur }
@@ -42,6 +43,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
   final _compteEquilibrageController = TextEditingController();
   List<Compte> _comptes = [];
   Future<({double totalDebit, double totalCredit})>? _totauxReportFuture;
+  Map<String, dynamic>? _entite;
 
   late int selectedDebutDay, selectedDebutMonth, selectedDebutYear;
   late int selectedFinDay, selectedFinMonth, selectedFinYear;
@@ -64,6 +66,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     _loadExercices();
     _loadJournaux();
     _loadComptes();
+    _loadEntite();
   }
 
   @override
@@ -99,7 +102,28 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     }
   }
 
+  Future<void> _loadEntite() async {
+    try {
+      if (!DatabaseService.isConnected) return;
+      final rows = await DatabaseService.database.query('entite', limit: 1);
+      if (!mounted) return;
+      setState(() => _entite = rows.isNotEmpty ? rows.first : null);
+    } catch (_) {}
+  }
+
   // ── Computed ────────────────────────────────────────────────────────────────
+
+  /// Nom du journal choisi pour le report, tel qu'affiché dans les exports
+  /// (code + intitulé), ou `null` si aucun journal n'est sélectionné.
+  /// Utilise un tiret simple (et non le tiret cadratin de [_journalLabel])
+  /// pour rester lisible dans les polices PDF/Excel.
+  String? get _journalSelectionneLabel {
+    if (_journalSelectionne == null) return null;
+    for (final j in _journaux) {
+      if (j.code == _journalSelectionne) return '${j.code} - ${j.intitule}';
+    }
+    return _journalSelectionne;
+  }
 
   DateTime get _dateDebut =>
       DateTime(selectedDebutYear, selectedDebutMonth, selectedDebutDay);
@@ -664,18 +688,27 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
       children: [
         _buildHeader(),
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720),
-                child: switch (_step) {
-                  1 => _buildStepDates(),
-                  2 => _buildStepRecap(),
-                  _ => _buildStepChoixMode(),
-                },
-              ),
-            ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 720),
+                        child: switch (_step) {
+                          1 => _buildStepDates(),
+                          2 => _buildStepRecap(),
+                          _ => _buildStepChoixMode(),
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -1146,16 +1179,15 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
         // (on créditera le compte d'équilibre).
         final soldeCreditMoinsDebit = totalCredit - totalDebit;
         final estEquilibre = soldeCreditMoinsDebit.abs() <= 0.01;
-        final estCrediteur = soldeCreditMoinsDebit > 0;
-        // Convention métier : crédit > débit → résultat précédé de "-",
-        // sinon précédé de "+".
-        final signe = estCrediteur ? '-' : '+';
+        // Le résultat affiché est le solde Crédit − Débit avec son signe
+        // naturel : "+" si crédit > débit, "-" sinon.
+        final signe = soldeCreditMoinsDebit >= 0 ? '+' : '-';
         final sens = estEquilibre
             ? 'Équilibré'
-            : (estCrediteur ? 'Créditeur' : 'Débiteur');
-        final color = estEquilibre || estCrediteur
+            : (signe == '-' ? 'Excédent' : 'Déficit');
+        final color = estEquilibre
             ? Colors.green
-            : Colors.orange;
+            : (signe == '-' ? Colors.red : Colors.orange);
         final codeExercicePrecedent = _dernierExercice?['code']?.toString();
 
         return Container(
@@ -1328,6 +1360,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     required IconData icon,
     required String title,
     required Widget child,
+    Widget? trailing,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -1360,6 +1393,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                     letterSpacing: 0.9,
                   ),
                 ),
+                if (trailing != null) ...[const Spacer(), trailing],
               ],
             ),
             const SizedBox(height: 16),
@@ -1391,6 +1425,38 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
             _buildSection(
               icon: Icons.summarize_outlined,
               title: 'SOLDES À REPORTER',
+              trailing: aucuneEcriture
+                  ? null
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'Télécharger en PDF',
+                          icon: const Icon(Icons.picture_as_pdf_outlined,
+                              size: 20),
+                          onPressed: () => ExportService.exportAnPreviewPDF(
+                            preview: preview,
+                            entite: _entite,
+                            context: context,
+                            exerciceLabel: _anneeController.text.trim(),
+                            journalLabel: _journalSelectionneLabel,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Télécharger en Excel',
+                          icon: const Icon(Icons.table_chart_outlined,
+                              size: 20),
+                          onPressed: () => ExportService.exportAnPreviewExcel(
+                            preview: preview,
+                            context: context,
+                            entiteNom:
+                                _entite?['denomination_sociale']?.toString(),
+                            exerciceLabel: _anneeController.text.trim(),
+                            journalLabel: _journalSelectionneLabel,
+                          ),
+                        ),
+                      ],
+                    ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

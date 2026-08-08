@@ -172,6 +172,10 @@ class DatabaseService {
       options: OpenDatabaseOptions(
         version: 1,
         onOpen: (db) async {
+          // Adapte automatiquement une base créée par une version
+          // antérieure de l'application : ajoute les colonnes manquantes
+          // par rapport au schéma courant, table par table.
+          await _ensureAllColumns(db);
           await _ensureCompteSchema(db);
           await _ensureUtilisateurSchema(db);
           await _ensureExerciceSchema(db);
@@ -898,6 +902,7 @@ class DatabaseService {
         is_equilibre INTEGER DEFAULT 0,
         is_closed INTEGER DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
         FOREIGN KEY (code_journal) REFERENCES journal(code),
         FOREIGN KEY (exercice_id) REFERENCES exercice(id),
         UNIQUE (code_journal, annee, mois, exercice_id)
@@ -952,6 +957,180 @@ class DatabaseService {
         FOREIGN KEY (id_ligne_budgetaire) REFERENCES ligne_budgetaire(id) ON DELETE CASCADE
       )
     ''');
+  }
+
+  /// Colonnes attendues pour chaque table, utilisées par [_ensureAllColumns]
+  /// pour ajouter automatiquement celles qui manquent sur une base de
+  /// données créée par une version antérieure de l'application. À tenir à
+  /// jour avec les CREATE TABLE de [_createTables] à chaque ajout de
+  /// colonne (au lieu d'écrire une migration ad hoc de plus).
+  static const Map<String, Map<String, String>> _expectedColumns = {
+    'utilisateur': {
+      'nom': 'TEXT',
+      'prenom': 'TEXT',
+      'email': 'TEXT',
+      'is_active': 'INTEGER DEFAULT 1',
+      'password_algo': "TEXT DEFAULT 'sha256'",
+      'password_salt': 'TEXT',
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+      'deleted_at': 'TEXT',
+    },
+    'entite': {
+      'currency': "TEXT DEFAULT 'XOF'",
+      'created_by': 'INTEGER',
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+      'deleted_at': 'TEXT',
+      'is_active': 'INTEGER DEFAULT 1',
+    },
+    'compte': {
+      'description': 'TEXT',
+      'is_active': 'INTEGER DEFAULT 1',
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+      'deleted_at': 'TEXT',
+    },
+    'tiers': {
+      'is_active': 'INTEGER DEFAULT 1',
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+      'deleted_at': 'TEXT',
+    },
+    'journal': {
+      'numero_compte_tresorerie': 'TEXT',
+      'saisie_analytique': 'INTEGER DEFAULT 0',
+      'is_active': 'INTEGER DEFAULT 1',
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+      'deleted_at': 'TEXT',
+    },
+    'bailleur': {
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+      'deleted_at': 'TEXT',
+    },
+    'projet': {
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+      'deleted_at': 'TEXT',
+    },
+    'projet_bailleur': {
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+    },
+    'budget': {
+      'exercice_id': 'INTEGER',
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+      'deleted_at': 'TEXT',
+    },
+    'poste_budgetaire': {
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+      'deleted_at': 'TEXT',
+    },
+    'ligne_budgetaire': {
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+      'deleted_at': 'TEXT',
+    },
+    'sous_rubrique': {
+      'compte_id': 'INTEGER',
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+      'deleted_at': 'TEXT',
+    },
+    'exercice': {
+      'duree_mois': 'INTEGER',
+      'is_active': 'INTEGER DEFAULT 1',
+      'is_cloture': 'INTEGER DEFAULT 0',
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+      'deleted_at': 'TEXT',
+    },
+    'config': {
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+      'deleted_at': 'TEXT',
+    },
+    'dossier_security': {
+      'is_encrypted': 'INTEGER DEFAULT 0',
+      'auth_algo': "TEXT DEFAULT 'argon2id'",
+      'auth_salt': 'TEXT',
+      'auth_hash': 'TEXT',
+      'argon2_params': 'TEXT',
+      'recovery_key_hash': 'TEXT',
+      'recovery_key_salt': 'TEXT',
+      'editor_unlock_pubkey_wrapped': 'TEXT',
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+    },
+    'journaux_periodes': {
+      'exercice_id': 'INTEGER',
+      'nombre_ecritures': 'INTEGER DEFAULT 0',
+      'total_debit': 'REAL DEFAULT 0',
+      'total_credit': 'REAL DEFAULT 0',
+      'solde_final': 'REAL DEFAULT 0',
+      'is_equilibre': 'INTEGER DEFAULT 0',
+      'is_closed': 'INTEGER DEFAULT 0',
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+    },
+    'ecritures': {
+      'date_comptable': 'TEXT',
+      'reference': 'TEXT',
+      'numero_tiers': 'TEXT',
+      'is_ventilee': 'INTEGER DEFAULT 0',
+      'lettrage_code': 'TEXT',
+      'lettrage_date': 'TEXT',
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+      'deleted_at': 'TEXT',
+    },
+    'ventilations_analytiques': {
+      'id_projet': 'INTEGER',
+      'volet': 'TEXT',
+      'id_bailleur': 'INTEGER',
+      'id_poste_budgetaire': 'INTEGER',
+      'id_ligne_budgetaire': 'INTEGER',
+      'montant_ventile': 'REAL DEFAULT 0',
+      'created_at': 'TEXT',
+      'updated_at': 'TEXT',
+      'deleted_at': 'TEXT',
+    },
+  };
+
+  /// Ajoute automatiquement, sur chaque table de [_expectedColumns], les
+  /// colonnes manquantes par rapport au schéma courant. Permet à une base
+  /// de données créée par une version antérieure de l'application de
+  /// rester utilisable après une mise à jour, sans migration manuelle par
+  /// colonne à chaque changement de schéma.
+  static Future<void> _ensureAllColumns(Database db) async {
+    for (final tableEntry in _expectedColumns.entries) {
+      final table = tableEntry.key;
+      try {
+        final tableExists = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+          [table],
+        );
+        if (tableExists.isEmpty) continue;
+
+        final columns = await db.rawQuery("PRAGMA table_info($table)");
+        final existing = columns.map((c) => c['name']).toSet();
+
+        for (final columnEntry in tableEntry.value.entries) {
+          if (existing.contains(columnEntry.key)) continue;
+          print('Migration: ajout de ${columnEntry.key} à la table $table');
+          await db.execute(
+            'ALTER TABLE $table ADD COLUMN ${columnEntry.key} '
+            '${columnEntry.value}',
+          );
+        }
+      } catch (e) {
+        print('Migration colonnes ($table) échouée: $e');
+      }
+    }
   }
 
   static Future<void> _ensureJournalPeriodeSchema(Database db) async {
