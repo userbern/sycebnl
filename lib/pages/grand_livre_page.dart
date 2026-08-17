@@ -7,6 +7,7 @@ import '../models/bailleur.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
+import '../widgets/download_button.dart';
 
 enum _CompteFilterMode { all, single, range }
 
@@ -1043,15 +1044,33 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
             label: const Text('Retour', style: TextStyle(color: Colors.white)),
           ),
           const SizedBox(width: 8),
-          TextButton.icon(
-            onPressed: _isExporting ? null : _exportPdf,
-            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
-            label: const Text('PDF', style: TextStyle(color: Colors.white)),
+          DownloadTooltip.pdf(
+            child: TextButton.icon(
+              onPressed: _isExporting ? null : _exportPdf,
+              icon: const DownloadIcon(
+                Icons.picture_as_pdf,
+                color: Colors.white,
+              ),
+              label: const Text('PDF', style: TextStyle(color: Colors.white)),
+              style: TextButton.styleFrom(
+                backgroundColor: kDownloadPdfColor,
+                foregroundColor: Colors.white,
+              ),
+            ),
           ),
-          TextButton.icon(
-            onPressed: _isExporting ? null : _exportExcel,
-            icon: const Icon(Icons.table_view, color: Colors.white),
-            label: const Text('Excel', style: TextStyle(color: Colors.white)),
+          DownloadTooltip.excel(
+            child: TextButton.icon(
+              onPressed: _isExporting ? null : _exportExcel,
+              icon: const DownloadIcon(
+                Icons.table_view,
+                color: Colors.white,
+              ),
+              label: const Text('Excel', style: TextStyle(color: Colors.white)),
+              style: TextButton.styleFrom(
+                backgroundColor: kDownloadExcelColor,
+                foregroundColor: Colors.white,
+              ),
+            ),
           ),
           const SizedBox(width: 12),
         ],

@@ -5,6 +5,7 @@ import '../models/user_session.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
+import '../widgets/download_button.dart';
 
 class ListeProjetsPage extends StatefulWidget {
   final bool showAppBar;
@@ -388,54 +389,66 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
       runSpacing: 8,
       alignment: WrapAlignment.end,
       children: [
-        ElevatedButton.icon(
-          onPressed: () {
-            final data =
-                _filteredProjets
-                    .map(
-                      (p) => {
-                        'code': p['code']?.toString() ?? '',
-                        'designation': p['designation']?.toString() ?? '',
-                        'bailleur': p['bailleur']?.toString() ?? '',
-                      },
-                    )
-                    .toList();
-            ExportService.exportProjetsPDF(
-              projets: data,
-              context: context,
-              entiteNom: _entiteNom,
-            );
-          },
-          icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
-          label: const Text('PDF'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red.shade600,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            textStyle: const TextStyle(fontSize: 13),
+        DownloadTooltip.pdf(
+          child: ElevatedButton.icon(
+            onPressed: () {
+              final data =
+                  _filteredProjets
+                      .map(
+                        (p) => {
+                          'code': p['code']?.toString() ?? '',
+                          'designation': p['designation']?.toString() ?? '',
+                          'bailleur': p['bailleur']?.toString() ?? '',
+                        },
+                      )
+                      .toList();
+              ExportService.exportProjetsPDF(
+                projets: data,
+                context: context,
+                entiteNom: _entiteNom,
+              );
+            },
+            icon: const DownloadIcon(
+              Icons.picture_as_pdf,
+              size: 16,
+              color: Colors.white,
+            ),
+            label: const Text('PDF'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kDownloadPdfColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              textStyle: const TextStyle(fontSize: 13),
+            ),
           ),
         ),
-        ElevatedButton.icon(
-          onPressed: () {
-            final data =
-                _filteredProjets
-                    .map(
-                      (p) => {
-                        'code': p['code']?.toString() ?? '',
-                        'designation': p['designation']?.toString() ?? '',
-                        'bailleur': p['bailleur']?.toString() ?? '',
-                      },
-                    )
-                    .toList();
-            ExportService.exportProjetsExcel(projets: data, context: context);
-          },
-          icon: const Icon(Icons.table_chart, size: 16, color: Colors.white),
-          label: const Text('Excel'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green.shade700,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            textStyle: const TextStyle(fontSize: 13),
+        DownloadTooltip.excel(
+          child: ElevatedButton.icon(
+            onPressed: () {
+              final data =
+                  _filteredProjets
+                      .map(
+                        (p) => {
+                          'code': p['code']?.toString() ?? '',
+                          'designation': p['designation']?.toString() ?? '',
+                          'bailleur': p['bailleur']?.toString() ?? '',
+                        },
+                      )
+                      .toList();
+              ExportService.exportProjetsExcel(projets: data, context: context);
+            },
+            icon: const DownloadIcon(
+              Icons.table_chart,
+              size: 16,
+              color: Colors.white,
+            ),
+            label: const Text('Excel'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kDownloadExcelColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              textStyle: const TextStyle(fontSize: 13),
+            ),
           ),
         ),
         if (_canCreate)

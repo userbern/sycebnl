@@ -6,6 +6,7 @@ import '../models/saisie_comptable.dart';
 import '../services/database_service.dart';
 import '../services/saisie_comptable_service.dart';
 import '../services/export_service.dart';
+import '../widgets/download_button.dart';
 
 class InterrogationsLettragesPage extends StatefulWidget {
   final UserSession userSession;
@@ -1009,16 +1010,34 @@ class _InterrogationsLettragesPageState
                                     ),
                                   ),
                                 ),
-                                OutlinedButton.icon(
-                                  onPressed: _exportInterrogationPdf,
-                                  icon: const Icon(Icons.picture_as_pdf),
-                                  label: const Text('PDF'),
+                                DownloadTooltip.pdf(
+                                  child: OutlinedButton.icon(
+                                    onPressed: _exportInterrogationPdf,
+                                    icon: const DownloadIcon(
+                                      Icons.picture_as_pdf,
+                                      color: Colors.white,
+                                    ),
+                                    label: const Text('PDF'),
+                                    style: OutlinedButton.styleFrom(
+                                      backgroundColor: kDownloadPdfColor,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
                                 ),
                                 const SizedBox(width: 8),
-                                OutlinedButton.icon(
-                                  onPressed: _exportInterrogationExcel,
-                                  icon: const Icon(Icons.table_chart),
-                                  label: const Text('Excel'),
+                                DownloadTooltip.excel(
+                                  child: OutlinedButton.icon(
+                                    onPressed: _exportInterrogationExcel,
+                                    icon: const DownloadIcon(
+                                      Icons.table_chart,
+                                      color: Colors.white,
+                                    ),
+                                    label: const Text('Excel'),
+                                    style: OutlinedButton.styleFrom(
+                                      backgroundColor: kDownloadExcelColor,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),

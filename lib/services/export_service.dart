@@ -12,6 +12,48 @@ import 'exercice_service.dart' show AnPreview;
 class ExportService {
   static Uint8List? _logoBytes;
 
+  // ==================== IDENTITÉ VISUELLE PARTAGÉE ====================
+  //
+  // Palette et styles alignés sur ceux déjà utilisés à l'écran (thème
+  // Material 3 à seed bleu défini dans main.dart, et repris tel quel dans
+  // les widgets/pages ci-dessous) afin que les PDF exportés reprennent
+  // l'identité graphique existante plutôt que d'en maintenir une seconde,
+  // indépendante. Chaque constante documente le nuancier Flutter `Colors`
+  // dont elle est l'équivalent PDF.
+
+  /// ↔ Colors.blue.shade800 (titre de balance_resultat_page.dart, ligne
+  /// "color: Colors.blue.shade800") : couleur de marque, titres de rapport.
+  static const PdfColor _kBrand = PdfColors.blue800;
+
+  /// ↔ Colors.blue.shade700 (bandeaux de section et AppBar de
+  /// journal_results_page.dart / grand_livre_page.dart) : variante utilisée
+  /// pour les rapports "journal" et "grand livre".
+  static const PdfColor _kBrandMid = PdfColors.blue700;
+
+  /// ↔ Colors.blue.shade900 (CompanyHeaderCard, texte sur fond
+  /// [_kBrandBandBg]).
+  static const PdfColor _kBrandDark = PdfColors.blue900;
+
+  /// ↔ Colors.blue.shade100 (CompanyHeaderCard et en-têtes de tableau dans
+  /// toutes les pages de rapport) : fond des bandeaux de marque.
+  static const PdfColor _kBrandBandBg = PdfColors.blue100;
+
+  /// ↔ Colors.grey.shade600 : mentions secondaires (pied de page).
+  static const PdfColor _kMuted = PdfColors.grey600;
+
+  /// Style de titre de rapport commun à tous les exports PDF : évite que
+  /// chaque export redéfinisse sa propre variante de la même identité.
+  static pw.TextStyle _reportTitleStyle({
+    PdfColor color = _kBrand,
+    double fontSize = 16,
+  }) {
+    return pw.TextStyle(
+      fontSize: fontSize,
+      fontWeight: pw.FontWeight.bold,
+      color: color,
+    );
+  }
+
   /// Précharge le logo officiel en mémoire pour les en-têtes PDF (voir
   /// [_pdfEntiteHeader]). À appeler une fois au démarrage de l'application
   /// (main.dart) : les exports PDF sont synchrones vis-à-vis du logo une
@@ -169,14 +211,7 @@ class ExportService {
           return [
             // Titre
             pw.Center(
-              child: pw.Text(
-                title,
-                style: pw.TextStyle(
-                  fontSize: 14,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.blue800,
-                ),
-              ),
+              child: pw.Text(title, style: _reportTitleStyle(fontSize: 14)),
             ),
             pw.SizedBox(height: 8),
 
@@ -476,7 +511,11 @@ class ExportService {
             decoration: const pw.BoxDecoration(color: PdfColors.blue100),
             children: [
               _balanceCell('N° COMPTE', bold: true),
-              _balanceCell('INTITULES', bold: true),
+              _balanceCell(
+                'INTITULES',
+                bold: true,
+                align: pw.TextAlign.left,
+              ),
               _balanceCell(
                 'DEBITEUR',
                 bold: true,
@@ -510,7 +549,10 @@ class ExportService {
               ),
               children: [
                 _balanceCell(_pdfSafe(compte['numero'] ?? '-'), bold: true),
-                _balanceCell(_pdfSafe(compte['intitule'] ?? ' ')),
+                _balanceCell(
+                  _pdfSafe(compte['intitule'] ?? ' '),
+                  align: pw.TextAlign.left,
+                ),
                 _balanceCell(
                   _formatNumber(compte['ouvertureDebit'] ?? 0),
                   align: pw.TextAlign.center,
@@ -664,9 +706,15 @@ class ExportService {
     pw.TextAlign align = pw.TextAlign.center,
     PdfColor? color,
   }) {
+    final alignment = switch (align) {
+      pw.TextAlign.left || pw.TextAlign.start => pw.Alignment.centerLeft,
+      pw.TextAlign.right || pw.TextAlign.end => pw.Alignment.centerRight,
+      _ => pw.Alignment.center,
+    };
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-      child: pw.Center(
+      child: pw.Align(
+        alignment: alignment,
         child: pw.Text(
           _pdfSafe(text),
           textAlign: align,
@@ -1107,11 +1155,7 @@ class ExportService {
               pw.Center(
                 child: pw.Text(
                   'PLAN COMPTABLE',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.blue800,
-                  ),
+                  style: _reportTitleStyle(),
                 ),
               ),
               pw.SizedBox(height: 4),
@@ -1347,11 +1391,7 @@ class ExportService {
               pw.Center(
                 child: pw.Text(
                   'LISTE DES TIERS',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.blue800,
-                  ),
+                  style: _reportTitleStyle(),
                 ),
               ),
               pw.SizedBox(height: 4),
@@ -1731,11 +1771,7 @@ class ExportService {
               pw.Center(
                 child: pw.Text(
                   'LISTE DES BAILLEURS',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.blue800,
-                  ),
+                  style: _reportTitleStyle(),
                 ),
               ),
               pw.SizedBox(height: 4),
@@ -1921,11 +1957,7 @@ class ExportService {
               pw.Center(
                 child: pw.Text(
                   'LISTE DES PROJETS',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.blue800,
-                  ),
+                  style: _reportTitleStyle(),
                 ),
               ),
               pw.SizedBox(height: 4),
@@ -2142,11 +2174,10 @@ class ExportService {
           build: (context) {
             return [
               _pdfEntiteHeader(entiteNom),
-              pw.Text(
-                'Interrogation de compte',
-                style: pw.TextStyle(
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
+              pw.Center(
+                child: pw.Text(
+                  'Interrogation de compte',
+                  style: _reportTitleStyle(),
                 ),
               ),
               pw.SizedBox(height: 6),
@@ -2397,11 +2428,7 @@ class ExportService {
                 pw.Center(
                   child: pw.Text(
                     'JOURNAL ($typeLabel)',
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                      color: PdfColors.blue700,
-                    ),
+                    style: _reportTitleStyle(color: _kBrandMid, fontSize: 14),
                   ),
                 ),
                 pw.SizedBox(height: 10),
@@ -2419,7 +2446,7 @@ class ExportService {
                   return [
                     pw.Container(
                       width: double.infinity,
-                      color: PdfColors.blue700,
+                      color: _kBrandMid,
                       padding: const pw.EdgeInsets.all(6),
                       child: pw.Text(
                         'Journal ${group['code']} - ${group['libelle']}',
@@ -2766,14 +2793,11 @@ class ExportService {
           footer: (context) => _pdfFooter(),
           build:
               (context) => [
+                _pdfEntiteHeader(entite?['denomination_sociale']?.toString()),
                 pw.Center(
                   child: pw.Text(
                     'GRAND LIVRE $typeLabel',
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                      color: PdfColors.blue700,
-                    ),
+                    style: _reportTitleStyle(color: _kBrandMid, fontSize: 14),
                   ),
                 ),
                 pw.SizedBox(height: 10),
@@ -2793,7 +2817,7 @@ class ExportService {
                   return [
                     pw.Container(
                       width: double.infinity,
-                      color: PdfColors.blue700,
+                      color: _kBrandMid,
                       padding: const pw.EdgeInsets.all(6),
                       child: pw.Text(
                         'Compte ${group['numero']} - ${group['intitule']}',
@@ -3279,35 +3303,50 @@ class ExportService {
   /// d'un PDF. Le logo est chargé une seule fois via [preloadLogo].
   static pw.Widget _pdfEntiteHeader(String? entiteNom) {
     final logoBytes = _logoBytes;
-    final children = <pw.Widget>[];
+    final hasLogo = logoBytes != null;
+    final hasNom = entiteNom != null && entiteNom.isNotEmpty;
 
-    if (logoBytes != null) {
-      children.add(
-        pw.Container(
-          height: 36,
-          alignment: pw.Alignment.centerLeft,
-          child: pw.Image(pw.MemoryImage(logoBytes), fit: pw.BoxFit.contain),
-        ),
-      );
-      children.add(pw.SizedBox(height: 4));
-    }
-
-    if (entiteNom != null && entiteNom.isNotEmpty) {
-      children.add(
-        pw.Text(
-          'Dénomination sociale : $entiteNom',
-          style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
-        ),
-      );
-      children.add(pw.SizedBox(height: 4));
-    }
-
-    if (children.isEmpty) {
+    if (!hasLogo && !hasNom) {
       return pw.SizedBox();
     }
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: children,
+
+    // Bandeau bleu clair + logo + dénomination en gras : reprend le style
+    // du CompanyHeaderCard affiché dans la barre latérale de l'application
+    // (lib/widgets/company_header_card.dart), au lieu d'un en-tête PDF
+    // générique sans lien avec l'identité de l'application.
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      margin: const pw.EdgeInsets.only(bottom: 10),
+      decoration: const pw.BoxDecoration(color: _kBrandBandBg),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          if (hasLogo) ...[
+            pw.Container(
+              height: 32,
+              child: pw.Image(
+                pw.MemoryImage(logoBytes),
+                fit: pw.BoxFit.contain,
+              ),
+            ),
+            pw.SizedBox(width: 10),
+          ],
+          if (hasNom)
+            pw.Expanded(
+              child: pw.Text(
+                entiteNom,
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  color: _kBrandDark,
+                ),
+                maxLines: 1,
+                overflow: pw.TextOverflow.clip,
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -3323,7 +3362,7 @@ class ExportService {
             'Imprimé depuis l\'application SYCEBNL ACCOUNTING',
             style: pw.TextStyle(
               fontSize: 8,
-              color: PdfColors.grey600,
+              color: _kMuted,
               fontStyle: pw.FontStyle.italic,
             ),
           ),
@@ -3422,11 +3461,7 @@ class ExportService {
               pw.Center(
                 child: pw.Text(
                   'CODES JOURNAUX',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.blue800,
-                  ),
+                  style: _reportTitleStyle(),
                 ),
               ),
               pw.SizedBox(height: 4),
@@ -3522,11 +3557,7 @@ class ExportService {
                 pw.SizedBox(height: 16),
                 pw.Text(
                   'CLÉ DE RÉCUPÉRATION DU DOSSIER COMPTABLE',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.blue800,
-                  ),
+                  style: _reportTitleStyle(),
                 ),
                 pw.SizedBox(height: 8),
                 pw.Text(
@@ -3717,11 +3748,7 @@ class ExportService {
                 pw.Center(
                   child: pw.Text(
                     titre,
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                      color: PdfColors.blue700,
-                    ),
+                    style: _reportTitleStyle(color: _kBrandMid, fontSize: 14),
                   ),
                 ),
                 pw.SizedBox(height: 12),
