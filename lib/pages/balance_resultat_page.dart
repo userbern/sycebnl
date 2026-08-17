@@ -2,6 +2,7 @@
 import '../models/exercice.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
+import '../widgets/download_button.dart';
 import '../utils/format_utils.dart';
 
 class BalanceResultatPage extends StatefulWidget {
@@ -552,17 +553,16 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                 actions: [
                   Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: Tooltip(
-                      message: 'Exporter en PDF',
+                    child: DownloadTooltip.pdf(
                       child: ElevatedButton.icon(
                         onPressed: _isLoading ? null : _exportToPDF,
-                        icon: const Icon(
+                        icon: const DownloadIcon(
                           Icons.picture_as_pdf,
                           color: Colors.white,
                         ),
                         label: const Text('PDF'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade600,
+                          backgroundColor: kDownloadPdfColor,
                           foregroundColor: Colors.white,
                         ),
                       ),
@@ -570,17 +570,16 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                   ),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: Tooltip(
-                      message: 'Exporter en Excel',
+                    child: DownloadTooltip.excel(
                       child: ElevatedButton.icon(
                         onPressed: _isLoading ? null : _exportToExcel,
-                        icon: const Icon(
+                        icon: const DownloadIcon(
                           Icons.table_chart,
                           color: Colors.white,
                         ),
                         label: const Text('Excel'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green.shade600,
+                          backgroundColor: kDownloadExcelColor,
                           foregroundColor: Colors.white,
                         ),
                       ),

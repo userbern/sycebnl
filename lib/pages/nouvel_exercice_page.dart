@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/exercice_service.dart';
 import '../services/export_service.dart';
+import '../widgets/download_button.dart';
 import '../utils/format_utils.dart';
 
 enum _ModeCreation { avecReport, sansReport, anterieur }
@@ -1430,29 +1431,44 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                   : Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        IconButton(
-                          tooltip: 'Télécharger en PDF',
-                          icon: const Icon(Icons.picture_as_pdf_outlined,
-                              size: 20),
-                          onPressed: () => ExportService.exportAnPreviewPDF(
-                            preview: preview,
-                            entite: _entite,
-                            context: context,
-                            exerciceLabel: _anneeController.text.trim(),
-                            journalLabel: _journalSelectionneLabel,
+                        DownloadTooltip.pdf(
+                          verticalOffset: 28,
+                          child: IconButton(
+                            icon: const DownloadIcon(
+                                Icons.picture_as_pdf_outlined,
+                                size: 20,
+                                color: Colors.white),
+                            style: IconButton.styleFrom(
+                              backgroundColor: kDownloadPdfColor,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () => ExportService.exportAnPreviewPDF(
+                              preview: preview,
+                              entite: _entite,
+                              context: context,
+                              exerciceLabel: _anneeController.text.trim(),
+                              journalLabel: _journalSelectionneLabel,
+                            ),
                           ),
                         ),
-                        IconButton(
-                          tooltip: 'Télécharger en Excel',
-                          icon: const Icon(Icons.table_chart_outlined,
-                              size: 20),
-                          onPressed: () => ExportService.exportAnPreviewExcel(
-                            preview: preview,
-                            context: context,
-                            entiteNom:
-                                _entite?['denomination_sociale']?.toString(),
-                            exerciceLabel: _anneeController.text.trim(),
-                            journalLabel: _journalSelectionneLabel,
+                        const SizedBox(width: 8),
+                        DownloadTooltip.excel(
+                          verticalOffset: 28,
+                          child: IconButton(
+                            icon: const DownloadIcon(Icons.table_chart_outlined,
+                                size: 20, color: Colors.white),
+                            style: IconButton.styleFrom(
+                              backgroundColor: kDownloadExcelColor,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () => ExportService.exportAnPreviewExcel(
+                              preview: preview,
+                              context: context,
+                              entiteNom:
+                                  _entite?['denomination_sociale']?.toString(),
+                              exerciceLabel: _anneeController.text.trim(),
+                              journalLabel: _journalSelectionneLabel,
+                            ),
                           ),
                         ),
                       ],
