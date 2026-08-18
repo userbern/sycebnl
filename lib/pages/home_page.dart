@@ -24,6 +24,7 @@ import 'balance_comptes_page.dart';
 import 'permissions_page.dart';
 import 'dossier_security_page.dart';
 import '../widgets/app_logo.dart';
+import '../widgets/global_search_bar.dart';
 import 'interrogations_lettrages_page.dart';
 import 'liste_exercices_page.dart';
 import 'journal_an_page.dart';
@@ -53,6 +54,7 @@ class _HomePageState extends State<HomePage> {
   bool _isSidebarCollapsed = false;
   final List<int> _pageHistory = [];
   final List<int> _pageForwardStack = [];
+  final FocusNode _globalSearchFocusNode = FocusNode();
   static const List<_QuickAccessItem> _quickAccessItems = [
     _QuickAccessItem(
       label: 'Plan comptable',
@@ -81,6 +83,12 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadDatabaseInfo();
+  }
+
+  @override
+  void dispose() {
+    _globalSearchFocusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _loadDatabaseInfo() async {
@@ -480,6 +488,8 @@ class _HomePageState extends State<HomePage> {
         if (_currentPageIndex == 2)
           LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyN):
               _openCreateUserShortcut,
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyK):
+            () => _globalSearchFocusNode.requestFocus(),
       },
       child: Focus(
         autofocus: true,
@@ -510,6 +520,20 @@ class _HomePageState extends State<HomePage> {
                       ),
                   ],
                 ),
+                const SizedBox(width: 20),
+                // Recherche globale (avant l'entité/exercice)
+                SizedBox(
+                  width: 260,
+                  child: GlobalSearchBar(
+                    focusNode: _globalSearchFocusNode,
+                    exerciceId: _activeExerciceId,
+                    onNavigateToPage: (index) => _showPage(index),
+                    onOpenEcriture: (periode) async {
+                      await _openSaisie(periode);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 20),
                 // Centre: Entité + Exercice (cliquable)
                 Expanded(
                   child: InkWell(
@@ -541,8 +565,6 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                 ),
-                // Droite: actions
-                const SizedBox(width: 100), // Espace pour équilibrer
               ],
             ),
             backgroundColor: Colors.blue.shade400,
