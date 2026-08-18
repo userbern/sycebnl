@@ -5,6 +5,7 @@ import 'package:sycebnl_accounting/models/saisie_comptable.dart';
 import 'package:sycebnl_accounting/models/user_session.dart';
 import 'package:sycebnl_accounting/services/saisie_comptable_service.dart';
 import 'package:sycebnl_accounting/services/auth_service.dart';
+import 'package:sycebnl_accounting/widgets/premium_soft_background.dart';
 import 'saisie_ecriture_page.dart';
 
 typedef MoisData = ({String label, int mois, int annee, String id});
@@ -248,44 +249,46 @@ class _JournalPeriodeSelectionPageState
 
   @override
   Widget build(BuildContext context) {
-    final content = SafeArea(
-      child: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                if (_exerciceCloture)
-                  Container(
-                    width: double.infinity,
-                    color: Colors.orange.shade700,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.lock, color: Colors.white, size: 16),
-                        SizedBox(width: 8),
-                        Text(
-                          'Exercice clôturé — consultation uniquement, la saisie est désactivée.',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
-                        ),
-                      ],
+    final content = PremiumSoftBackground(
+      child: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  if (_exerciceCloture)
+                    Container(
+                      width: double.infinity,
+                      color: Colors.orange.shade700,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.lock, color: Colors.white, size: 16),
+                          SizedBox(width: 8),
+                          Text(
+                            'Exercice clôturé — consultation uniquement, la saisie est désactivée.',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: constraints.maxHeight - 56,
+                            ),
+                            child: Center(child: _buildHeroCard()),
+                          ),
+                        );
+                      },
                     ),
                   ),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      return SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minHeight: constraints.maxHeight - 56,
-                          ),
-                          child: Center(child: _buildHeroCard()),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+                ],
+              ),
+      ),
     );
 
     if (widget.showAppBar) {
