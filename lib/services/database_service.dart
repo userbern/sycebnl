@@ -70,7 +70,7 @@ class DatabaseService {
             'liste_bailleurs', 'liste_projets', 'gestion_budgets',
             'saisie_comptable', 'journaux_de_saisie', 'interrogations',
             'balance_comptes', 'grand_livre', 'journal',
-            'exercices',
+            'exercices', 'dashboard_dg',
           ]) {
             await db.insert('modules', {'nom': nom});
           }
@@ -409,6 +409,25 @@ class DatabaseService {
               // Module exercices (pas d'ancien équivalent)
               if (!existingNoms.contains('exercices')) {
                 final newId = await db.insert('modules', {'nom': 'exercices'});
+                for (final user in users) {
+                  await db.insert(
+                    'permissions',
+                    {
+                      'utilisateur_id': user['id'] as int,
+                      'module_id': newId,
+                      'lecture': 0, 'ajout': 0,
+                      'modification': 0, 'suppression': 0,
+                      'created_at': DateTime.now().toIso8601String(),
+                    },
+                    conflictAlgorithm: ConflictAlgorithm.ignore,
+                  );
+                }
+              }
+
+              // Module dashboard_dg (pas d'ancien équivalent)
+              if (!existingNoms.contains('dashboard_dg')) {
+                final newId =
+                    await db.insert('modules', {'nom': 'dashboard_dg'});
                 for (final user in users) {
                   await db.insert(
                     'permissions',

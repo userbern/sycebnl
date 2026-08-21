@@ -6,6 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:sycebnl_accounting/widgets/app_icon.dart';
 import 'package:sycebnl_accounting/widgets/company_header_card.dart';
 import '../services/database_service.dart';
+import '../services/local_repository.dart';
+import '../services/network/accounting_server_service.dart';
+import '../widgets/network_share_dialog.dart';
 import '../models/user_session.dart';
 import 'entite_identification_page.dart';
 import 'nouvel_exercice_page.dart';
@@ -28,6 +31,7 @@ import '../widgets/global_search_bar.dart';
 import 'interrogations_lettrages_page.dart';
 import 'liste_exercices_page.dart';
 import 'journal_an_page.dart';
+import 'dashboard_dg_page.dart';
 import '../models/saisie_comptable.dart';
 
 class HomePage extends StatefulWidget {
@@ -56,6 +60,11 @@ class _HomePageState extends State<HomePage> {
   final List<int> _pageForwardStack = [];
   final FocusNode _globalSearchFocusNode = FocusNode();
   static const List<_QuickAccessItem> _quickAccessItems = [
+    _QuickAccessItem(
+      label: 'Dashboard DG',
+      icon: Icons.dashboard,
+      pageIndex: 18,
+    ),
     _QuickAccessItem(
       label: 'Plan comptable',
       icon: Icons.list_alt,
@@ -174,6 +183,7 @@ class _HomePageState extends State<HomePage> {
       15: 'journal',
       12: 'exercices',
       17: 'exercices',
+      18: 'dashboard_dg',
     };
     if (!_canRead(pageModules[index])) {
       if (mounted) {
@@ -622,8 +632,30 @@ class _HomePageState extends State<HomePage> {
                 tooltip: 'Actualiser la page',
               ),
               IconButton(
-                icon: const Icon(Icons.logout),
+                icon: Icon(
+                  AccountingServerService.instance.isRunning
+                      ? Icons.wifi_tethering
+                      : Icons.wifi_tethering_off,
+                  color:
+                      AccountingServerService.instance.isRunning
+                          ? Colors.greenAccent
+                          : Colors.white,
+                ),
                 onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => const NetworkShareDialog(),
+                  ).then((_) {
+                    if (mounted) setState(() {});
+                  });
+                },
+                tooltip: 'Partager cette base sur le réseau',
+              ),
+              IconButton(
+                icon: const Icon(Icons.logout),
+                onPressed: () async {
+                  await AccountingServerService.instance.stop();
+                  if (!context.mounted) return;
                   Navigator.of(context).pushReplacementNamed('/');
                 },
                 tooltip: 'Fermer le fichier',
@@ -697,6 +729,13 @@ class _HomePageState extends State<HomePage> {
                       child: ListView(
                         padding: EdgeInsets.zero,
                         children: [
+                          _buildMenuItem('TABLEAU DE BORD', Icons.dashboard, [
+                            _SubMenuItem(
+                              'Dashboard DG',
+                              18,
+                              moduleNom: 'dashboard_dg',
+                            ),
+                          ]),
                           _buildMenuItem('NOTRE ENTITE', Icons.business, [
                             _SubMenuItem(
                               'Identification',
@@ -1057,7 +1096,7 @@ class _HomePageState extends State<HomePage> {
       return;
     }
     try {
-      final db = DatabaseService.database;
+      const db = LocalRepository();
       final d = DateTime.parse(dateDebut);
       final f = DateTime.parse(dateFin);
       final dureeMois = (f.year - d.year) * 12 + (f.month - d.month) + 1;
@@ -1232,6 +1271,11 @@ class _HomePageState extends State<HomePage> {
           key: ValueKey(_journauxRefreshSeed),
           showAppBar: false,
           onOpenPeriode: _openSaisie,
+        );
+      case 18:
+        return DashboardDgPage(
+          exerciceId: _activeExerciceId,
+          showAppBar: false,
         );
       default:
         return _buildWelcomePage();

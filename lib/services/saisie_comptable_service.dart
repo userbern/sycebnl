@@ -1,9 +1,10 @@
-﻿import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'database_service.dart';
+﻿import 'package:sqflite_common_ffi/sqflite_ffi.dart' show ConflictAlgorithm;
+import 'i_accounting_repository.dart';
+import 'repository_provider.dart';
 import '../models/saisie_comptable.dart';
 
 class SaisieComptableService {
-  static Database get database => DatabaseService.database;
+  static IAccountingRepository get database => RepositoryProvider.current;
   static String _formatDateYMD(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}'
       '-${date.month.toString().padLeft(2, '0')}'

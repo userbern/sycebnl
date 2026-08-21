@@ -41,6 +41,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
   bool get _canManage => _isAdmin || _isBootstrap;
 
   static const _sections = [
+    ('Tableau de bord', ['dashboard_dg']),
     ('Notre Entité', ['identification']),
     (
       'Paramétrages',
@@ -1344,6 +1345,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
       'grand_livre': 'Grand livre',
       'journal': 'Journal',
       'exercices': 'Exercices',
+      'dashboard_dg': 'Dashboard DG',
     };
     return names[raw] ?? raw;
   }

@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/exercice_service.dart';
 import '../services/export_service.dart';
+import '../services/local_repository.dart';
 import '../widgets/download_button.dart';
 import '../utils/format_utils.dart';
 
@@ -106,7 +107,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
   Future<void> _loadEntite() async {
     try {
       if (!DatabaseService.isConnected) return;
-      final rows = await DatabaseService.database.query('entite', limit: 1);
+      final rows = await const LocalRepository().query('entite', limit: 1);
       if (!mounted) return;
       setState(() => _entite = rows.isNotEmpty ? rows.first : null);
     } catch (_) {}

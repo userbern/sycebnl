@@ -17,7 +17,7 @@ dependencies:
     sdk: flutter
 
   cupertino_icons: ^1.0.8
-  intl: 0.20.2
+  intl: ^0.19.0
 
   # SQLite pour la base de données locale
   sqflite_common_ffi: ^2.3.0+4
@@ -36,6 +36,10 @@ dependencies:
   # Sécurité du dossier comptable (Argon2id, AES-256-GCM, X25519)
   cryptography: ^2.7.0
   uuid: ^4.4.0
+
+  # Serveur HTTP embarqué pour le partage réseau du dossier comptable
+  shelf: ^1.4.1
+  shelf_router: ^1.1.4
 
 dev_dependencies:
   flutter_test:
