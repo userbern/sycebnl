@@ -3,6 +3,7 @@ import '../services/database_service.dart';
 import '../services/exercice_service.dart';
 import '../services/export_service.dart';
 import '../services/local_repository.dart';
+import '../widgets/download_button.dart';
 import '../utils/format_utils.dart';
 
 /// Visualiseur du journal des A-Nouveaux généré à la clôture d'un exercice :
@@ -97,34 +98,53 @@ class _JournalAnPageState extends State<JournalAnPage> {
               final hasData = preview != null && preview.lignes.isNotEmpty;
               return Row(
                 children: [
-                  IconButton(
-                    tooltip: 'Télécharger en PDF',
-                    icon: const Icon(Icons.picture_as_pdf_outlined),
-                    onPressed: hasData
-                        ? () => ExportService.exportAnPreviewPDF(
-                              preview: preview,
-                              entite: _entite,
-                              context: context,
-                              exerciceLabel: _exerciceCode,
-                              journalLabel:
-                                  _journalLabelFor(preview.codeJournal),
-                            )
-                        : null,
+                  DownloadTooltip.pdf(
+                    verticalOffset: 28,
+                    child: IconButton(
+                      icon: const DownloadIcon(
+                        Icons.picture_as_pdf_outlined,
+                        color: Colors.white,
+                      ),
+                      style: IconButton.styleFrom(
+                        backgroundColor: kDownloadPdfColor,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: hasData
+                          ? () => ExportService.exportAnPreviewPDF(
+                                preview: preview,
+                                entite: _entite,
+                                context: context,
+                                exerciceLabel: _exerciceCode,
+                                journalLabel:
+                                    _journalLabelFor(preview.codeJournal),
+                              )
+                          : null,
+                    ),
                   ),
-                  IconButton(
-                    tooltip: 'Télécharger en Excel',
-                    icon: const Icon(Icons.table_chart_outlined),
-                    onPressed: hasData
-                        ? () => ExportService.exportAnPreviewExcel(
-                              preview: preview,
-                              context: context,
-                              entiteNom:
-                                  _entite?['denomination_sociale']?.toString(),
-                              exerciceLabel: _exerciceCode,
-                              journalLabel:
-                                  _journalLabelFor(preview.codeJournal),
-                            )
-                        : null,
+                  const SizedBox(width: 8),
+                  DownloadTooltip.excel(
+                    verticalOffset: 28,
+                    child: IconButton(
+                      icon: const DownloadIcon(
+                        Icons.table_chart_outlined,
+                        color: Colors.white,
+                      ),
+                      style: IconButton.styleFrom(
+                        backgroundColor: kDownloadExcelColor,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: hasData
+                          ? () => ExportService.exportAnPreviewExcel(
+                                preview: preview,
+                                context: context,
+                                entiteNom: _entite?['denomination_sociale']
+                                    ?.toString(),
+                                exerciceLabel: _exerciceCode,
+                                journalLabel:
+                                    _journalLabelFor(preview.codeJournal),
+                              )
+                          : null,
+                    ),
                   ),
                   const SizedBox(width: 8),
                 ],

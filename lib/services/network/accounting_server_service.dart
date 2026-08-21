@@ -22,8 +22,15 @@ class AccountingServerService {
   static const int port = 8765;
 
   HttpServer? _server;
+  int? _boundPort;
 
   bool get isRunning => _server != null;
+
+  /// Port effectivement lié par [start] (utile pour les tests, qui passent
+  /// `port: 0` pour obtenir un port libre attribué par l'OS et éviter les
+  /// collisions entre suites de tests exécutées en parallèle). En usage réel,
+  /// c'est toujours [port].
+  int get boundPort => _boundPort ?? port;
 
   /// Adresses IPv4 locales sur lesquelles le serveur écoute, pour affichage
   /// à l'utilisateur (ex: partager "192.168.1.10:8765" aux postes clients).
@@ -35,7 +42,11 @@ class AccountingServerService {
     return interfaces.expand((i) => i.addresses).map((a) => a.address).toList();
   }
 
-  Future<void> start() async {
+  /// Démarre le serveur. [port] par défaut à [AccountingServerService.port]
+  /// (port fixe attendu par les postes clients) ; passer `0` (utilisé par les
+  /// tests) fait attribuer un port libre par l'OS, lisible ensuite via
+  /// [boundPort].
+  Future<void> start({int? port}) async {
     if (_server != null) return;
 
     final router = buildAccountingRouter();
@@ -46,9 +57,10 @@ class AccountingServerService {
     _server = await shelf_io.serve(
       handler,
       InternetAddress.anyIPv4,
-      port,
+      port ?? AccountingServerService.port,
       shared: true,
     );
+    _boundPort = _server!.port;
   }
 
   /// Arrête le serveur et révoque immédiatement toutes les sessions réseau
@@ -56,6 +68,7 @@ class AccountingServerService {
   Future<void> stop() async {
     final server = _server;
     _server = null;
+    _boundPort = null;
     await server?.close(force: true);
     NetworkSessionService.instance.clear();
   }
