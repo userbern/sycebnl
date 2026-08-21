@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/user_session.dart';
 import '../models/saisie_comptable.dart';
 import '../services/database_service.dart';
+import '../services/local_repository.dart';
 import '../services/saisie_comptable_service.dart';
 import '../services/export_service.dart';
 
@@ -197,7 +198,7 @@ class _InterrogationsLettragesPageState
   Future<void> _loadCompteSuggestions() async {
     try {
       await DatabaseService.ensureDatabaseOpen();
-      final rows = await DatabaseService.database.query(
+      final rows = await const LocalRepository().query(
         'compte',
         columns: ['numero_compte', 'intitule'],
         orderBy: 'numero_compte ASC',

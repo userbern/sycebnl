@@ -2,6 +2,7 @@
 import '../models/exercice.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
+import '../services/local_repository.dart';
 import '../utils/format_utils.dart';
 
 class BalanceResultatPage extends StatefulWidget {
@@ -65,7 +66,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         throw Exception('Base de données non connectée');
       }
 
-      final db = DatabaseService.database;
+      const db = LocalRepository();
 
       // Contraintes de dates — normalisées à minuit côté Dart,
       // la date de fin couvre toute la journée jusqu'à 23:59:59 en SQL.
@@ -96,10 +97,10 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
           SELECT 
             e.numero_tiers AS numero_compte,
             COALESCE(t.intitule, 'Tiers') AS intitule,
-            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_debit ELSE 0 END), 0) as ouverture_debit,
-            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_credit ELSE 0 END), 0) as ouverture_credit,
-            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_debit ELSE 0 END), 0) as mouvement_debit,
-            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_credit ELSE 0 END), 0) as mouvement_credit
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND e.numero_document LIKE 'OUV-%') THEN e.montant_debit ELSE 0 END), 0) as ouverture_debit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND e.numero_document LIKE 'OUV-%') THEN e.montant_credit ELSE 0 END), 0) as ouverture_credit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND e.numero_document LIKE 'OUV-%') THEN e.montant_debit ELSE 0 END), 0) as mouvement_debit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND e.numero_document LIKE 'OUV-%') THEN e.montant_credit ELSE 0 END), 0) as mouvement_credit
           FROM ecritures e
           LEFT JOIN tiers t ON e.numero_tiers = t.numero_compte
           LEFT JOIN journaux_periodes jp ON e.journal_periode_id = jp.id
@@ -124,10 +125,10 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
           SELECT 
             c.numero_compte,
             c.intitule,
-            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_debit ELSE 0 END), 0) as ouverture_debit,
-            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_credit ELSE 0 END), 0) as ouverture_credit,
-            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_debit ELSE 0 END), 0) as mouvement_debit,
-            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_credit ELSE 0 END), 0) as mouvement_credit
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND e.numero_document LIKE 'OUV-%') THEN e.montant_debit ELSE 0 END), 0) as ouverture_debit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND e.numero_document LIKE 'OUV-%') THEN e.montant_credit ELSE 0 END), 0) as ouverture_credit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND e.numero_document LIKE 'OUV-%') THEN e.montant_debit ELSE 0 END), 0) as mouvement_debit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND e.numero_document LIKE 'OUV-%') THEN e.montant_credit ELSE 0 END), 0) as mouvement_credit
           FROM compte c
           LEFT JOIN ecritures e ON c.numero_compte = e.numero_compte
           LEFT JOIN journaux_periodes jp ON e.journal_periode_id = jp.id

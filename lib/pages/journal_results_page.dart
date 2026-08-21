@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
+import '../services/local_repository.dart';
 
 class JournalResultsPage extends StatefulWidget {
   final String? codeJournal;
@@ -50,7 +51,7 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
       if (!DatabaseService.isConnected)
         throw Exception('Base de donnees non connectee');
 
-      final db = DatabaseService.database;
+      const db = LocalRepository();
       final entiteRows = await db.query('entite', limit: 1);
       final rows = await db.rawQuery(_buildQuery(), _buildArgs());
 

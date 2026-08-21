@@ -1,7 +1,9 @@
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart' show ConflictAlgorithm;
 import '../models/compte.dart';
 import '../models/saisie_comptable.dart';
 import 'database_service.dart';
+import 'i_accounting_repository.dart';
+import 'local_repository.dart';
 
 /// Une ligne du journal des A-Nouveaux (report ou équilibrage).
 class AnLigne {
@@ -64,6 +66,8 @@ class ExerciceOperationException implements Exception {
 /// `getAnPreview` reste disponible pour la consultation en lecture seule de
 /// ce journal de report, quel que soit le journal choisi.
 class ExerciceService {
+  static const IAccountingRepository _repo = LocalRepository();
+
   static String _formatDateYMD(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}-'
       '${date.month.toString().padLeft(2, '0')}-'
@@ -182,7 +186,7 @@ class ExerciceService {
   /// comptable s'il n'existe pas encore (compte d'équilibrage libre choisi
   /// par l'utilisateur pour le report).
   static Future<void> _ensureCompteEquilibrage(
-    Transaction txn,
+    IAccountingRepository txn,
     String numeroCompte,
     String now,
   ) async {
@@ -258,7 +262,7 @@ class ExerciceService {
   /// montant total de la ligne portée), afin de ne jamais sur-ventiler une
   /// ligne reportée.
   static Future<void> _insererVentilationsReport(
-    Transaction txn,
+    IAccountingRepository txn,
     int ecritureId,
     List<Map<String, Object?>> ventilations,
     double montantLigne,
@@ -299,7 +303,7 @@ class ExerciceService {
   static Future<AnPreview?> getAnPreview(int exerciceId) async {
     await DatabaseService.ensureDatabaseOpen();
 
-    final periodeRows = await DatabaseService.database.rawQuery(
+    final periodeRows = await _repo.rawQuery(
       '''
       SELECT jp.id, jp.code_journal
       FROM journaux_periodes jp
@@ -313,7 +317,7 @@ class ExerciceService {
 
     final periodeId = periodeRows.first['id'] as int;
     final codeJournal = periodeRows.first['code_journal']?.toString();
-    final ecritures = await DatabaseService.database.rawQuery(
+    final ecritures = await _repo.rawQuery(
       '''
       SELECT e.numero_compte, e.libelle, e.montant_debit, e.montant_credit,
              COALESCE(c.intitule, e.libelle) AS intitule_compte
@@ -370,7 +374,7 @@ class ExerciceService {
   ) async {
     await DatabaseService.ensureDatabaseOpen();
 
-    final soldes = await DatabaseService.database.rawQuery(
+    final soldes = await _repo.rawQuery(
       '''
       SELECT COALESCE(SUM(e.montant_debit - e.montant_credit), 0) AS solde
       FROM compte c
@@ -409,7 +413,7 @@ class ExerciceService {
   }) async {
     await DatabaseService.ensureDatabaseOpen();
 
-    final soldes = await DatabaseService.database.rawQuery(
+    final soldes = await _repo.rawQuery(
       '''
       SELECT
         c.numero_compte,
@@ -462,7 +466,7 @@ class ExerciceService {
       totalDebit += debit;
       totalCredit += credit;
 
-      final compteRows = await DatabaseService.database.query(
+      final compteRows = await _repo.query(
         'compte',
         where: 'numero_compte = ? AND deleted_at IS NULL',
         whereArgs: [compteEquilibrage],
@@ -520,7 +524,7 @@ class ExerciceService {
     }
 
     await DatabaseService.ensureDatabaseOpen();
-    final rows = await DatabaseService.database.query(
+    final rows = await _repo.query(
       'ecritures',
       where: 'journal_periode_id = ? AND numero_document = ?',
       whereArgs: [periode.id, _documentReport(exercice['code'].toString())],
@@ -558,7 +562,7 @@ class ExerciceService {
     if (exercice == null) return null;
 
     await DatabaseService.ensureDatabaseOpen();
-    final rows = await DatabaseService.database.query(
+    final rows = await _repo.query(
       'ecritures',
       where: 'journal_periode_id = ? AND numero_document = ? AND libelle LIKE ?',
       whereArgs: [
@@ -607,7 +611,7 @@ class ExerciceService {
 
     late AnPreview preview;
 
-    await DatabaseService.database.transaction((txn) async {
+    await _repo.transaction((txn) async {
       await txn.delete(
         'ecritures',
         where: 'journal_periode_id = ? AND numero_document = ?',
@@ -872,7 +876,7 @@ class ExerciceService {
 
     final dureeMois = _dureeMois(dateDebut, dateFin);
 
-    await DatabaseService.database.transaction((txn) async {
+    await _repo.transaction((txn) async {
       final soldes = await txn.rawQuery(
         '''
         SELECT
@@ -1075,7 +1079,7 @@ class ExerciceService {
     _validerContinuiteApres(dateDebut, exercices);
 
     final now = DateTime.now().toIso8601String();
-    await DatabaseService.database.transaction((txn) async {
+    await _repo.transaction((txn) async {
       // Le nouvel exercice devient l'exercice en cours.
       await txn.update('exercice', {'is_active': 0, 'updated_at': now});
       await txn.insert('exercice', {
@@ -1112,7 +1116,7 @@ class ExerciceService {
     _validerContinuiteAvant(dateFin, exercices);
 
     final now = DateTime.now().toIso8601String();
-    await DatabaseService.database.insert('exercice', {
+    await _repo.insert('exercice', {
       'code': code,
       'date_debut': _formatDateYMD(dateDebut),
       'date_fin': _formatDateYMD(dateFin),

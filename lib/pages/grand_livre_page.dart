@@ -7,6 +7,7 @@ import '../models/bailleur.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
+import '../services/local_repository.dart';
 
 enum _CompteFilterMode { all, single, range }
 
@@ -71,7 +72,7 @@ class _GrandLivreScreenState extends State<GrandLivreScreen> {
         throw Exception('Base de donnees non connectee');
       }
 
-      final db = DatabaseService.database;
+      const db = LocalRepository();
       final exerciceRows = await db.query(
         'exercice',
         where: 'is_active = ?',
@@ -787,7 +788,7 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
         throw Exception('Base de donnees non connectee');
       }
 
-      final db = DatabaseService.database;
+      const db = LocalRepository();
       final entiteRows = await db.query('entite', limit: 1);
       final rows = await db.rawQuery(_movementSql(), _movementArgs());
       final entries = rows.map(_GrandLivreRow.fromMap).toList();
@@ -851,7 +852,7 @@ class _GrandLivreResultPageState extends State<_GrandLivreResultPage> {
     ''');
 
     _appendAnalyticWhere(where, args);
-    final rows = await DatabaseService.database.rawQuery('''
+    final rows = await const LocalRepository().rawQuery('''
       SELECT COALESCE(SUM(e.montant_debit), 0) AS debit,
              COALESCE(SUM(e.montant_credit), 0) AS credit
       FROM ecritures e

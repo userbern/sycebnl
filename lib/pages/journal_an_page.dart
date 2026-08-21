@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/exercice_service.dart';
 import '../services/export_service.dart';
+import '../services/local_repository.dart';
 import '../utils/format_utils.dart';
 
 /// Visualiseur du journal des A-Nouveaux généré à la clôture d'un exercice :
@@ -33,7 +34,7 @@ class _JournalAnPageState extends State<JournalAnPage> {
   Future<void> _loadJournaux() async {
     try {
       if (!DatabaseService.isConnected) return;
-      final rows = await DatabaseService.database.query('journal');
+      final rows = await const LocalRepository().query('journal');
       if (!mounted) return;
       setState(() {
         _journalLibelles = {
@@ -56,7 +57,7 @@ class _JournalAnPageState extends State<JournalAnPage> {
   Future<void> _loadEntite() async {
     try {
       if (!DatabaseService.isConnected) return;
-      final rows = await DatabaseService.database.query('entite', limit: 1);
+      final rows = await const LocalRepository().query('entite', limit: 1);
       if (!mounted) return;
       setState(() => _entite = rows.isNotEmpty ? rows.first : null);
     } catch (_) {}
@@ -65,7 +66,7 @@ class _JournalAnPageState extends State<JournalAnPage> {
   Future<void> _loadExercice() async {
     try {
       if (!DatabaseService.isConnected) return;
-      final rows = await DatabaseService.database.query(
+      final rows = await const LocalRepository().query(
         'exercice',
         where: 'id = ?',
         whereArgs: [widget.exerciceId],

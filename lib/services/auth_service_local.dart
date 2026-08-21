@@ -1,6 +1,8 @@
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'database_service.dart';
 import 'dossier_crypto_service.dart';
+import 'i_accounting_repository.dart';
+import 'network/network_session_service.dart';
+import 'repository_provider.dart';
 import '../models/entite.dart';
 import '../models/compte.dart';
 import '../models/tiers.dart';
@@ -10,7 +12,7 @@ import '../models/projet.dart';
 import '../models/exercice.dart';
 
 class AuthService {
-  static Database get _db => DatabaseService.database;
+  static IAccountingRepository get _db => RepositoryProvider.current;
 
   /// Se connecter avec login et password
   static Future<Map<String, dynamic>> login({
@@ -30,6 +32,11 @@ class AuthService {
       }
 
       final user = users.first;
+
+      final isActive = user['is_active'];
+      if (isActive == 0 || isActive == false) {
+        throw Exception('Compte désactivé');
+      }
 
       // 2. Vérifier le mot de passe (Argon2id si migré, sinon SHA-256 legacy)
       final algo = user['password_algo'] as String? ?? 'sha256';
@@ -227,6 +234,12 @@ class AuthService {
       if (isActive != null) data['is_active'] = isActive ? 1 : 0;
 
       await _db.update('utilisateur', data, where: 'id = ?', whereArgs: [id]);
+
+      // Un compte désactivé perd immédiatement l'accès réseau, y compris sur
+      // une session déjà ouverte.
+      if (isActive == false) {
+        NetworkSessionService.instance.revokeUser(id);
+      }
     } catch (e) {
       throw Exception('Erreur lors de la mise à jour de l\'utilisateur: $e');
     }
@@ -253,6 +266,7 @@ class AuthService {
         where: 'id = ?',
         whereArgs: [id],
       );
+      NetworkSessionService.instance.revokeUser(id);
     } catch (e) {
       throw Exception('Erreur lors de la suppression de l\'utilisateur: $e');
     }
@@ -316,6 +330,10 @@ class AuthService {
         where: 'id = ?',
         whereArgs: [userId],
       );
+
+      // Un changement de mot de passe invalide les sessions réseau ouvertes
+      // avec l'ancien mot de passe.
+      NetworkSessionService.instance.revokeUser(userId);
     } catch (e) {
       throw Exception('Erreur lors du changement de mot de passe: $e');
     }
@@ -534,8 +552,8 @@ class AuthService {
       // Vérifier s'il y a des écritures liées à ce compte
       final ecrituresResults = await _db.rawQuery(
         '''
-        SELECT le.id FROM ligne_ecriture le
-        WHERE le.numero_compte = ? AND le.id IS NOT NULL
+        SELECT e.id FROM ecritures e
+        WHERE e.numero_compte = ? AND e.id IS NOT NULL
         LIMIT 1
       ''',
         [numeroCompte],
@@ -663,8 +681,8 @@ class AuthService {
       if (numeroCompte != null && numeroCompte.isNotEmpty) {
         final ecrituresResults = await _db.rawQuery(
           '''
-          SELECT le.id FROM ligne_ecriture le
-          WHERE le.numero_compte = ? AND le.id IS NOT NULL
+          SELECT e.id FROM ecritures e
+          WHERE e.numero_compte = ? AND e.id IS NOT NULL
           LIMIT 1
         ''',
           [numeroCompte],

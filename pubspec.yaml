@@ -37,6 +37,10 @@ dependencies:
   cryptography: ^2.7.0
   uuid: ^4.4.0
 
+  # Serveur HTTP embarqué pour le partage réseau du dossier comptable
+  shelf: ^1.4.1
+  shelf_router: ^1.1.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
