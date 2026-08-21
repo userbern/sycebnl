@@ -640,6 +640,8 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         login TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
+        password_algo TEXT DEFAULT 'sha256',
+        password_salt TEXT,
         role TEXT DEFAULT 'utilisateur',
         nom TEXT,
         prenom TEXT,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/user_session.dart';
 import '../services/auth_service_local.dart';
+import '../utils/error_display.dart';
+import '../utils/form_enter_shortcut.dart';
 
 class PermissionsPage extends StatefulWidget {
   final bool showAppBar;
@@ -237,9 +239,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e'), backgroundColor: Colors.red),
-      );
+      showFriendlyError(context, 'Erreur lors de la copie des permissions', e);
     }
   }
 
@@ -336,6 +336,69 @@ class _PermissionsPageState extends State<PermissionsPage> {
     final confirmCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
     String role = wasBootstrap ? 'admin' : 'utilisateur';
+    bool obscurePassword = true;
+    bool obscureConfirm = true;
+
+    Future<void> handleCreate(BuildContext ctx) async {
+      if (!formKey.currentState!.validate()) return;
+      if (passCtrl.text != confirmCtrl.text) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          const SnackBar(
+            content: Text('Les mots de passe ne correspondent pas'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      final uniquenessError = _validateLoginAndEmailUniqueness(
+        login: loginCtrl.text.trim(),
+        email: emailCtrl.text.trim(),
+      );
+      if (uniquenessError != null) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          SnackBar(
+            content: Text(uniquenessError),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      try {
+        final newUserId = await AuthService.createUser(
+          login: loginCtrl.text.trim(),
+          password: passCtrl.text,
+          nom: nomCtrl.text.trim(),
+          prenom: prenomCtrl.text.trim(),
+          email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
+          role: role,
+          createdBy: _currentUserId,
+        );
+        if (role != 'admin') {
+          await _initializeBaselinePermissions(newUserId);
+        }
+        if (ctx.mounted) Navigator.pop(ctx);
+        await _loadData();
+        if (wasBootstrap && mounted) {
+          // On vient de créer le premier admin en mode bootstrap.
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Compte administrateur créé. Fermez puis rouvrez ce fichier pour vous connecter.',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (ctx.mounted) {
+          showFriendlyError(
+            ctx,
+            'Erreur lors de la création de l\'utilisateur',
+            e,
+          );
+        }
+      }
+    }
 
     await showDialog<void>(
       context: context,
@@ -351,20 +414,37 @@ class _PermissionsPageState extends State<PermissionsPage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          _formField(prenomCtrl, 'Prénom', autofocus: true),
+                          _formField(
+                            prenomCtrl,
+                            'Prénom',
+                            autofocus: true,
+                            required: false,
+                          ),
                           const SizedBox(height: 12),
-                          _formField(nomCtrl, 'Nom'),
+                          _formField(nomCtrl, 'Nom', required: false),
                           const SizedBox(height: 12),
                           _formField(loginCtrl, 'Login'),
                           const SizedBox(height: 12),
                           _formField(emailCtrl, 'Email', required: false),
                           const SizedBox(height: 12),
-                          _formField(passCtrl, 'Mot de passe', obscure: true),
+                          _formField(
+                            passCtrl,
+                            'Mot de passe',
+                            obscure: obscurePassword,
+                            onToggleObscure:
+                                () => setDialogState(
+                                  () => obscurePassword = !obscurePassword,
+                                ),
+                          ),
                           const SizedBox(height: 12),
                           _formField(
                             confirmCtrl,
                             'Confirmer le mot de passe',
-                            obscure: true,
+                            obscure: obscureConfirm,
+                            onToggleObscure:
+                                () => setDialogState(
+                                  () => obscureConfirm = !obscureConfirm,
+                                ),
                           ),
                           if (!wasBootstrap) ...[
                             const SizedBox(height: 12),
@@ -401,78 +481,12 @@ class _PermissionsPageState extends State<PermissionsPage> {
                       child: const Text('Annuler'),
                     ),
                     FilledButton(
-                      onPressed: () async {
-                        if (!formKey.currentState!.validate()) return;
-                        if (passCtrl.text != confirmCtrl.text) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Les mots de passe ne correspondent pas',
-                              ),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-                        final uniquenessError =
-                            _validateLoginAndEmailUniqueness(
-                              login: loginCtrl.text.trim(),
-                              email: emailCtrl.text.trim(),
-                            );
-                        if (uniquenessError != null) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(
-                              content: Text(uniquenessError),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-                        try {
-                          final newUserId = await AuthService.createUser(
-                            login: loginCtrl.text.trim(),
-                            password: passCtrl.text,
-                            nom: nomCtrl.text.trim(),
-                            prenom: prenomCtrl.text.trim(),
-                            email:
-                                emailCtrl.text.trim().isEmpty
-                                    ? null
-                                    : emailCtrl.text.trim(),
-                            role: role,
-                            createdBy: _currentUserId,
-                          );
-                          if (role != 'admin') {
-                            await _initializeBaselinePermissions(newUserId);
-                          }
-                          if (ctx.mounted) Navigator.pop(ctx);
-                          await _loadData();
-                          if (wasBootstrap && mounted) {
-                            // On vient de créer le premier admin en mode bootstrap.
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Compte administrateur créé. Fermez puis rouvrez ce fichier pour vous connecter.',
-                                ),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (ctx.mounted) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(
-                                content: Text('$e'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      },
+                      onPressed: () => handleCreate(ctx),
                       child: const Text('Créer'),
                     ),
                   ],
                 ),
-          ),
+          ).withEnterToSubmit(onSubmit: () => handleCreate(ctx), formKey: formKey),
     );
   }
 
@@ -590,11 +604,10 @@ class _PermissionsPageState extends State<PermissionsPage> {
                           await _loadData();
                         } catch (e) {
                           if (ctx.mounted) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(
-                                content: Text('$e'),
-                                backgroundColor: Colors.red,
-                              ),
+                            showFriendlyError(
+                              ctx,
+                              'Erreur lors de la modification de l\'utilisateur',
+                              e,
                             );
                           }
                         }
@@ -776,11 +789,10 @@ class _PermissionsPageState extends State<PermissionsPage> {
                     await _loadData();
                   } catch (e) {
                     if (ctx.mounted) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        SnackBar(
-                          content: Text('$e'),
-                          backgroundColor: Colors.red,
-                        ),
+                      showFriendlyError(
+                        ctx,
+                        'Erreur lors de la mise à jour du profil',
+                        e,
                       );
                     }
                   }
@@ -853,11 +865,10 @@ class _PermissionsPageState extends State<PermissionsPage> {
                     }
                   } catch (e) {
                     if (ctx.mounted) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        SnackBar(
-                          content: Text('$e'),
-                          backgroundColor: Colors.red,
-                        ),
+                      showFriendlyError(
+                        ctx,
+                        'Erreur lors de la réinitialisation du mot de passe',
+                        e,
                       );
                     }
                   }
@@ -875,8 +886,10 @@ class _PermissionsPageState extends State<PermissionsPage> {
       await _loadData();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+      showFriendlyError(
+        context,
+        'Erreur lors de l\'activation/désactivation de l\'utilisateur',
+        e,
       );
     }
   }
@@ -914,6 +927,7 @@ class _PermissionsPageState extends State<PermissionsPage> {
     bool obscure = false,
     bool required = true,
     bool autofocus = false,
+    VoidCallback? onToggleObscure,
   }) {
     return TextFormField(
       controller: ctrl,
@@ -923,6 +937,17 @@ class _PermissionsPageState extends State<PermissionsPage> {
         labelText: label,
         border: const OutlineInputBorder(),
         isDense: true,
+        suffixIcon:
+            onToggleObscure == null
+                ? null
+                : IconButton(
+                  icon: Icon(
+                    obscure ? Icons.visibility_off : Icons.visibility,
+                  ),
+                  tooltip:
+                      obscure ? 'Afficher le mot de passe' : 'Masquer le mot de passe',
+                  onPressed: onToggleObscure,
+                ),
       ),
       validator:
           required
