@@ -11,7 +11,20 @@ class NetworkPermission {
 
   /// [action] doit être l'une de : 'lecture', 'ajout', 'modification',
   /// 'suppression' (colonnes de la table `permissions`).
-  static Future<bool> check(int userId, String module, String action) async {
+  ///
+  /// Un utilisateur admin n'a jamais de lignes dans la table `permissions`
+  /// (voir `permissions_page.dart`, `_initializeBaselinePermissions` n'est
+  /// appelé que pour les rôles non-admin) : côté local, `UserSession.isAdmin`
+  /// court-circuite déjà la vérification pour ce rôle. Il faut reproduire ce
+  /// même court-circuit ici, sinon un admin connecté à distance se voit
+  /// refuser l'accès à tous les endpoints protégés faute de lignes en base.
+  static Future<bool> check(
+    int userId,
+    String module,
+    String action, {
+    String? role,
+  }) async {
+    if (role == 'admin') return true;
     final permissions = await AuthService.getUserPermissions(userId);
     final modulePerms = permissions.where(
       (p) =>

@@ -35,6 +35,16 @@ TypeJournal stringToTypeJournal(String value) {
 }
 
 /// Modèle pour un Journal comptable
+/// Normalise un flag booléen venant soit de SQLite (entier 0/1), soit du
+/// réseau (bool JSON via `toJson()`/`RemoteRepository`) : les deux
+/// représentations transitent par [Journal.fromMap] selon la source.
+bool _boolFromDb(Object? value, {required bool defaultValue}) {
+  if (value == null) return defaultValue;
+  if (value is bool) return value;
+  if (value is int) return value == 1;
+  return defaultValue;
+}
+
 class Journal {
   final String id;
   final String code;
@@ -83,8 +93,11 @@ class Journal {
       intitule: (map['libelle'] ?? map['intitule'] ?? '') as String,
       type: stringToTypeJournal((map['type'] ?? 'financier') as String),
       compteTresorerie: map['numero_compte_tresorerie'] as String?,
-      saisieAnalytique: (map['saisie_analytique'] as int?) == 1,
-      isActive: (map['is_active'] ?? 1 as int?) == 1,
+      saisieAnalytique: _boolFromDb(
+        map['saisie_analytique'],
+        defaultValue: false,
+      ),
+      isActive: _boolFromDb(map['is_active'], defaultValue: true),
       createdAt:
           map['created_at'] != null
               ? DateTime.parse(map['created_at'] as String)
@@ -102,7 +115,7 @@ class Journal {
       'code': code,
       'intitule': intitule,
       'type': type.toDbString(),
-      'compte_tresorerie': compteTresorerie,
+      'numero_compte_tresorerie': compteTresorerie,
       'saisie_analytique': saisieAnalytique,
       'is_active': isActive,
     };

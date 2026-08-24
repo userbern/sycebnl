@@ -316,6 +316,16 @@ NatureCompte? calculateNatureFromNumeroCompte(String numeroCompte) {
 }
 
 /// Modèle pour un Compte comptable
+/// Normalise un flag booléen venant soit de SQLite (entier 0/1), soit du
+/// réseau (bool JSON via `toJson()`/`RemoteRepository`) : les deux
+/// représentations transitent par [Compte.fromMap] selon la source.
+bool _boolFromDb(Object? value, {required bool defaultValue}) {
+  if (value == null) return defaultValue;
+  if (value is bool) return value;
+  if (value is int) return value == 1;
+  return defaultValue;
+}
+
 class Compte {
   final String id;
   final String numeroCompte;
@@ -367,9 +377,9 @@ class Compte {
       intitule: (map['intitule'] ?? '') as String,
       type: stringToTypeCompte((map['type'] ?? 'detail') as String),
       nature: stringToNatureCompte((map['nature'] ?? '') as String),
-      liaisonTiers: ((map['liaison_tiers'] ?? 0) as int) == 1,
+      liaisonTiers: _boolFromDb(map['liaison_tiers'], defaultValue: false),
       description: map['description'] as String?,
-      isActive: ((map['is_active'] ?? 1) as int) == 1,
+      isActive: _boolFromDb(map['is_active'], defaultValue: true),
       createdAt:
           map['created_at'] != null
               ? DateTime.parse(map['created_at'] as String)
