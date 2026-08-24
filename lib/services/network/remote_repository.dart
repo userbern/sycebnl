@@ -7,13 +7,27 @@ import 'network_client.dart';
 /// génériques (query/insert/update/delete) en appels REST vers les
 /// endpoints déjà exposés par le serveur (`network_routes.dart`).
 ///
-/// Portée volontairement limitée (étape 3 — voir `CLAUDE.md`) : le serveur
-/// n'expose que les ressources `compte`, `tiers`, `journal` (CRUD complet) et
-/// `exercice` (lecture seule). Toute autre table, ou toute requête SQL brute
-/// ([rawQuery]), lève [UnsupportedError] : les pages qui en dépendent
-/// (saisie/lettrage, budgets, permissions, utilisateurs, ...) ne sont pas
-/// encore disponibles en mode réseau et ne doivent pas être proposées à
-/// l'utilisateur connecté à distance.
+/// Portée volontairement limitée : le serveur n'expose que les ressources
+/// `compte`, `tiers`, `journal` (CRUD complet) et `exercice` (lecture seule).
+/// Toute autre table, ou toute requête SQL brute ([rawQuery]), lève
+/// [UnsupportedError] : les pages qui en dépendent (saisie/lettrage, budgets,
+/// permissions, utilisateurs, ...) ne sont pas encore disponibles en mode
+/// réseau et ne doivent pas être proposées à l'utilisateur connecté à
+/// distance (voir `home_page.dart`, `_isNetworkMode`, qui bloque déjà la
+/// navigation vers ces pages).
+///
+/// Avant de brancher les écritures (`/ecritures/<journalPeriodeId>` existe
+/// déjà côté serveur, voir `network_routes.dart`), deux prérequis
+/// d'architecture, pas seulement d'implémentation :
+/// 1. [query] ici suppose une ressource "liste plate" (GET sans paramètre) ;
+///    la route écritures est paramétrée par période de journal, donc ce
+///    modèle `_listPaths` (chemin fixe par table) ne suffit pas tel quel.
+/// 2. [transaction] n'est pas atomique côté réseau (chaque opération est un
+///    appel HTTP indépendant) : acceptable pour des écritures unitaires sur
+///    compte/tiers/journal, mais une écriture en partie double (plusieurs
+///    lignes débit/crédit) ne doit pas pouvoir être enregistrée à moitié.
+///    Il faut un endpoint serveur qui applique l'écriture complète comme une
+///    seule opération atomique avant d'activer la saisie réseau.
 class RemoteRepository implements IAccountingRepository {
   RemoteRepository(this._client);
 
@@ -32,7 +46,7 @@ class RemoteRepository implements IAccountingRepository {
     final path = _listPaths[table];
     if (path == null) {
       throw UnsupportedError(
-        'Table "$table" non disponible en mode réseau (étape 3) : le '
+        'Table "$table" non disponible en mode réseau : le '
         'serveur n\'expose pas encore cette ressource.',
       );
     }
@@ -42,7 +56,7 @@ class RemoteRepository implements IAccountingRepository {
   void _requireWritable(String table) {
     if (!_writableTables.contains(table)) {
       throw UnsupportedError(
-        'Écriture sur "$table" non disponible en mode réseau (étape 3).',
+        'Écriture sur "$table" non disponible en mode réseau.',
       );
     }
   }
@@ -84,7 +98,7 @@ class RemoteRepository implements IAccountingRepository {
     List<Object?>? arguments,
   ]) {
     throw UnsupportedError(
-      'Requêtes SQL brutes non disponibles en mode réseau (étape 3).',
+      'Requêtes SQL brutes non disponibles en mode réseau.',
     );
   }
 
@@ -145,7 +159,7 @@ class RemoteRepository implements IAccountingRepository {
   ) {
     // Pas de transaction atomique côté réseau (chaque opération est une
     // requête HTTP indépendante) : on exécute simplement les opérations à la
-    // suite. Acceptable pour la portée actuelle (étape 3), qui ne couvre que
+    // suite. Acceptable pour la portée actuelle, qui ne couvre que
     // des écritures unitaires sur compte/tiers/journal.
     return action(this);
   }

@@ -31,6 +31,7 @@ class _NetworkConnectPageState extends State<NetworkConnectPage> {
   bool _isConnecting = false;
   String? _error;
   bool _serverUnavailable = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -193,11 +194,24 @@ class _NetworkConnectPageState extends State<NetworkConnectPage> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _passwordController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Mot de passe',
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                        ),
+                        tooltip: _obscurePassword
+                            ? 'Afficher le mot de passe'
+                            : 'Masquer le mot de passe',
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
+                      ),
                     ),
-                    obscureText: true,
+                    obscureText: _obscurePassword,
                     onFieldSubmitted: (_) => _connect(),
                     validator: (v) =>
                         (v == null || v.isEmpty) ? 'Requis' : null,
