@@ -737,7 +737,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
       2: 'Récapitulatif des reports',
     };
     const subtitles = {
-      0: 'Choisissez comment créer ce nouvel exercice',
+      0: 'Choisissez les options ci-dessous',
       1: 'Définissez les dates de début et de fin',
       2: '',
     };
@@ -799,8 +799,8 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           color: Colors.blue,
           title: 'Créer un exercice avec report',
           description:
-              'Reprend les soldes de l\'exercice précédent (comptes classes '
-              '1 à 5)',
+              'Reprend les soldes des comptes (classe '
+              '1 à 5) vers le nouvel exercice.',
           onTap: _choisirAvecReport,
         ),
         const SizedBox(height: 12),
@@ -809,7 +809,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           color: Colors.green,
           title: 'Créer un exercice sans report',
           description:
-              'Crée un exercice totalement vide, sans compte d\'ouverture.',
+              'Crée un nouvel exercice sans les soldes d\'ouverture.',
           onTap: _choisirSansReport,
         ),
         const SizedBox(height: 12),
@@ -818,8 +818,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           color: Colors.purple,
           title: 'Créer un exercice antérieur',
           description:
-              'Ajoute un exercice plus ancien que ceux déjà présents (ex : '
-              'ajouter 2024 alors que 2025 existe déjà).',
+              'Ajoute un exercice plus ancien que ceux déjà présents.',
           onTap: _choisirAnterieur,
         ),
       ],
@@ -1121,7 +1120,8 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
             return TextField(
               controller: controller,
               focusNode: focusNode,
-              onChanged: (v) => _compteEquilibrageController.text = v,
+              onChanged: (v) =>
+                  setState(() => _compteEquilibrageController.text = v),
               decoration: _fieldDecoration(
                 hint: 'Veuillez saisir le numéro de compte',
                 icon: Icons.account_balance_outlined,
@@ -1137,12 +1137,212 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           ),
         ),
         const SizedBox(height: 6),
-        Text(
-          'Compte de résultat net (Excédent ou déficit). Compte à créer au '
-          'cas où il n\'existe pas',
-          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-        ),
+        if (_compteEquilibrageIntrouvable) ...[
+          InkWell(
+            onTap: () => _showCreateCompteDialog(
+              _compteEquilibrageController.text.trim(),
+            ),
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.add_circle_outline,
+                      size: 15, color: Colors.blue.shade600),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Ce compte n\'existe pas. Créer le compte '
+                    '"${_compteEquilibrageController.text.trim()}"',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade600,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ] else
+          Text(
+            'Compte de résultat net (Excédent ou déficit). Compte à créer au '
+            'cas où il n\'existe pas',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+          ),
       ],
+    );
+  }
+
+  bool get _compteEquilibrageIntrouvable {
+    final numero = _compteEquilibrageController.text.trim();
+    if (numero.isEmpty) return false;
+    return !_comptes.any((c) => c.numeroCompte == numero);
+  }
+
+  String _padNumeroCompte(String numero, TypeCompte type) {
+    const longueurCompteGeneral = 7;
+    if (type == TypeCompte.total) return numero;
+    if (numero.length >= longueurCompteGeneral) return numero;
+    return numero.padRight(longueurCompteGeneral, '0');
+  }
+
+  void _showCreateCompteDialog(String numeroInitial) {
+    final numeroController = TextEditingController(text: numeroInitial);
+    final intituleController = TextEditingController();
+    TypeCompte selectedType = TypeCompte.detail;
+    NatureCompte? calculatedNature =
+        calculateNatureFromNumeroCompte(numeroInitial);
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.add_circle, color: Colors.blue.shade700),
+                  const SizedBox(width: 12),
+                  const Text('Nouveau compte',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: SizedBox(
+                width: 480,
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextFormField(
+                          controller: numeroController,
+                          autofocus: true,
+                          keyboardType: TextInputType.number,
+                          decoration: _fieldDecoration(
+                            hint: 'N° Compte',
+                            icon: Icons.numbers,
+                          ),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) {
+                              return 'Champ requis';
+                            }
+                            if (!RegExp(r'^[0-9]+$').hasMatch(v.trim())) {
+                              return 'Seuls les chiffres sont autorisés';
+                            }
+                            return null;
+                          },
+                          onChanged: (v) => setDialogState(() =>
+                              calculatedNature =
+                                  calculateNatureFromNumeroCompte(v.trim())),
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: intituleController,
+                          decoration: _fieldDecoration(
+                            hint: 'Intitulé',
+                            icon: Icons.title,
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Champ requis'
+                              : null,
+                        ),
+                        const SizedBox(height: 14),
+                        DropdownButtonFormField<TypeCompte>(
+                          value: selectedType,
+                          decoration: _fieldDecoration(
+                            hint: 'Type',
+                            icon: Icons.category,
+                          ),
+                          items: TypeCompte.values
+                              .map((t) => DropdownMenuItem(
+                                    value: t,
+                                    child: Text(t.toLabel()),
+                                  ))
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setDialogState(() => selectedType = v);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          calculatedNature != null
+                              ? 'Nature détectée : ${calculatedNature!.toLabel()}'
+                              : 'Nature : saisissez un numéro de compte valide',
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annuler'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    if (!formKey.currentState!.validate()) return;
+                    if (calculatedNature == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Numéro de compte invalide'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+                    final paddedNumero = _padNumeroCompte(
+                      numeroController.text.trim(),
+                      selectedType,
+                    );
+                    try {
+                      await DatabaseService.createCompte(
+                        numeroCompte: paddedNumero,
+                        intitule: intituleController.text.trim(),
+                        type: selectedType.toDbString(),
+                        nature: calculatedNature!.toDbString(),
+                      );
+                      await _loadComptes();
+                      if (!context.mounted) return;
+                      Navigator.pop(context);
+                      setState(() =>
+                          _compteEquilibrageController.text = paddedNumero);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Compte créé avec succès'),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Erreur: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Créer le compte'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

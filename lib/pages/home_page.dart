@@ -7,8 +7,11 @@ import 'package:sycebnl_accounting/widgets/app_icon.dart';
 import 'package:sycebnl_accounting/widgets/company_header_card.dart';
 import '../services/database_service.dart';
 import '../services/local_repository.dart';
+import '../services/repository_provider.dart';
 import '../services/network/accounting_server_service.dart';
+import '../services/network/network_connection_service.dart';
 import '../widgets/network_share_dialog.dart';
+import 'network_data_page.dart';
 import '../models/user_session.dart';
 import 'entite_identification_page.dart';
 import 'nouvel_exercice_page.dart';
@@ -100,7 +103,18 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  /// En mode réseau (client distant), il n'y a pas de connexion SQLite
+  /// locale : `DatabaseService.database` lèverait immédiatement. Seules les
+  /// données déjà exposées en lecture par `RemoteRepository` (exercices)
+  /// sont chargées ; l'entité et la config ne sont pas encore disponibles à
+  /// distance (voir `network_routes.dart`).
+  bool get _isNetworkMode => NetworkConnectionService.instance.isConnected;
+
   Future<void> _loadDatabaseInfo() async {
+    if (_isNetworkMode) {
+      await _refreshExercices();
+      return;
+    }
     print('DEBUG: Début du chargement des données...');
     try {
       print('DEBUG: Récupération de l\'entité...');
@@ -144,7 +158,10 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _refreshExercices() async {
     try {
-      final exercices = await DatabaseService.getExercices();
+      final exercices = _isNetworkMode
+          ? await RepositoryProvider.current
+              .query('exercice', orderBy: 'date_debut DESC')
+          : await DatabaseService.getExercices();
       final activeExercice = exercices.firstWhere(
         (e) => e['is_active'] == 1,
         orElse: () => exercices.isNotEmpty ? exercices.first : {},
@@ -191,6 +208,23 @@ class _HomePageState extends State<HomePage> {
           const SnackBar(
             content: Text('Accès refusé : permission de lecture requise'),
             backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    // En mode réseau, seuls comptes/tiers/journaux (CRUD) et la liste des
+    // exercices (lecture) sont câblés sur `RemoteRepository` (voir
+    // `_buildContentPage`). Les autres pages dépendent encore directement de
+    // `DatabaseService` (connexion SQLite locale) et planteraient.
+    const networkAvailablePages = {0, 4, 5, 6, 17};
+    if (_isNetworkMode && !networkAvailablePages.contains(index)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Non disponible en mode réseau pour le moment'),
+            backgroundColor: Colors.orange,
           ),
         );
       }
@@ -301,6 +335,15 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _contentRefreshSeed++;
     });
+  }
+
+  void _showNetworkUnavailable() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Non disponible en mode réseau pour le moment'),
+        backgroundColor: Colors.orange,
+      ),
+    );
   }
 
   void _showExerciceSelector() {
@@ -631,34 +674,41 @@ class _HomePageState extends State<HomePage> {
                 onPressed: _reloadCurrentPage,
                 tooltip: 'Actualiser la page',
               ),
-              IconButton(
-                icon: Icon(
-                  AccountingServerService.instance.isRunning
-                      ? Icons.wifi_tethering
-                      : Icons.wifi_tethering_off,
-                  color:
-                      AccountingServerService.instance.isRunning
-                          ? Colors.greenAccent
-                          : Colors.white,
+              if (!_isNetworkMode)
+                IconButton(
+                  icon: Icon(
+                    AccountingServerService.instance.isRunning
+                        ? Icons.wifi_tethering
+                        : Icons.wifi_tethering_off,
+                    color:
+                        AccountingServerService.instance.isRunning
+                            ? Colors.greenAccent
+                            : Colors.white,
+                  ),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (_) => const NetworkShareDialog(),
+                    ).then((_) {
+                      if (mounted) setState(() {});
+                    });
+                  },
+                  tooltip: 'Partager cette base sur le réseau',
                 ),
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (_) => const NetworkShareDialog(),
-                  ).then((_) {
-                    if (mounted) setState(() {});
-                  });
-                },
-                tooltip: 'Partager cette base sur le réseau',
-              ),
               IconButton(
                 icon: const Icon(Icons.logout),
                 onPressed: () async {
-                  await AccountingServerService.instance.stop();
+                  if (_isNetworkMode) {
+                    await NetworkConnectionService.instance.disconnect();
+                  } else {
+                    await AccountingServerService.instance.stop();
+                  }
                   if (!context.mounted) return;
                   Navigator.of(context).pushReplacementNamed('/');
                 },
-                tooltip: 'Fermer le fichier',
+                tooltip: _isNetworkMode
+                    ? 'Se déconnecter de la base réseau'
+                    : 'Fermer le fichier',
               ),
               const SizedBox(width: 8),
             ],
@@ -1202,11 +1252,17 @@ class _HomePageState extends State<HomePage> {
           userSession: widget.userSession,
         );
       case 4:
-        return PlanComptablePage(userSession: widget.userSession);
+        return _isNetworkMode
+            ? const NetworkComptesView()
+            : PlanComptablePage(userSession: widget.userSession);
       case 5:
-        return ListeTiersPage(userSession: widget.userSession);
+        return _isNetworkMode
+            ? const NetworkTiersView()
+            : ListeTiersPage(userSession: widget.userSession);
       case 6:
-        return JournauxPage(userSession: _session, showAppBar: false);
+        return _isNetworkMode
+            ? const NetworkJournauxView()
+            : JournauxPage(userSession: _session, showAppBar: false);
       case 7:
         return ListeBailleursPage(
           showAppBar: false,
@@ -1245,9 +1301,15 @@ class _HomePageState extends State<HomePage> {
         return ListeExercicesPage(
           exercices: _exercices,
           activeExerciceId: _activeExerciceId,
-          onSwitch: _switchExercice,
-          onCreateNew: () => _showPage(12),
-          onEdit: _editExercice,
+          onSwitch: _isNetworkMode
+              ? (_) async => _showNetworkUnavailable()
+              : _switchExercice,
+          onCreateNew: _isNetworkMode
+              ? _showNetworkUnavailable
+              : () => _showPage(12),
+          onEdit: _isNetworkMode
+              ? (_, __, ___, ____) async => _showNetworkUnavailable()
+              : _editExercice,
           onViewJournalAN:
               (exerciceId) => Navigator.push(
                 context,
