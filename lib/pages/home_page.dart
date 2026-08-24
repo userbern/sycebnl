@@ -105,14 +105,24 @@ class _HomePageState extends State<HomePage> {
 
   /// En mode réseau (client distant), il n'y a pas de connexion SQLite
   /// locale : `DatabaseService.database` lèverait immédiatement. Seules les
-  /// données déjà exposées en lecture par `RemoteRepository` (exercices)
-  /// sont chargées ; l'entité et la config ne sont pas encore disponibles à
+  /// données déjà exposées en lecture par `RemoteRepository` (exercices,
+  /// entité) sont chargées ; la config n'est pas encore disponible à
   /// distance (voir `network_routes.dart`).
   bool get _isNetworkMode => NetworkConnectionService.instance.isConnected;
 
   Future<void> _loadDatabaseInfo() async {
     if (_isNetworkMode) {
       await _refreshExercices();
+      try {
+        final entites = await RepositoryProvider.current.query('entite');
+        if (entites.isNotEmpty) {
+          setState(() {
+            _entiteData = entites.first;
+          });
+        }
+      } catch (e) {
+        print('Erreur lors du chargement de l\'entité (réseau): $e');
+      }
       return;
     }
     print('DEBUG: Début du chargement des données...');
