@@ -8,7 +8,8 @@ import 'network_client.dart';
 /// endpoints déjà exposés par le serveur (`network_routes.dart`).
 ///
 /// Portée volontairement limitée : le serveur n'expose que les ressources
-/// `compte`, `tiers`, `journal` (CRUD complet) et `exercice` (lecture seule).
+/// `compte`, `tiers`, `journal` (CRUD complet) et `exercice`/`entite`
+/// (lecture seule).
 /// Toute autre table, ou toute requête SQL brute ([rawQuery]), lève
 /// [UnsupportedError] : les pages qui en dépendent (saisie/lettrage, budgets,
 /// permissions, utilisateurs, ...) ne sont pas encore disponibles en mode
@@ -38,6 +39,7 @@ class RemoteRepository implements IAccountingRepository {
     'tiers': '/tiers',
     'journal': '/journaux',
     'exercice': '/exercices',
+    'entite': '/entite',
   };
 
   static const Set<String> _writableTables = {'compte', 'tiers', 'journal'};
