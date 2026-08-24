@@ -166,6 +166,7 @@ Handler _guarded(
       session.userId,
       module,
       action,
+      role: session.role,
     );
     if (!allowed) return jsonError(403, 'Permission refusée pour ce module');
 
