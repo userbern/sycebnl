@@ -62,6 +62,11 @@ class _HomePageState extends State<HomePage> {
   final List<int> _pageHistory = [];
   final List<int> _pageForwardStack = [];
   final FocusNode _globalSearchFocusNode = FocusNode();
+  // Permet au bouton "précédent" de d'abord remonter le drill-down interne
+  // de la page Indicateurs (Dashboard DG, index 18) avant de changer de
+  // page — sinon un détail ouvert (classe/groupe/compte/écriture) est perdu
+  // d'un coup dès qu'on clique "précédent".
+  final DashboardDgController _dashboardDgController = DashboardDgController();
   static const List<_QuickAccessItem> _quickAccessItems = [
     _QuickAccessItem(
       label: 'Dashboard DG',
@@ -94,13 +99,22 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    _dashboardDgController.addListener(_onDashboardDgLevelChanged);
     _loadDatabaseInfo();
   }
 
   @override
   void dispose() {
+    _dashboardDgController.removeListener(_onDashboardDgLevelChanged);
+    _dashboardDgController.dispose();
     _globalSearchFocusNode.dispose();
     super.dispose();
+  }
+
+  /// Rafraîchit l'état (activé/désactivé) du bouton "précédent" quand le
+  /// drill-down de la page Indicateurs change de niveau.
+  void _onDashboardDgLevelChanged() {
+    if (mounted) setState(() {});
   }
 
   /// En mode réseau (client distant), il n'y a pas de connexion SQLite
@@ -256,10 +270,18 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  bool get _canGoBack => _pageHistory.isNotEmpty;
+  bool get _canGoBack =>
+      _pageHistory.isNotEmpty ||
+      (_currentPageIndex == 18 && !_dashboardDgController.isAtRoot);
   bool get _canGoForward => _pageForwardStack.isNotEmpty;
 
   void _goBack() {
+    // Priorité au détail ouvert dans la page Indicateurs (Dashboard DG) :
+    // on remonte d'abord d'un niveau (écritures → comptes → groupes →
+    // grille) avant de changer de page.
+    if (_currentPageIndex == 18 && _dashboardDgController.popLevel()) {
+      return;
+    }
     if (_pageHistory.isEmpty) return;
     final previous = _pageHistory.removeLast();
     _pageForwardStack.add(_currentPageIndex);
@@ -1348,6 +1370,7 @@ class _HomePageState extends State<HomePage> {
         return DashboardDgPage(
           exerciceId: _activeExerciceId,
           showAppBar: false,
+          controller: _dashboardDgController,
         );
       default:
         return _buildWelcomePage();
