@@ -2159,6 +2159,14 @@ class ExportService {
         (sum, row) => sum + ((row['credit'] as num?)?.toDouble() ?? 0.0),
       );
       final solde = totalDebit - totalCredit;
+      // Dans ce PDF uniquement, un total ou un solde nul doit s'afficher
+      // "0 FCFA" plutôt que le tiret utilisé par _formatNumber pour les
+      // valeurs à zéro.
+      String formatTotalPdf(double v) =>
+          v == 0 ? '0 FCFA' : '${_formatNumber(v)} FCFA';
+      final totalDebitTextPdf = formatTotalPdf(totalDebit);
+      final totalCreditTextPdf = formatTotalPdf(totalCredit);
+      final soldeTextPdf = formatTotalPdf(solde);
 
       final periodeText =
           (dateDebut != null && dateFin != null)
@@ -2225,10 +2233,10 @@ class ExportService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
-                    pw.Text('Total debit: ${_formatNumber(totalDebit)}'),
-                    pw.Text('Total credit: ${_formatNumber(totalCredit)}'),
+                    pw.Text('Total debit: $totalDebitTextPdf'),
+                    pw.Text('Total credit: $totalCreditTextPdf'),
                     pw.Text(
-                      'Solde: ${_formatNumber(solde)}',
+                      'Solde: $soldeTextPdf',
                       style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                     ),
                   ],

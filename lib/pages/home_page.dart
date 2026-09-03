@@ -811,13 +811,12 @@ class _HomePageState extends State<HomePage> {
                       child: ListView(
                         padding: EdgeInsets.zero,
                         children: [
-                          _buildMenuItem('TABLEAU DE BORD', Icons.dashboard, [
-                            _SubMenuItem(
-                              'Dashboard DG',
-                              18,
-                              moduleNom: 'dashboard_dg',
-                            ),
-                          ]),
+                          _buildDirectMenuItem(
+                            'INDICATEURS DE PERFORMANCES',
+                            Icons.dashboard,
+                            18,
+                            moduleNom: 'dashboard_dg',
+                          ),
                           _buildMenuItem('NOTRE ENTITE', Icons.business, [
                             _SubMenuItem(
                               'Identification',
@@ -1047,6 +1046,76 @@ class _HomePageState extends State<HomePage> {
             );
           }),
         ],
+      ),
+    );
+  }
+
+  /// Élément de menu sans sous-items : navigue directement vers [pageIndex]
+  /// au clic, sans passer par un sous-menu déroulant.
+  Widget _buildDirectMenuItem(
+    String title,
+    IconData icon,
+    int pageIndex, {
+    String? moduleNom,
+  }) {
+    if (!_canRead(moduleNom)) {
+      return const SizedBox.shrink();
+    }
+    final bool isActive = _currentPageIndex == pageIndex;
+
+    if (_isSidebarCollapsed) {
+      return Tooltip(
+        message: title,
+        preferBelow: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _showPage(pageIndex),
+            child: Container(
+              height: 44,
+              alignment: Alignment.center,
+              child: Icon(
+                icon,
+                color: isActive ? Colors.blue.shade900 : Colors.blue.shade400,
+                size: 22,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return InkWell(
+      onTap: () => _showPage(pageIndex),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.blue.shade100 : Colors.transparent,
+          border: Border(
+            left: BorderSide(
+              color: isActive ? Colors.blue.shade400 : Colors.transparent,
+              width: 3,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.blue.shade400, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: Colors.blue.shade900,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

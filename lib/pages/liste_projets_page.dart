@@ -29,6 +29,7 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
 
   int _itemsPerPage = 15;
   int _currentPage = 1;
+  int? _hoveredRowIndex;
 
   bool get _canCreate =>
       widget.userSession == null
@@ -706,204 +707,174 @@ class _ListeProjetsPageState extends State<ListeProjetsPage> {
                 (context, index) => _buildMobileCard(_paginatedProjets[index]),
           );
         }
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+        return _buildProjetsTable();
+      },
+    );
+  }
+
+  /// Tableau responsive : les colonnes de texte se partagent l'espace
+  /// disponible proportionnellement (FlexColumnWidth) tandis que la colonne
+  /// « Actions » garde une largeur fixe suffisante pour ses boutons. La
+  /// somme des largeurs correspond toujours exactement à la largeur du
+  /// conteneur : aucun débordement, donc aucun scroll horizontal nécessaire.
+  Widget _buildProjetsTable() {
+    final actionsCount = (_canUpdate ? 1 : 0) + (_canDelete ? 1 : 0);
+    final actionsWidth = actionsCount == 0 ? 40.0 : actionsCount * 34.0 + 18.0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SingleChildScrollView(
-              child: LayoutBuilder(
-                builder: (context, inner) {
-                  final tw =
-                      inner.maxWidth.isFinite
-                          ? inner.maxWidth
-                          : (MediaQuery.of(context).size.width - 48);
-                  double cw(double v, double mn, double mxf) =>
-                      v.clamp(mn, math.max(mn, tw * mxf));
-                  final codeW = cw(tw * 0.13, 80, 0.16);
-                  final desigW = cw(tw * 0.30, 150, 0.38);
-                  final bailW = cw(tw * 0.25, 120, 0.30);
-                  final dateW = cw(tw * 0.12, 80, 0.15);
-                  final actW = cw(tw * 0.08, 60, 0.12);
-                  return SizedBox(
-                    width: tw,
-                    child: DataTable(
-                      headingRowColor: WidgetStateProperty.all(
-                        Colors.blue.shade700,
-                      ),
-                      headingRowHeight: 22,
-                      headingTextStyle: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        letterSpacing: 0.3,
-                      ),
-                      dataRowMinHeight: 20,
-                      dataRowMaxHeight: 24,
-                      columnSpacing: 8,
-                      horizontalMargin: 12,
-                      dividerThickness: 0.5,
-                      border: TableBorder(
-                        horizontalInside: BorderSide(
-                          color: Colors.grey.shade200,
-                          width: 1,
-                        ),
-                        verticalInside: BorderSide(
-                          color: Colors.grey.shade200,
-                          width: 1,
-                        ),
-                        bottom: BorderSide(
-                          color: Colors.grey.shade200,
-                          width: 1,
-                        ),
-                      ),
-                      columns: const [
-                        DataColumn(label: Text('Code')),
-                        DataColumn(label: Text('Désignation')),
-                        DataColumn(label: Text('Bailleurs')),
-                        DataColumn(label: Text('Début')),
-                        DataColumn(label: Text('Fin')),
-                        DataColumn(label: Text('Actions')),
-                      ],
-                      rows:
-                          _paginatedProjets.map((p) {
-                            return DataRow(
-                              color: WidgetStateProperty.resolveWith<Color?>((
-                                states,
-                              ) {
-                                if (states.contains(WidgetState.hovered))
-                                  return Colors.blue.shade50;
-                                return Colors.white;
-                              }),
-                              cells: [
-                                DataCell(
-                                  SizedBox(
-                                    width: codeW,
-                                    child: Text(
-                                      p['code']?.toString() ?? '—',
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontFamily: 'monospace',
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  SizedBox(
-                                    width: desigW,
-                                    child: Text(
-                                      p['designation']?.toString() ?? '—',
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade800,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  SizedBox(
-                                    width: bailW,
-                                    child: Text(
-                                      _getBailleursString(p),
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade700,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  SizedBox(
-                                    width: dateW,
-                                    child: Text(
-                                      _formatDate(p['date_debut']),
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  SizedBox(
-                                    width: dateW,
-                                    child: Text(
-                                      _formatDate(p['date_fin']),
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  SizedBox(
-                                    width: actW,
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (_canUpdate)
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.edit,
-                                              size: 15,
-                                            ),
-                                            color: Colors.blue.shade700,
-                                            onPressed:
-                                                () => _showProjetDialog(p),
-                                            tooltip: 'Modifier',
-                                            padding: EdgeInsets.zero,
-                                            constraints: const BoxConstraints(
-                                              minWidth: 24,
-                                              minHeight: 24,
-                                            ),
-                                          ),
-                                        if (_canDelete)
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.delete,
-                                              size: 15,
-                                            ),
-                                            color: Colors.red.shade700,
-                                            onPressed: () => _deleteProjet(p),
-                                            tooltip: 'Supprimer',
-                                            padding: EdgeInsets.zero,
-                                            constraints: const BoxConstraints(
-                                              minWidth: 24,
-                                              minHeight: 24,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            );
-                          }).toList(),
-                    ),
-                  );
-                },
-              ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Table(
+          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+          columnWidths: {
+            0: const FlexColumnWidth(1.3),
+            1: const FlexColumnWidth(3.0),
+            2: const FlexColumnWidth(2.4),
+            3: const FlexColumnWidth(1.2),
+            4: const FlexColumnWidth(1.2),
+            5: FixedColumnWidth(actionsWidth),
+          },
+          border: TableBorder(
+            horizontalInside: BorderSide(color: Colors.grey.shade200, width: 1),
+            verticalInside: BorderSide(color: Colors.grey.shade200, width: 1),
+            bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+          ),
+          children: [
+            TableRow(
+              decoration: BoxDecoration(color: Colors.blue.shade700),
+              children: [
+                _tableHeaderCell('Code'),
+                _tableHeaderCell('Désignation'),
+                _tableHeaderCell('Bailleurs'),
+                _tableHeaderCell('Début'),
+                _tableHeaderCell('Fin'),
+                _tableHeaderCell('Actions'),
+              ],
+            ),
+            for (var i = 0; i < _paginatedProjets.length; i++)
+              _buildProjetTableRow(_paginatedProjets[i], i),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tableHeaderCell(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Text(
+        text,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+          letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+
+  TableRow _buildProjetTableRow(Map<String, dynamic> p, int index) {
+    final isHovered = _hoveredRowIndex == index;
+    final rowColor = isHovered ? Colors.blue.shade50 : Colors.white;
+
+    Widget cell(Widget child) => MouseRegion(
+      onEnter: (_) => setState(() => _hoveredRowIndex = index),
+      onExit: (_) => setState(() => _hoveredRowIndex = null),
+      child: Container(
+        color: rowColor,
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: child,
+      ),
+    );
+
+    return TableRow(
+      children: [
+        cell(
+          Text(
+            p['code']?.toString() ?? '—',
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontFamily: 'monospace',
+              fontSize: 11,
             ),
           ),
-        );
-      },
+        ),
+        cell(
+          Text(
+            p['designation']?.toString() ?? '—',
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade800),
+          ),
+        ),
+        cell(
+          Text(
+            _getBailleursString(p),
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+          ),
+        ),
+        cell(
+          Text(
+            _formatDate(p['date_debut']),
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+          ),
+        ),
+        cell(
+          Text(
+            _formatDate(p['date_fin']),
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+          ),
+        ),
+        cell(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_canUpdate)
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 15),
+                  color: Colors.blue.shade700,
+                  onPressed: () => _showProjetDialog(p),
+                  tooltip: 'Modifier',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 24,
+                    minHeight: 24,
+                  ),
+                ),
+              if (_canDelete)
+                IconButton(
+                  icon: const Icon(Icons.delete, size: 15),
+                  color: Colors.red.shade700,
+                  onPressed: () => _deleteProjet(p),
+                  tooltip: 'Supprimer',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 24,
+                    minHeight: 24,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
