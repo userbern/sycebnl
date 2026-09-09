@@ -155,13 +155,13 @@ class _WelcomePageState extends State<WelcomePage> {
   }
 
   Future<void> _createNewFile() async {
-    final result = await Navigator.push<String>(
+    final result = await Navigator.push<NewFileResult>(
       context,
       MaterialPageRoute(builder: (context) => const NewFileWizardPage()),
     );
 
     if (result != null) {
-      await _openFileSuccess(result);
+      await _openFileSuccess(result.path, userSession: result.userSession);
     }
   }
 

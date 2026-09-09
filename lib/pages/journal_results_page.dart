@@ -274,7 +274,7 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
                         'JOURNAL${_isAll ? '' : ' - ${widget.codeJournal}'}'
-                        ' (${widget.typeEtat == 'tiers' ? 'TIERS' : 'BASE'})',
+                        '${widget.typeEtat == 'tiers' ? ' (TIERS)' : ''}',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.blue.shade700,

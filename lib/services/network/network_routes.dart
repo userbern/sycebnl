@@ -101,6 +101,11 @@ Router buildAccountingRouter() {
 
   router.get('/exercices', _guarded('exercices', 'lecture', _getExercices));
 
+  router.get(
+    '/entite',
+    _guarded('identification', 'lecture', _getEntite),
+  );
+
   return router;
 }
 
@@ -478,4 +483,13 @@ Future<Response> _getExercices(
 ) async {
   final exercices = await DatabaseService.getExercices();
   return jsonResponse(exercices);
+}
+
+// ---------------------------------------------------------------------
+// Entité
+// ---------------------------------------------------------------------
+
+Future<Response> _getEntite(Request request, NetworkSession session) async {
+  final entite = await DatabaseService.getEntite();
+  return jsonResponse(entite == null ? [] : [entite]);
 }
