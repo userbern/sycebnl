@@ -69,7 +69,7 @@ class _HomePageState extends State<HomePage> {
   final DashboardDgController _dashboardDgController = DashboardDgController();
   static const List<_QuickAccessItem> _quickAccessItems = [
     _QuickAccessItem(
-      label: 'Dashboard DG',
+      label: 'Indicateurs de performances',
       icon: Icons.dashboard,
       pageIndex: 18,
     ),
