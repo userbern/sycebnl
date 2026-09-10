@@ -106,6 +106,40 @@ Router buildAccountingRouter() {
     _guarded('identification', 'lecture', _getEntite),
   );
 
+  router.get(
+    '/bailleurs',
+    _guarded('liste_bailleurs', 'lecture', _getBailleurs),
+  );
+  router.post(
+    '/bailleurs',
+    _guarded('liste_bailleurs', 'ajout', _createBailleur),
+  );
+  router.put(
+    '/bailleurs/<id>',
+    _guarded('liste_bailleurs', 'modification', _updateBailleur),
+  );
+  router.delete(
+    '/bailleurs/<id>',
+    _guarded('liste_bailleurs', 'suppression', _deleteBailleur),
+  );
+
+  router.get(
+    '/projets',
+    _guarded('liste_projets', 'lecture', _getProjets),
+  );
+  router.post(
+    '/projets',
+    _guarded('liste_projets', 'ajout', _createProjet),
+  );
+  router.put(
+    '/projets/<id>',
+    _guarded('liste_projets', 'modification', _updateProjet),
+  );
+  router.delete(
+    '/projets/<id>',
+    _guarded('liste_projets', 'suppression', _deleteProjet),
+  );
+
   return router;
 }
 
@@ -492,4 +526,129 @@ Future<Response> _getExercices(
 Future<Response> _getEntite(Request request, NetworkSession session) async {
   final entite = await DatabaseService.getEntite();
   return jsonResponse(entite == null ? [] : [entite]);
+}
+
+// ---------------------------------------------------------------------
+// Bailleurs
+// ---------------------------------------------------------------------
+
+Future<Response> _getBailleurs(
+  Request request,
+  NetworkSession session,
+) async {
+  final bailleurs = await AuthService.getBailleurs();
+  return jsonResponse(
+    bailleurs.map((b) => {'id': b.id, ...b.toMap()}).toList(),
+  );
+}
+
+Future<Response> _createBailleur(
+  Request request,
+  NetworkSession session,
+) async {
+  final body = await readJsonBody(request);
+  await AuthService.createBailleur(
+    code: body['code'] as String,
+    nom: body['nom'] as String,
+    typeBailleur: body['type_bailleur'] as String?,
+    pays: body['pays'] as String?,
+    contact: body['contact'] as String?,
+    email: body['email'] as String?,
+  );
+  return jsonResponse({'ok': true}, status: 201);
+}
+
+Future<Response> _updateBailleur(
+  Request request,
+  NetworkSession session,
+) async {
+  final id = _idParam(request);
+  if (id == null) return jsonError(400, 'id invalide');
+  final body = await readJsonBody(request);
+  await AuthService.updateBailleur(
+    id: id,
+    code: body['code'] as String?,
+    nom: body['nom'] as String?,
+    typeBailleur: body['type_bailleur'] as String?,
+    pays: body['pays'] as String?,
+    contact: body['contact'] as String?,
+    email: body['email'] as String?,
+  );
+  return jsonResponse({'ok': true});
+}
+
+Future<Response> _deleteBailleur(
+  Request request,
+  NetworkSession session,
+) async {
+  final id = _idParam(request);
+  if (id == null) return jsonError(400, 'id invalide');
+  await AuthService.deleteBailleur(id);
+  return jsonResponse({'ok': true});
+}
+
+// ---------------------------------------------------------------------
+// Projets
+// ---------------------------------------------------------------------
+
+Future<Response> _getProjets(Request request, NetworkSession session) async {
+  final projets = await AuthService.getProjets();
+  return jsonResponse(projets.map((p) => p.toMap()).toList());
+}
+
+Future<Response> _createProjet(
+  Request request,
+  NetworkSession session,
+) async {
+  final body = await readJsonBody(request);
+  final bailleurIds = (body['bailleur_ids'] as List<dynamic>?)
+      ?.map((e) => e as int)
+      .toList();
+  await AuthService.createProjet(
+    code: body['code'] as String,
+    designation: body['designation'] as String,
+    bailleurIds: bailleurIds,
+    dateDebut: body['date_debut'] != null
+        ? DateTime.parse(body['date_debut'] as String)
+        : null,
+    dateFin: body['date_fin'] != null
+        ? DateTime.parse(body['date_fin'] as String)
+        : null,
+  );
+  return jsonResponse({'ok': true}, status: 201);
+}
+
+Future<Response> _updateProjet(
+  Request request,
+  NetworkSession session,
+) async {
+  final id = _idParam(request);
+  if (id == null) return jsonError(400, 'id invalide');
+  final body = await readJsonBody(request);
+  final bailleurIds = (body['bailleur_ids'] as List<dynamic>?)
+      ?.map((e) => e as int)
+      .toList();
+  await AuthService.updateProjet(
+    id: id,
+    code: body['code'] as String?,
+    designation: body['designation'] as String?,
+    bailleurIds: bailleurIds,
+    dateDebut: body['date_debut'] != null
+        ? DateTime.parse(body['date_debut'] as String)
+        : null,
+    dateFin: body['date_fin'] != null
+        ? DateTime.parse(body['date_fin'] as String)
+        : null,
+  );
+  return jsonResponse({'ok': true});
+}
+
+Future<Response> _deleteProjet(
+  Request request,
+  NetworkSession session,
+) async {
+  final id = _idParam(request);
+  if (id == null) return jsonError(400, 'id invalide');
+  await AuthService.deleteProjet(id);
+  return jsonResponse({'ok': true});
 }

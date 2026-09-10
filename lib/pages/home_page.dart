@@ -224,11 +224,12 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    // En mode réseau, seuls comptes/tiers/journaux (CRUD) et la liste des
-    // exercices (lecture) sont câblés sur `RemoteRepository` (voir
-    // `_buildContentPage`). Les autres pages dépendent encore directement de
-    // `DatabaseService` (connexion SQLite locale) et planteraient.
-    const networkAvailablePages = {0, 4, 5, 6, 17};
+    // En mode réseau, seuls comptes/tiers/journaux/bailleurs/projets (CRUD)
+    // et la liste des exercices (lecture) sont câblés sur `RemoteRepository`
+    // (voir `_buildContentPage`). Les autres pages dépendent encore
+    // directement de `DatabaseService` (connexion SQLite locale) et
+    // planteraient.
+    const networkAvailablePages = {0, 4, 5, 6, 7, 8, 17};
     if (_isNetworkMode && !networkAvailablePages.contains(index)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1274,15 +1275,19 @@ class _HomePageState extends State<HomePage> {
             ? const NetworkJournauxView()
             : JournauxPage(userSession: _session, showAppBar: false);
       case 7:
-        return ListeBailleursPage(
-          showAppBar: false,
-          userSession: widget.userSession,
-        );
+        return _isNetworkMode
+            ? const NetworkBailleursView()
+            : ListeBailleursPage(
+                showAppBar: false,
+                userSession: widget.userSession,
+              );
       case 8:
-        return ListeProjetsPage(
-          showAppBar: false,
-          userSession: widget.userSession,
-        );
+        return _isNetworkMode
+            ? const NetworkProjetsView()
+            : ListeProjetsPage(
+                showAppBar: false,
+                userSession: widget.userSession,
+              );
       case 9:
         return GestionBudgetsPage(
           showAppBar: false,
