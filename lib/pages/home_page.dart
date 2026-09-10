@@ -62,9 +62,14 @@ class _HomePageState extends State<HomePage> {
   final List<int> _pageHistory = [];
   final List<int> _pageForwardStack = [];
   final FocusNode _globalSearchFocusNode = FocusNode();
+  // Permet au bouton "précédent" de d'abord remonter le drill-down interne
+  // de la page Indicateurs (Dashboard DG, index 18) avant de changer de
+  // page — sinon un détail ouvert (classe/groupe/compte/écriture) est perdu
+  // d'un coup dès qu'on clique "précédent".
+  final DashboardDgController _dashboardDgController = DashboardDgController();
   static const List<_QuickAccessItem> _quickAccessItems = [
     _QuickAccessItem(
-      label: 'Dashboard DG',
+      label: 'Indicateurs de performances',
       icon: Icons.dashboard,
       pageIndex: 18,
     ),
@@ -94,13 +99,22 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    _dashboardDgController.addListener(_onDashboardDgLevelChanged);
     _loadDatabaseInfo();
   }
 
   @override
   void dispose() {
+    _dashboardDgController.removeListener(_onDashboardDgLevelChanged);
+    _dashboardDgController.dispose();
     _globalSearchFocusNode.dispose();
     super.dispose();
+  }
+
+  /// Rafraîchit l'état (activé/désactivé) du bouton "précédent" quand le
+  /// drill-down de la page Indicateurs change de niveau.
+  void _onDashboardDgLevelChanged() {
+    if (mounted) setState(() {});
   }
 
   /// En mode réseau (client distant), il n'y a pas de connexion SQLite
@@ -257,10 +271,18 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  bool get _canGoBack => _pageHistory.isNotEmpty;
+  bool get _canGoBack =>
+      _pageHistory.isNotEmpty ||
+      (_currentPageIndex == 18 && !_dashboardDgController.isAtRoot);
   bool get _canGoForward => _pageForwardStack.isNotEmpty;
 
   void _goBack() {
+    // Priorité au détail ouvert dans la page Indicateurs (Dashboard DG) :
+    // on remonte d'abord d'un niveau (écritures → comptes → groupes →
+    // grille) avant de changer de page.
+    if (_currentPageIndex == 18 && _dashboardDgController.popLevel()) {
+      return;
+    }
     if (_pageHistory.isEmpty) return;
     final previous = _pageHistory.removeLast();
     _pageForwardStack.add(_currentPageIndex);
@@ -790,13 +812,12 @@ class _HomePageState extends State<HomePage> {
                       child: ListView(
                         padding: EdgeInsets.zero,
                         children: [
-                          _buildMenuItem('TABLEAU DE BORD', Icons.dashboard, [
-                            _SubMenuItem(
-                              'Dashboard DG',
-                              18,
-                              moduleNom: 'dashboard_dg',
-                            ),
-                          ]),
+                          _buildDirectMenuItem(
+                            'INDICATEURS DE PERFORMANCES',
+                            Icons.dashboard,
+                            18,
+                            moduleNom: 'dashboard_dg',
+                          ),
                           _buildMenuItem('NOTRE ENTITE', Icons.business, [
                             _SubMenuItem(
                               'Identification',
@@ -1026,6 +1047,76 @@ class _HomePageState extends State<HomePage> {
             );
           }),
         ],
+      ),
+    );
+  }
+
+  /// Élément de menu sans sous-items : navigue directement vers [pageIndex]
+  /// au clic, sans passer par un sous-menu déroulant.
+  Widget _buildDirectMenuItem(
+    String title,
+    IconData icon,
+    int pageIndex, {
+    String? moduleNom,
+  }) {
+    if (!_canRead(moduleNom)) {
+      return const SizedBox.shrink();
+    }
+    final bool isActive = _currentPageIndex == pageIndex;
+
+    if (_isSidebarCollapsed) {
+      return Tooltip(
+        message: title,
+        preferBelow: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _showPage(pageIndex),
+            child: Container(
+              height: 44,
+              alignment: Alignment.center,
+              child: Icon(
+                icon,
+                color: isActive ? Colors.blue.shade900 : Colors.blue.shade400,
+                size: 22,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return InkWell(
+      onTap: () => _showPage(pageIndex),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.blue.shade100 : Colors.transparent,
+          border: Border(
+            left: BorderSide(
+              color: isActive ? Colors.blue.shade400 : Colors.transparent,
+              width: 3,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.blue.shade400, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: Colors.blue.shade900,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1353,6 +1444,7 @@ class _HomePageState extends State<HomePage> {
         return DashboardDgPage(
           exerciceId: _activeExerciceId,
           showAppBar: false,
+          controller: _dashboardDgController,
         );
       default:
         return _buildWelcomePage();

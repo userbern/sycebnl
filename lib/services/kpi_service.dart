@@ -204,6 +204,50 @@ class KpiService {
     return _sumCredit(comptes) - _sumDebit(comptes);
   }
 
+  // ---------------------------------------------------------------------
+  // KPI dérivés de la situation financière (lot « Indicateurs de
+  // performance ») — purs, calculés uniquement à partir des [SoldeCompte]
+  // déjà chargés, sans requête SQL supplémentaire.
+  // ---------------------------------------------------------------------
+
+  /// Actif total : somme des emplois (immobilisations, stocks, créances,
+  /// trésorerie), chacun déjà calculé par son KPI dédié.
+  static double getActifTotal(List<SoldeCompte> soldes) =>
+      getImmobilisations(soldes) +
+      getStocks(soldes) +
+      getCreances(soldes) +
+      getTresorerie(soldes);
+
+  /// Passif total : somme des ressources (fonds propres, dettes).
+  static double getPassifTotal(List<SoldeCompte> soldes) =>
+      getFondsPropres(soldes) + getDettes(soldes);
+
+  /// Fonds de roulement : ressources stables (fonds propres) moins emplois
+  /// stables (immobilisations).
+  static double getFondsDeRoulement(List<SoldeCompte> soldes) =>
+      getFondsPropres(soldes) - getImmobilisations(soldes);
+
+  /// Besoin en fonds de roulement : actif circulant (stocks + créances)
+  /// moins dettes.
+  static double getBesoinFondsRoulement(List<SoldeCompte> soldes) =>
+      getStocks(soldes) + getCreances(soldes) - getDettes(soldes);
+
+  /// Taux d'endettement : dettes rapportées à l'actif total. `null` si
+  /// l'actif total est nul (évite une division par zéro trompeuse).
+  static double? getTauxEndettement(List<SoldeCompte> soldes) {
+    final actif = getActifTotal(soldes);
+    if (actif == 0) return null;
+    return getDettes(soldes) / actif * 100;
+  }
+
+  /// Couverture des charges par les produits : produits rapportés aux
+  /// charges. `null` si les charges sont nulles.
+  static double? getCouvertureCharges(List<SoldeCompte> soldes) {
+    final charges = getTotalCharges(soldes);
+    if (charges == 0) return null;
+    return getTotalProduits(soldes) / charges * 100;
+  }
+
   /// Budget consommé de l'exercice [exerciceId] : montant prévu (somme des
   /// `sous_rubrique.montant` des budgets rattachés à l'exercice) comparé au
   /// montant réalisé (somme des ventilations analytiques liées à une ligne
@@ -375,6 +419,29 @@ class KpiService {
     ''', args);
   }
 
+  /// Variante de [getEvolutionMensuelle] restreinte à une liste précise de
+  /// comptes plutôt qu'à des préfixes de classe : nécessaire pour les KPI
+  /// dont le périmètre dépend du signe du solde (créances/dettes, tous deux
+  /// classe 4), qu'un simple préfixe ne peut pas isoler.
+  static Future<List<Map<String, dynamic>>> getEvolutionMensuelleParComptes(
+    int exerciceId,
+    List<String> numerosCompte,
+  ) async {
+    if (numerosCompte.isEmpty) return [];
+    final placeholders = numerosCompte.map((_) => '?').join(', ');
+
+    return database.rawQuery('''
+      SELECT jp.annee, jp.mois,
+             COALESCE(SUM(e.montant_debit), 0) AS total_debit,
+             COALESCE(SUM(e.montant_credit), 0) AS total_credit
+      FROM ecritures e
+      JOIN journaux_periodes jp ON jp.id = e.journal_periode_id
+      WHERE jp.exercice_id = ? AND e.numero_compte IN ($placeholders)
+      GROUP BY jp.annee, jp.mois
+      ORDER BY jp.annee, jp.mois
+    ''', [exerciceId, ...numerosCompte]);
+  }
+
   // ---------------------------------------------------------------------
   // Drill-down : classe → groupe → compte → écritures
   // ---------------------------------------------------------------------
@@ -460,5 +527,74 @@ class KpiService {
       WHERE $where
       ORDER BY date_comptable, e.numero_enregistrement
     ''', args);
+  }
+
+  // ---------------------------------------------------------------------
+  // Contrôles comptables et activité récente (lot « Indicateurs de
+  // performance »). Toutes les valeurs sont réellement stockées en base ;
+  // aucune notion de brouillon/validation ni de rapprochement bancaire
+  // n'existe dans le schéma actuel, donc aucun KPI de ce type n'est calculé
+  // ici (affiché « Donnée non disponible » côté page).
+  // ---------------------------------------------------------------------
+
+  /// Compte, pour l'exercice [exerciceId] : le nombre de journaux
+  /// effectivement utilisés (au moins une écriture), le nombre de lignes
+  /// d'écriture sans pièce justificative (`reference` vide), et le nombre
+  /// de lignes lettrées (`lettrage_code` renseigné).
+  static Future<Map<String, int>> getControlesComptables(
+    int exerciceId,
+  ) async {
+    final journauxRows = await database.rawQuery('''
+      SELECT COUNT(DISTINCT code_journal) AS nb
+      FROM journaux_periodes
+      WHERE exercice_id = ? AND nombre_ecritures > 0
+    ''', [exerciceId]);
+
+    final sansPieceRows = await database.rawQuery('''
+      SELECT COUNT(*) AS nb
+      FROM ecritures e
+      JOIN journaux_periodes jp ON jp.id = e.journal_periode_id
+      WHERE jp.exercice_id = ?
+        AND (e.reference IS NULL OR e.reference = '')
+    ''', [exerciceId]);
+
+    final lettreesRows = await database.rawQuery('''
+      SELECT COUNT(*) AS nb
+      FROM ecritures e
+      JOIN journaux_periodes jp ON jp.id = e.journal_periode_id
+      WHERE jp.exercice_id = ?
+        AND e.lettrage_code IS NOT NULL AND e.lettrage_code != ''
+    ''', [exerciceId]);
+
+    return {
+      'journaux_utilises': (journauxRows.first['nb'] as num?)?.toInt() ?? 0,
+      'ecritures_sans_piece':
+          (sansPieceRows.first['nb'] as num?)?.toInt() ?? 0,
+      'ecritures_lettrees': (lettreesRows.first['nb'] as num?)?.toInt() ?? 0,
+    };
+  }
+
+  /// Dernières lignes d'écriture de l'exercice [exerciceId], toutes classes
+  /// confondues, pour la section « Activité récente ». Même forme que
+  /// [getEcrituresCompte] (une ligne = un mouvement débit ou crédit), sans
+  /// filtre de compte et avec une limite.
+  static Future<List<Map<String, dynamic>>> getEcrituresRecentes(
+    int exerciceId, {
+    int limite = 8,
+  }) async {
+    return database.rawQuery('''
+      SELECT
+        e.numero_compte,
+        e.libelle,
+        jp.code_journal,
+        $_dateExpr AS date_comptable,
+        e.montant_debit,
+        e.montant_credit
+      FROM ecritures e
+      JOIN journaux_periodes jp ON jp.id = e.journal_periode_id
+      WHERE jp.exercice_id = ?
+      ORDER BY date_comptable DESC, e.numero_enregistrement DESC, e.id DESC
+      LIMIT ?
+    ''', [exerciceId, limite]);
   }
 }

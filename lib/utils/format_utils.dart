@@ -14,6 +14,11 @@ final NumberFormat _montantEntierFormat = NumberFormat.decimalPattern('fr_FR');
 
 String formatMontantEntier(num montant) => _montantEntierFormat.format(montant);
 
+/// Formate un montant avec séparateurs de milliers et suffixe devise FCFA,
+/// sans abréviation (ex: 30000000 -> "30 000 000 FCFA", 0 -> "0 FCFA",
+/// -91107500 -> "-91 107 500 FCFA").
+String formatMontantFcfa(num montant) => '${formatMontant(montant)} FCFA';
+
 /// Formate une date au format français jj/mm/aaaa.
 String formatDateFr(DateTime date) => DateFormat('dd/MM/yyyy', 'fr_FR').format(date);
 
