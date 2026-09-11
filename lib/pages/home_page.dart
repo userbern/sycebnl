@@ -220,6 +220,7 @@ class _HomePageState extends State<HomePage> {
       16: 'journaux_de_saisie',
       11: 'interrogations',
       13: 'balance_comptes',
+      19: 'balance_comptes',
       14: 'grand_livre',
       15: 'journal',
       12: 'exercices',
@@ -898,6 +899,11 @@ class _HomePageState extends State<HomePage> {
                               moduleNom: 'balance_comptes',
                             ),
                             _SubMenuItem(
+                              'Balance',
+                              19,
+                              moduleNom: 'balance_comptes',
+                            ),
+                            _SubMenuItem(
                               'Grand livre',
                               14,
                               moduleNom: 'grand_livre',
@@ -1429,6 +1435,11 @@ class _HomePageState extends State<HomePage> {
           userSession: widget.userSession,
         );
       case 13:
+        return BalanceComptesPage(
+          exerciceId: _activeExerciceId,
+          showAppBar: false,
+        );
+      case 19:
         return BalanceComptesPage(
           exerciceId: _activeExerciceId,
           showAppBar: false,

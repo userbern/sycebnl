@@ -34,6 +34,7 @@ class GlobalSearchService {
     _FeatureEntry('Exercices', 17, 'exercices exercice'),
     _FeatureEntry('Nouvel exercice', 12, 'nouvel exercice creation création'),
     _FeatureEntry('Balance des comptes', 13, 'balance generale des comptes balance générale'),
+    _FeatureEntry('Balance', 19, 'balance generale des comptes balance générale'),
     _FeatureEntry('Grand livre', 14, 'grand livre'),
     _FeatureEntry('Journal', 15, 'journal edition impression édition'),
   ];
