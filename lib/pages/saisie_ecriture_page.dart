@@ -3541,7 +3541,7 @@ class _VentilationDialogState extends State<VentilationDialog> {
                             child: const FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text(
-                                'Ajouter',
+                                'Valider',
                                 softWrap: false,
                                 style: TextStyle(
                                   fontSize: 15,

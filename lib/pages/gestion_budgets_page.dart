@@ -362,11 +362,43 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.grey.shade200),
       ),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          Expanded(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: _buildFilterBarFields(hasActiveFilters),
+            ),
+          ),
+          if (_canCreate) ...[
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 36,
+              child: ElevatedButton.icon(
+                onPressed: _showCreateBudgetDialog,
+                icon: const Icon(Icons.add, size: 16, color: Colors.white),
+                label: const Text('Nouveau budget'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade700,
+                  foregroundColor: Colors.white,
+                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 2,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildFilterBarFields(bool hasActiveFilters) {
+    return [
           // Recherche
           SizedBox(
             width: 220,
@@ -453,28 +485,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
                 ),
               ),
             ),
-          const Spacer(),
-          // Nouveau budget
-          if (_canCreate)
-            SizedBox(
-              height: 36,
-              child: ElevatedButton.icon(
-                onPressed: _showCreateBudgetDialog,
-                icon: const Icon(Icons.add, size: 16, color: Colors.white),
-                label: const Text('Nouveau budget'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue.shade700,
-                  foregroundColor: Colors.white,
-                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  elevation: 2,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
+    ];
   }
 
   Widget _buildMainContent() {

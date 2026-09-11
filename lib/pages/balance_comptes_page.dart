@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../models/bailleur.dart';
 import '../models/exercice.dart';
-import '../models/projet.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/local_repository.dart';
 import 'balance_resultat_page.dart';
+
+/// Résultat de la sélection de bailleurs dans l'assistant du filtre analytique.
+class _BailleursChoice {
+  final bool tous;
+  final List<int> ids;
+  const _BailleursChoice(this.tous, this.ids);
+}
 
 class BalanceComptesPage extends StatefulWidget {
   final int? exerciceId;
@@ -25,12 +32,15 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
   // Bloc 1 - Type d'état
   String _typeEtat =
       'general'; // 'general', 'tiers', 'analytique', 'tiers_analytique'
-  int? _projetSelectionne;
-  List<Projet> _projets = [];
-  bool _isLoadingProjets = false;
-  String? _projetsError;
 
-  List<Map<String, dynamic>> _bailleurs = [];
+  // Filtre analytique : type de ventilation puis, si "Projet" ou
+  // "Fonctionnement + Projet", bailleur(s) et type de projet.
+  String?
+  _typeVentilation; // 'fonctionnement' | 'projet' | 'fonctionnement_projet'
+  String?
+  _typeProjetVentilation; // 'activite' | 'administration' | 'activite_administration'
+
+  List<Bailleur> _bailleursDisponibles = [];
   bool _isLoadingBailleurs = false;
   String? _bailleursError;
   List<int> _bailleursSelectionnes = [];
@@ -62,19 +72,261 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
   void initState() {
     super.initState();
     _loadExercice();
-    _loadProjets();
   }
 
-  Future<void> _onProjetChanged(int? projetId) async {
+  void _resetFiltreAnalytique() {
+    _typeVentilation = null;
+    _typeProjetVentilation = null;
+    _bailleursSelectionnes = [];
+    _tousLesBailleurs = false;
+  }
+
+  /// Lance l'assistant en cascade : type de ventilation, puis (si Projet ou
+  /// Fonctionnement + Projet) bailleur(s) et type de projet. `previousTypeEtat`
+  /// permet de revenir en arrière si l'utilisateur annule une étape.
+  Future<void> _startAnalytiqueWizard(String previousTypeEtat) async {
+    final ventilationChoice = await _askTypeVentilation();
+    if (!mounted) return;
+    if (ventilationChoice == null) {
+      setState(() => _typeEtat = previousTypeEtat);
+      return;
+    }
+
     setState(() {
-      _projetSelectionne = projetId;
-      _bailleursSelectionnes.clear();
+      _typeVentilation = ventilationChoice;
+      _typeProjetVentilation = null;
+      _bailleursSelectionnes = [];
       _tousLesBailleurs = false;
-      _bailleurs = []; // Replace with empty list instead of clearing
     });
 
-    if (projetId != null) {
-      await _loadBailleursForProjet(projetId);
+    if (ventilationChoice == 'fonctionnement') return;
+
+    if (_bailleursDisponibles.isEmpty && !_isLoadingBailleurs) {
+      await _loadBailleurs();
+      if (!mounted) return;
+    }
+
+    final bailleursChoice = await _askBailleurs();
+    if (!mounted) return;
+    if (bailleursChoice == null) {
+      setState(() {
+        _typeEtat = previousTypeEtat;
+        _typeVentilation = null;
+      });
+      return;
+    }
+    setState(() {
+      _tousLesBailleurs = bailleursChoice.tous;
+      _bailleursSelectionnes = bailleursChoice.ids;
+    });
+
+    final typeProjetChoice = await _askTypeProjet();
+    if (!mounted) return;
+    if (typeProjetChoice == null) {
+      setState(() {
+        _typeEtat = previousTypeEtat;
+        _typeVentilation = null;
+        _bailleursSelectionnes = [];
+        _tousLesBailleurs = false;
+      });
+      return;
+    }
+    setState(() => _typeProjetVentilation = typeProjetChoice);
+  }
+
+  Future<String?> _askTypeVentilation() {
+    return showDialog<String>(
+      context: context,
+      builder:
+          (ctx) => SimpleDialog(
+            title: const Text('Type de ventilation à consulter'),
+            children: [
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, 'fonctionnement'),
+                child: const ListTile(
+                  leading: Icon(Icons.settings),
+                  title: Text('Fonctionnement'),
+                ),
+              ),
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, 'projet'),
+                child: const ListTile(
+                  leading: Icon(Icons.business_center),
+                  title: Text('Projet'),
+                ),
+              ),
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, 'fonctionnement_projet'),
+                child: const ListTile(
+                  leading: Icon(Icons.merge_type),
+                  title: Text('Fonctionnement + Projet'),
+                ),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<_BailleursChoice?> _askBailleurs() {
+    var tous = _tousLesBailleurs;
+    var selected = List<int>.from(_bailleursSelectionnes);
+    return showDialog<_BailleursChoice>(
+      context: context,
+      builder:
+          (ctx) => StatefulBuilder(
+            builder:
+                (ctx, setDialogState) => AlertDialog(
+                  title: const Text('Sélection des bailleurs'),
+                  content: SizedBox(
+                    width: 420,
+                    child:
+                        _isLoadingBailleurs
+                            ? const Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
+                            : _bailleursDisponibles.isEmpty
+                            ? const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text('Aucun bailleur disponible'),
+                            )
+                            : SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CheckboxListTile(
+                                    title: const Text(
+                                      'Tous les bailleurs',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    value: tous,
+                                    activeColor: Colors.blue,
+                                    onChanged: (value) {
+                                      setDialogState(() {
+                                        tous = value ?? false;
+                                        selected =
+                                            tous
+                                                ? _bailleursDisponibles
+                                                    .map((b) => b.id!)
+                                                    .toList()
+                                                : <int>[];
+                                      });
+                                    },
+                                  ),
+                                  const Divider(height: 8),
+                                  ..._bailleursDisponibles.map(
+                                    (bailleur) => CheckboxListTile(
+                                      title: Text(
+                                        '${bailleur.sigle} - ${bailleur.designation}',
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                      value: selected.contains(bailleur.id),
+                                      activeColor: Colors.blue,
+                                      dense: true,
+                                      onChanged:
+                                          tous
+                                              ? null
+                                              : (value) {
+                                                setDialogState(() {
+                                                  if (value == true) {
+                                                    selected.add(
+                                                      bailleur.id!,
+                                                    );
+                                                  } else {
+                                                    selected.remove(
+                                                      bailleur.id,
+                                                    );
+                                                  }
+                                                });
+                                              },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Annuler'),
+                    ),
+                    ElevatedButton(
+                      onPressed:
+                          (tous || selected.isNotEmpty)
+                              ? () => Navigator.pop(
+                                ctx,
+                                _BailleursChoice(tous, selected),
+                              )
+                              : null,
+                      child: const Text('Continuer'),
+                    ),
+                  ],
+                ),
+          ),
+    );
+  }
+
+  Future<String?> _askTypeProjet() {
+    return showDialog<String>(
+      context: context,
+      builder:
+          (ctx) => SimpleDialog(
+            title: const Text('Type de projet'),
+            children: [
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, 'activite'),
+                child: const ListTile(
+                  leading: Icon(Icons.task_alt),
+                  title: Text('Activité'),
+                ),
+              ),
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, 'administration'),
+                child: const ListTile(
+                  leading: Icon(Icons.admin_panel_settings),
+                  title: Text('Administration'),
+                ),
+              ),
+              SimpleDialogOption(
+                onPressed:
+                    () => Navigator.pop(ctx, 'activite_administration'),
+                child: const ListTile(
+                  leading: Icon(Icons.merge_type),
+                  title: Text('Activité + Administration'),
+                ),
+              ),
+            ],
+          ),
+    );
+  }
+
+  String _labelTypeVentilation(String value) {
+    switch (value) {
+      case 'fonctionnement':
+        return 'Fonctionnement';
+      case 'projet':
+        return 'Projet';
+      case 'fonctionnement_projet':
+        return 'Fonctionnement + Projet';
+      default:
+        return '';
+    }
+  }
+
+  String _labelTypeProjet(String value) {
+    switch (value) {
+      case 'activite':
+        return 'Activité';
+      case 'administration':
+        return 'Administration';
+      case 'activite_administration':
+        return 'Activité + Administration';
+      default:
+        return '';
     }
   }
 
@@ -167,19 +419,38 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
         }
       }
 
-      // Validation analytique : au moins un bailleur si projet sélectionné
-      if ((_typeEtat == 'analytique' || _typeEtat == 'tiers_analytique') &&
-          _projetSelectionne != null) {
-        if (_bailleursSelectionnes.isEmpty) {
+      // Validation du filtre analytique
+      if (_typeEtat == 'analytique' || _typeEtat == 'tiers_analytique') {
+        if (_typeVentilation == null) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                'Veuillez sélectionner au moins un bailleur ou cocher "Tous les bailleurs"',
-              ),
+              content: Text('Veuillez configurer le filtre analytique'),
               backgroundColor: Colors.red,
             ),
           );
           return;
+        }
+        if (_typeVentilation != 'fonctionnement') {
+          if (!_tousLesBailleurs && _bailleursSelectionnes.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Veuillez sélectionner au moins un bailleur ou cocher "Tous les bailleurs"',
+                ),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+          if (_typeProjetVentilation == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Veuillez sélectionner le type de projet'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
         }
       }
 
@@ -190,7 +461,8 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
           builder:
               (context) => BalanceResultatPage(
                 typeEtat: _typeEtat,
-                projetId: _projetSelectionne,
+                typeVentilationAnalytique: _typeVentilation,
+                typeProjetVentilation: _typeProjetVentilation,
                 bailleursSelectionnes:
                     _bailleursSelectionnes.isNotEmpty
                         ? _bailleursSelectionnes
@@ -210,34 +482,6 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                 inclureComptesSansMouvement: _inclureComptesSansMouvement,
                 exercice: _exercice,
               ),
-        ),
-      );
-    }
-  }
-
-  Future<void> _loadProjets() async {
-    setState(() {
-      _isLoadingProjets = true;
-      _projetsError = null;
-    });
-    try {
-      if (!DatabaseService.isConnected) {
-        throw Exception('Base de données non connectée');
-      }
-      final projets = await AuthService.getProjets();
-      if (!mounted) return;
-      setState(() {
-        _projets = projets;
-        _isLoadingProjets = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoadingProjets = false);
-      _projetsError = e.toString();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur lors du chargement des projets: $e'),
-          backgroundColor: Colors.red,
         ),
       );
     }
@@ -303,7 +547,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
     }
   }
 
-  Future<void> _loadBailleursForProjet(int projetId) async {
+  Future<void> _loadBailleurs() async {
     setState(() {
       _isLoadingBailleurs = true;
       _bailleursError = null;
@@ -312,10 +556,10 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
       if (!DatabaseService.isConnected) {
         throw Exception('Base de données non connectée');
       }
-      final bailleurs = await AuthService.getBailleursForProjet(projetId);
+      final bailleurs = await AuthService.getBailleurs();
       if (!mounted) return;
       setState(() {
-        _bailleurs = List.from(bailleurs); // Convert to mutable list
+        _bailleursDisponibles = bailleurs;
         _isLoadingBailleurs = false;
       });
     } catch (e) {
@@ -451,7 +695,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                         onChanged: (value) {
                                           setState(() {
                                             _typeEtat = value!;
-                                            _projetSelectionne = null;
+                                            _resetFiltreAnalytique();
                                           });
                                         },
                                         dense: true,
@@ -466,7 +710,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                         onChanged: (value) {
                                           setState(() {
                                             _typeEtat = value!;
-                                            _projetSelectionne = null;
+                                            _resetFiltreAnalytique();
                                           });
                                         },
                                         dense: true,
@@ -483,9 +727,9 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                         groupValue: _typeEtat,
                                         activeColor: Colors.blue,
                                         onChanged: (value) {
-                                          setState(() {
-                                            _typeEtat = value!;
-                                          });
+                                          final previous = _typeEtat;
+                                          setState(() => _typeEtat = value!);
+                                          _startAnalytiqueWizard(previous);
                                         },
                                         dense: true,
                                       ),
@@ -497,9 +741,9 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                         groupValue: _typeEtat,
                                         activeColor: Colors.blue,
                                         onChanged: (value) {
-                                          setState(() {
-                                            _typeEtat = value!;
-                                          });
+                                          final previous = _typeEtat;
+                                          setState(() => _typeEtat = value!);
+                                          _startAnalytiqueWizard(previous);
                                         },
                                         dense: true,
                                       ),
@@ -512,211 +756,9 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
                                     padding: const EdgeInsets.only(
                                       top: 8,
                                       left: 16,
+                                      right: 16,
                                     ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        if (_isLoadingProjets)
-                                          const LinearProgressIndicator(),
-                                        if (_projetsError != null)
-                                          Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 8,
-                                            ),
-                                            child: Text(
-                                              _projetsError!,
-                                              style: const TextStyle(
-                                                color: Colors.red,
-                                              ),
-                                            ),
-                                          ),
-                                        if (!_isLoadingProjets &&
-                                            _projets.isEmpty)
-                                          const Padding(
-                                            padding: EdgeInsets.symmetric(
-                                              vertical: 8,
-                                            ),
-                                            child: Text(
-                                              'Aucun projet disponible',
-                                              style: TextStyle(
-                                                color: Colors.red,
-                                              ),
-                                            ),
-                                          ),
-                                        if (!_isLoadingProjets &&
-                                            _projets.isNotEmpty)
-                                          DropdownButtonFormField<int>(
-                                            value: _projetSelectionne,
-                                            isExpanded: true,
-                                            menuMaxHeight: 320,
-                                            decoration: InputDecoration(
-                                              labelText: 'Projet',
-                                              hintText:
-                                                  'Sélectionnez un projet',
-                                              prefixIcon: const Icon(
-                                                Icons.business_center,
-                                              ),
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                              focusedBorder: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                borderSide: BorderSide(
-                                                  color: Colors.blue,
-                                                  width: 2,
-                                                ),
-                                              ),
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                    vertical: 4,
-                                                    horizontal: 16,
-                                                  ),
-                                            ),
-                                            items:
-                                                _projets
-                                                    .map(
-                                                      (p) => DropdownMenuItem<
-                                                        int
-                                                      >(
-                                                        value: p.id,
-                                                        child: Text(
-                                                          '${p.code} - ${p.nom}',
-                                                          overflow:
-                                                              TextOverflow
-                                                                  .ellipsis,
-                                                        ),
-                                                      ),
-                                                    )
-                                                    .toList(),
-                                            onChanged: (value) {
-                                              _onProjetChanged(value);
-                                            },
-                                            validator: (value) {
-                                              if ((_typeEtat == 'analytique' ||
-                                                      _typeEtat ==
-                                                          'tiers_analytique') &&
-                                                  (value == null ||
-                                                      _projets.isEmpty)) {
-                                                return 'Veuillez sélectionner un projet';
-                                              }
-                                              return null;
-                                            },
-                                          ),
-
-                                        // Section Bailleurs (si projet sélectionné)
-                                        if (_projetSelectionne != null) ...[
-                                          const SizedBox(height: 16),
-                                          if (_isLoadingBailleurs)
-                                            const LinearProgressIndicator(),
-                                          if (_bailleursError != null)
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    vertical: 8,
-                                                  ),
-                                              child: Text(
-                                                _bailleursError!,
-                                                style: const TextStyle(
-                                                  color: Colors.red,
-                                                ),
-                                              ),
-                                            ),
-                                          if (!_isLoadingBailleurs &&
-                                              _bailleurs.isEmpty)
-                                            const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                vertical: 8,
-                                              ),
-                                              child: Text(
-                                                'Aucun bailleur associé à ce projet',
-                                                style: TextStyle(
-                                                  color: Colors.orange,
-                                                ),
-                                              ),
-                                            ),
-                                          if (!_isLoadingBailleurs &&
-                                              _bailleurs.isNotEmpty) ...[
-                                            const Text(
-                                              'Bailleurs du projet :',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            CheckboxListTile(
-                                              title: const Text(
-                                                'Tous les bailleurs',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              value: _tousLesBailleurs,
-                                              activeColor: Colors.blue,
-                                              dense: true,
-                                              onChanged: (value) {
-                                                setState(() {
-                                                  _tousLesBailleurs =
-                                                      value ?? false;
-                                                  if (_tousLesBailleurs) {
-                                                    _bailleursSelectionnes =
-                                                        _bailleurs
-                                                            .map(
-                                                              (b) =>
-                                                                  b['id']
-                                                                      as int,
-                                                            )
-                                                            .toList();
-                                                  } else {
-                                                    _bailleursSelectionnes
-                                                        .clear();
-                                                  }
-                                                });
-                                              },
-                                            ),
-                                            const Divider(height: 8),
-                                            ..._bailleurs.map((bailleur) {
-                                              final bailleurId =
-                                                  bailleur['id'] as int;
-                                              return CheckboxListTile(
-                                                title: Text(
-                                                  '${bailleur['sigle']} - ${bailleur['designation']}',
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                  ),
-                                                ),
-                                                value: _bailleursSelectionnes
-                                                    .contains(bailleurId),
-                                                activeColor:
-                                                    Colors.blue,
-                                                dense: true,
-                                                onChanged:
-                                                    _tousLesBailleurs
-                                                        ? null
-                                                        : (value) {
-                                                          setState(() {
-                                                            if (value == true) {
-                                                              _bailleursSelectionnes
-                                                                  .add(
-                                                                    bailleurId,
-                                                                  );
-                                                            } else {
-                                                              _bailleursSelectionnes
-                                                                  .remove(
-                                                                    bailleurId,
-                                                                  );
-                                                            }
-                                                          });
-                                                        },
-                                              );
-                                            }),
-                                          ],
-                                        ],
-                                      ],
-                                    ),
+                                    child: _buildAnalytiqueSummary(),
                                   ),
                               ],
                             ),
@@ -986,6 +1028,70 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
           ),
         ),
       ),
+      ),
+    );
+  }
+
+  Widget _buildAnalytiqueSummary() {
+    if (_typeVentilation == null) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: () => _startAnalytiqueWizard(_typeEtat),
+          icon: const Icon(Icons.tune),
+          label: const Text('Configurer le filtre analytique'),
+        ),
+      );
+    }
+
+    final lines = <String>[
+      'Ventilation : ${_labelTypeVentilation(_typeVentilation!)}',
+    ];
+    if (_typeVentilation != 'fonctionnement') {
+      lines.add(
+        _tousLesBailleurs
+            ? 'Bailleurs : Tous'
+            : 'Bailleurs : ${_bailleursSelectionnes.length} sélectionné(s)',
+      );
+      if (_typeProjetVentilation != null) {
+        lines.add(
+          'Type de projet : ${_labelTypeProjet(_typeProjetVentilation!)}',
+        );
+      }
+    }
+    if (_bailleursError != null) {
+      lines.add(_bailleursError!);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.shade100),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children:
+                  lines
+                      .map(
+                        (l) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Text(l, style: const TextStyle(fontSize: 13)),
+                        ),
+                      )
+                      .toList(),
+            ),
+          ),
+          TextButton(
+            onPressed: () => _startAnalytiqueWizard(_typeEtat),
+            child: const Text('Modifier'),
+          ),
+        ],
       ),
     );
   }

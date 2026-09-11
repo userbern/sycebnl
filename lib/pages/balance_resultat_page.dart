@@ -10,7 +10,10 @@ import 'saisie_ecriture_page.dart';
 
 class BalanceResultatPage extends StatefulWidget {
   final String typeEtat; // 'general' ou 'analytique'
-  final int? projetId;
+  // 'fonctionnement' | 'projet' | 'fonctionnement_projet'
+  final String? typeVentilationAnalytique;
+  // 'activite' | 'administration' | 'activite_administration'
+  final String? typeProjetVentilation;
   final List<int>? bailleursSelectionnes;
   final bool tousLesBailleurs;
   final DateTime dateDebut;
@@ -25,7 +28,8 @@ class BalanceResultatPage extends StatefulWidget {
   const BalanceResultatPage({
     super.key,
     required this.typeEtat,
-    this.projetId,
+    this.typeVentilationAnalytique,
+    this.typeProjetVentilation,
     this.bailleursSelectionnes,
     this.tousLesBailleurs = false,
     required this.dateDebut,
@@ -47,7 +51,6 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
   List<Map<String, dynamic>> _comptes = [];
   String? _errorMessage;
   Map<String, dynamic>? _entite;
-  String? _projetDesignation;
   String? _bailleursDesignation;
   double _soldeOuvertureDebit = 0.0;
   double _soldeOuvertureCredit = 0.0;
@@ -110,12 +113,8 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
           LEFT JOIN journaux_periodes jp ON e.journal_periode_id = jp.id
         ''';
 
-        // Utiliser INNER JOIN pour les ventilations analytiques si filtrage actif
-        if (isAnalytique &&
-            (widget.projetId != null ||
-                (!widget.tousLesBailleurs &&
-                    widget.bailleursSelectionnes != null &&
-                    widget.bailleursSelectionnes!.isNotEmpty))) {
+        // Ventilation par type (Fonctionnement / Projet / Fonctionnement + Projet)
+        if (isAnalytique) {
           query += '''
           INNER JOIN ventilations_analytiques va ON e.id = va.ecriture_id AND va.deleted_at IS NULL
           ''';
@@ -138,12 +137,8 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
           LEFT JOIN journaux_periodes jp ON e.journal_periode_id = jp.id
         ''';
 
-        // Utiliser INNER JOIN pour les ventilations analytiques si filtrage actif
-        if (isAnalytique &&
-            (widget.projetId != null ||
-                (!widget.tousLesBailleurs &&
-                    widget.bailleursSelectionnes != null &&
-                    widget.bailleursSelectionnes!.isNotEmpty))) {
+        // Ventilation par type (Fonctionnement / Projet / Fonctionnement + Projet)
+        if (isAnalytique) {
           query += '''
           INNER JOIN ventilations_analytiques va ON e.id = va.ecriture_id AND va.deleted_at IS NULL
           ''';
@@ -176,20 +171,54 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         queryArgs.add(widget.exerciceId);
       }
 
-      // Filtre analytique : projet et bailleurs
+      // Filtre analytique : type de ventilation (Fonctionnement / Projet /
+      // Fonctionnement + Projet), bailleur(s) et Activité/Administration.
       if (isAnalytique) {
-        if (widget.projetId != null) {
-          query += ' AND va.id_projet = ?';
-          queryArgs.add(widget.projetId);
+        // Condition "Projet" : bailleur(s) sélectionné(s) + Activité/Administration.
+        // Le volet est enregistré tel quel depuis la saisie ('Activités' /
+        // 'Administration'), d'où la comparaison insensible à la casse/accent.
+        String projetCondition() {
+          final buffer = StringBuffer("va.type = 'projet'");
+          if (!widget.tousLesBailleurs &&
+              widget.bailleursSelectionnes != null &&
+              widget.bailleursSelectionnes!.isNotEmpty) {
+            final placeholders = widget.bailleursSelectionnes!
+                .map((_) => '?')
+                .join(', ');
+            buffer.write(' AND va.id_bailleur IN ($placeholders)');
+          }
+          switch (widget.typeProjetVentilation) {
+            case 'activite':
+              buffer.write(" AND LOWER(va.volet) LIKE 'activit%'");
+              break;
+            case 'administration':
+              buffer.write(" AND LOWER(va.volet) LIKE 'admin%'");
+              break;
+          }
+          return buffer.toString();
         }
 
-        // Si bailleurs sélectionnés (pas "tous")
-        if (!widget.tousLesBailleurs &&
-            widget.bailleursSelectionnes != null &&
-            widget.bailleursSelectionnes!.isNotEmpty) {
-          query +=
-              ' AND va.id_bailleur IN (${widget.bailleursSelectionnes!.map((_) => '?').join(', ')})';
-          queryArgs.addAll(widget.bailleursSelectionnes!);
+        void addBailleursArgsIfNeeded() {
+          if (!widget.tousLesBailleurs &&
+              widget.bailleursSelectionnes != null &&
+              widget.bailleursSelectionnes!.isNotEmpty) {
+            queryArgs.addAll(widget.bailleursSelectionnes!);
+          }
+        }
+
+        switch (widget.typeVentilationAnalytique) {
+          case 'fonctionnement':
+            query += " AND va.type = 'fonctionnement'";
+            break;
+          case 'projet':
+            query += ' AND (${projetCondition()})';
+            addBailleursArgsIfNeeded();
+            break;
+          case 'fonctionnement_projet':
+            query +=
+                " AND (va.type = 'fonctionnement' OR (${projetCondition()}))";
+            addBailleursArgsIfNeeded();
+            break;
         }
       }
 
@@ -217,24 +246,6 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         if (rows.isNotEmpty) entite = rows.first;
       } catch (_) {
         entite = null;
-      }
-
-      // Projet designation
-      String? projetDesignation;
-      if (widget.projetId != null) {
-        try {
-          final rows = await db.query(
-            'projet',
-            where: 'id = ?',
-            whereArgs: [widget.projetId],
-            limit: 1,
-          );
-          if (rows.isNotEmpty) {
-            projetDesignation = rows.first['designation'] as String?;
-          }
-        } catch (_) {
-          projetDesignation = null;
-        }
       }
 
       // Bailleurs designations
@@ -373,7 +384,6 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
       setState(() {
         _comptes = comptes;
         _entite = entite;
-        _projetDesignation = projetDesignation;
         _bailleursDesignation = bailleursDesignation;
         _soldeOuvertureDebit = soldeOuvDebit;
         _soldeOuvertureCredit = soldeOuvCredit;
@@ -546,6 +556,29 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
     }
   }
 
+  bool get _isAnalytique =>
+      widget.typeEtat == 'analytique' || widget.typeEtat == 'tiers_analytique';
+
+  bool get _showsBailleurColumn =>
+      _isAnalytique && widget.typeVentilationAnalytique != 'fonctionnement';
+
+  String _typeVentilationLabel() {
+    final base = switch (widget.typeVentilationAnalytique) {
+      'fonctionnement' => 'Fonctionnement',
+      'projet' => 'Projet',
+      'fonctionnement_projet' => 'Fonctionnement + Projet',
+      _ => '',
+    };
+    if (!_showsBailleurColumn) return base;
+    final typeProjetLabel = switch (widget.typeProjetVentilation) {
+      'activite' => 'Activité',
+      'administration' => 'Administration',
+      'activite_administration' => 'Activité + Administration',
+      _ => null,
+    };
+    return typeProjetLabel != null ? '$base ($typeProjetLabel)' : base;
+  }
+
   Widget _buildDocumentHeader(double tableWidth) {
     final denSociale = _entite?['denomination_sociale']?.toString() ?? '-';
     final nif = _entite?['numero_fiscal']?.toString() ?? '-';
@@ -592,18 +625,14 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                 _headerCell('TYPE', bold: true),
                 _headerCell(type),
                 _headerCell(
-                  widget.projetId != null
-                      ? 'PROJET : ${_projetDesignation ?? ''}'
-                      : '',
+                  _isAnalytique ? 'VENTILATION : ${_typeVentilationLabel()}' : '',
                 ),
                 _headerCell(
-                  widget.projetId != null ? 'BAILLEUR' : '',
-                  bold: widget.projetId != null,
+                  _showsBailleurColumn ? 'BAILLEUR' : '',
+                  bold: _showsBailleurColumn,
                 ),
                 _headerCell(
-                  widget.projetId != null
-                      ? (_bailleursDesignation ?? '')
-                      : '',
+                  _showsBailleurColumn ? (_bailleursDesignation ?? '') : '',
                 ),
               ],
             ),
@@ -1173,7 +1202,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         totals: null,
         context: context,
         entite: _entite,
-        projetDesignation: _projetDesignation,
+        projetDesignation: _isAnalytique ? _typeVentilationLabel() : null,
         bailleursDesignation: _bailleursDesignation,
         typeEtat: widget.typeEtat,
         dateDebut: widget.dateDebut,
