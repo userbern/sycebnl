@@ -1,46 +1,28 @@
-Oui. À ce stade, je choisirais de brancher RemoteRepository sur HomePage en priorité, mais sans faire semblant que les écritures sont déjà supportées.
+### 1. Page de saisie des comptes
 
-L'ordre logique est :
+* Lorsqu’une écriture est fermée sans avoir été ventilée, **toutes les lignes de l’écriture doivent être considérées comme « Non ventilées »**, même si l’écriture comporte deux enregistrements.
+* Le fait qu’une ligne soit équilibrée ne signifie pas que l’écriture est ventilée. **Une écriture équilibrée ne doit donc pas automatiquement être considérée comme ventilée.**
+* Lorsqu’un utilisateur souhaite quitter la page alors que certaines écritures ne sont pas ventilées, afficher un message d’alerte :
 
-Connexion réseau → vraie HomePage
-Après login, l'utilisateur arrive dans l'interface comptable normale.
-Le menu/navigation devient réellement utilisable.
-Les écrans qui utilisent déjà RepositoryProvider peuvent fonctionner immédiatement.
-Adapter progressivement les écrans au repository
-Comptes
-Tiers
-Journaux
-Exercices
-puis les autres modules.
-Ensuite seulement : RemoteRepository → écritures
-GET /ecritures
-création
-modification
-suppression/annulation selon les règles métier
-consultation des détails.
+> **« Certaines écritures ne sont pas ventilées. Voulez-vous quand même quitter la page ? »**
 
-Avant d'autoriser la saisie réseau : régler transaction()
+* L’utilisateur doit pouvoir choisir d’**ignorer l’alerte et quitter la page** s’il le souhaite.
 
-C'est important pour la comptabilité. Une écriture en partie double ne doit pas pouvoir être enregistrée à moitié.
+### 2. Page de consultation des balances
 
-Exemple :
+* Lorsqu’il existe des écritures non ventilées, afficher un **bouton permettant de consulter directement ces écritures**.
+* Ce bouton doit permettre à l’utilisateur d’identifier les écritures concernées et d’y accéder afin de les ventiler avant de consulter les balances.
 
-Débit compte A       100 000
-Crédit compte B      100 000
+### 3. Bouton « Équilibrer » – Journaux de banque
 
-doit être traité comme une seule opération atomique côté serveur.
+* Dans les journaux de banque, lorsqu’on clique sur **« Équilibrer »**, la ligne concernée doit être **enregistrée automatiquement**.
+* L’utilisateur ne doit pas avoir besoin de revenir ensuite cliquer sur un autre bouton pour valider ou enregistrer la ligne.
 
-Enfin : tests UI + intégration
-Pourquoi je ne commencerais pas par les écritures ?
+### 4. Bouton « Équilibrer » – Journaux autres que banque
 
-Parce que ton plus gros problème actuel est UX/fonctionnel :
+* Pour les journaux qui ne sont pas des journaux de banque, si l’utilisateur a déjà renseigné le **numéro de compte** avant de cliquer sur « Équilibrer », la ligne doit également être **enregistrée automatiquement**.
+* Il ne doit donc pas être nécessaire de revenir cliquer sur **« Ajouter »** pour enregistrer cette ligne.
 
-L'utilisateur se connecte au réseau mais n'entre pas réellement dans l'application comptable.
+### 5. Modification du libellé du bouton
 
-Même si tu implémentes /ecritures maintenant, l'expérience restera incomplète.
-
-Donc je donnerais à Claude cette instruction :
-
-Étape 4 : connecter le flux de session réseau à HomePage sans casser le mode local. Réutiliser RepositoryProvider et RemoteRepository existants. Ne pas réécrire les écrans qui dépendent encore directement de DatabaseService. Identifier précisément quels écrans fonctionnent déjà en réseau et lesquels doivent être adaptés. Après cela, préparer l'architecture nécessaire pour brancher les écritures, mais ne pas encore activer leur saisie réseau tant que l'atomicité de transaction() n'est pas garantie.
-
-C'est l'approche la plus sûre : d'abord rendre le réseau réellement navigable, ensuite migrer progressivement les fonctionnalités comptables.
+* Sur la page de saisie des écritures, si le bouton **« Ajouter »** est toujours présent, remplacer son libellé par **« Valider »**.

@@ -3,8 +3,10 @@ import '../models/exercice.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
 import '../services/local_repository.dart';
+import '../services/saisie_comptable_service.dart';
 import '../utils/format_utils.dart';
 import '../widgets/download_button.dart';
+import 'saisie_ecriture_page.dart';
 
 class BalanceResultatPage extends StatefulWidget {
   final String typeEtat; // 'general' ou 'analytique'
@@ -49,6 +51,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
   String? _bailleursDesignation;
   double _soldeOuvertureDebit = 0.0;
   double _soldeOuvertureCredit = 0.0;
+  List<Map<String, Object?>> _lignesNonVentilees = [];
 
   @override
   void initState() {
@@ -354,6 +357,19 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         }
       }
 
+      List<Map<String, Object?>> lignesNonVentilees = [];
+      try {
+        lignesNonVentilees = await SaisieComptableService.getLignesNonVentilees(
+          dateDebut: widget.dateDebut,
+          dateFin: widget.dateFin,
+          exerciceId: widget.exerciceId,
+        );
+      } catch (_) {
+        lignesNonVentilees = [];
+      }
+
+      if (!mounted) return;
+
       setState(() {
         _comptes = comptes;
         _entite = entite;
@@ -361,6 +377,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         _bailleursDesignation = bailleursDesignation;
         _soldeOuvertureDebit = soldeOuvDebit;
         _soldeOuvertureCredit = soldeOuvCredit;
+        _lignesNonVentilees = lignesNonVentilees;
         _isLoading = false;
       });
     } catch (e) {
@@ -369,6 +386,73 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         _isLoading = false;
         _errorMessage = e.toString();
       });
+    }
+  }
+
+  Future<void> _showLignesNonVentilees() async {
+    await showDialog<void>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Écritures non ventilées'),
+            content: SizedBox(
+              width: 480,
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: _lignesNonVentilees.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, index) {
+                  final ligne = _lignesNonVentilees[index];
+                  final codeJournal = ligne['code_journal'] as String? ?? '?';
+                  final compte = ligne['numero_compte'] as String? ?? '';
+                  final libelle = ligne['libelle'] as String? ?? '';
+                  final montant =
+                      ((ligne['montant_debit'] as num?)?.toDouble() ?? 0.0) +
+                      ((ligne['montant_credit'] as num?)?.toDouble() ?? 0.0);
+                  return ListTile(
+                    dense: true,
+                    title: Text('$codeJournal — $compte — $libelle'),
+                    subtitle: Text(_formatMontant(montant)),
+                    trailing: TextButton(
+                      onPressed: () => _openLigneNonVentilee(ligne),
+                      child: const Text('Ouvrir'),
+                    ),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _openLigneNonVentilee(Map<String, Object?> ligne) async {
+    final journalPeriodeId = ligne['journal_periode_id'] as int?;
+    if (journalPeriodeId == null) return;
+    Navigator.of(context).pop();
+    try {
+      final periode = await SaisieComptableService.getJournalPeriodeById(
+        journalPeriodeId,
+      );
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SaisieEcriturePage(journalPeriode: periode),
+        ),
+      );
+      if (mounted) await _loadBalance();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+      }
     }
   }
 
@@ -552,6 +636,28 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                 backgroundColor: Colors.blue.shade700,
                 elevation: 0,
                 actions: [
+                  if (_lignesNonVentilees.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Tooltip(
+                        message:
+                            'Des écritures ne sont pas ventilées : consultez-les avant de valider la balance',
+                        child: ElevatedButton.icon(
+                          onPressed: _showLignesNonVentilees,
+                          icon: const Icon(
+                            Icons.warning_amber_rounded,
+                            color: Colors.white,
+                          ),
+                          label: Text(
+                            'Écritures non ventilées (${_lignesNonVentilees.length})',
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange.shade800,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: DownloadTooltip.pdf(

@@ -376,7 +376,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       lignesEnregistrement,
     );
 
-    final bool isVentileeManuellement = ecriture.hasVentilation == true;
+    final bool isVentilee = ecriture.hasVentilation == true;
 
     Color borderColor;
     Color backgroundColor;
@@ -384,23 +384,19 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     IconData iconData;
     String tooltipMessage;
 
-    // Principe métier : Une ligne d'équilibre est toujours considérée comme ventilée
-    if (isLigneEquilibre) {
-      // Ligne d'équilibre : pas besoin de ventilation pour être valide
+    // Une ligne équilibrée n'est pas pour autant ventilée : seul le flag
+    // hasVentilation (saisie manuelle ou agrégation réelle sur la ligne
+    // d'équilibre) fait foi.
+    if (isVentilee) {
       borderColor = Colors.green.shade600;
       backgroundColor = Colors.green.shade50;
       iconColor = Colors.green.shade700;
       iconData = Icons.check_circle;
-      tooltipMessage = 'Ligne d\'équilibre (ventilation automatique)';
-    } else if (isVentileeManuellement) {
-      // Ligne NON-équilibre ventilée manuellement
-      borderColor = Colors.green.shade600;
-      backgroundColor = Colors.green.shade50;
-      iconColor = Colors.green.shade700;
-      iconData = Icons.check_circle;
-      tooltipMessage = 'Ventilé manuellement';
+      tooltipMessage =
+          isLigneEquilibre
+              ? 'Ligne d\'équilibre ventilée (agrégation automatique)'
+              : 'Ventilé manuellement';
     } else {
-      // Ligne NON-équilibre non ventilée
       borderColor = Colors.red.shade600;
       backgroundColor = Colors.red.shade50;
       iconColor = Colors.red.shade700;
@@ -1008,6 +1004,11 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       return;
     }
 
+    // Ne pas écraser le compte si l'utilisateur l'a déjà saisi lui-même ;
+    // sert aussi à décider de l'enregistrement automatique ci-dessous.
+    final bool compteDejaSaisi =
+        _selectedCompteNumero != null && _selectedCompteNumero!.isNotEmpty;
+
     setState(() {
       if (ecrituresActuelles.isNotEmpty) {
         final derniere = ecrituresActuelles.last;
@@ -1015,11 +1016,6 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         _numeroDocController.text = derniere.numeroDocument;
         _referenceController.text = derniere.reference ?? '';
         _libelleController.text = derniere.libelle;
-
-        // Ne pas écraser le compte si l'utilisateur l'a déjà saisi lui-même
-        final compteDejaSaisi =
-            _selectedCompteNumero != null &&
-            _selectedCompteNumero!.isNotEmpty;
 
         if (!compteDejaSaisi) {
           // Utilise le compte de trésorerie s'il est défini sur le journal
@@ -1058,6 +1054,22 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         }
       }
     });
+
+    // Enregistrement automatique de la ligne d'équilibrage :
+    // - journaux de banque (financier) : le compte de trésorerie est
+    //   auto-rempli ci-dessus, donc toujours prêt à être validé ;
+    // - autres journaux : uniquement si l'utilisateur avait déjà renseigné
+    //   le compte avant de cliquer sur "Équilibrer".
+    final bool isJournalBanque = _journal?.type == TypeJournal.financier;
+    final bool compteRenseigne =
+        _selectedCompteNumero != null && _selectedCompteNumero!.isNotEmpty;
+    final bool enregistrerAutomatiquement =
+        compteRenseigne && (isJournalBanque || compteDejaSaisi);
+
+    if (enregistrerAutomatiquement) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _submitForm());
+      return;
+    }
 
     // Donner le focus au champ montant rempli pour permettre
     // l'enregistrement immédiat par Entrée
@@ -1254,46 +1266,77 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     return body;
   }
 
+  /// Une écriture équilibrée n'est pas forcément ventilée : seules les lignes
+  /// avec hasVentilation == true comptent comme réellement ventilées.
+  bool get _hasLignesNonVentilees =>
+      _ecritures.any((e) => e.hasVentilation != true);
+
+  void _closeNow() {
+    if (widget.onClose != null) {
+      widget.onClose!(true);
+    } else if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
   Future<void> _handleClose(BuildContext context) async {
-    if (_totaux.isEquilibre) {
-      if (widget.onClose != null) {
-        widget.onClose!(true);
-      } else if (context.mounted) {
-        Navigator.of(context).pop();
-      }
-      return;
-    }
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Journal déséquilibré'),
-            content: Text(
-              'Le solde n\'est pas équilibré (${formatMontantCFA(_totaux.solde)}).\nVoulez-vous quitter quand même ?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Rester'),
+    if (!_totaux.isEquilibre) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder:
+            (ctx) => AlertDialog(
+              title: const Text('Journal déséquilibré'),
+              content: Text(
+                'Le solde n\'est pas équilibré (${formatMontantCFA(_totaux.solde)}).\nVoulez-vous quitter quand même ?',
               ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Rester'),
                 ),
-                child: const Text('Quitter quand même'),
-              ),
-            ],
-          ),
-    );
-    if (confirm == true) {
-      if (widget.onClose != null) {
-        widget.onClose!(true);
-      } else if (context.mounted) {
-        Navigator.of(context).pop();
-      }
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Quitter quand même'),
+                ),
+              ],
+            ),
+      );
+      if (confirm != true || !context.mounted) return;
     }
+
+    if (_hasLignesNonVentilees) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder:
+            (ctx) => AlertDialog(
+              title: const Text('Écritures non ventilées'),
+              content: const Text(
+                'Certaines écritures ne sont pas ventilées. Voulez-vous quand même quitter la page ?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Rester'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Quitter quand même'),
+                ),
+              ],
+            ),
+      );
+      if (confirm != true || !context.mounted) return;
+    }
+
+    _closeNow();
   }
 
   Widget _buildSoldeTotalBanner(
@@ -2423,7 +2466,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                         color: Colors.white,
                       ),
                       label: Text(
-                        _editingIndex != null ? 'Modifier' : 'Ajouter',
+                        _editingIndex != null ? 'Modifier' : 'Valider',
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue.shade500,
