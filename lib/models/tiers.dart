@@ -47,6 +47,16 @@ TypeTiers stringToTypeTiers(String value) {
 }
 
 /// Modèle pour un Tiers comptable
+/// Normalise un flag booléen venant soit de SQLite (entier 0/1), soit du
+/// réseau (bool JSON via `toJson()`/`RemoteRepository`) : les deux
+/// représentations transitent par [Tiers.fromMap] selon la source.
+bool _boolFromDb(Object? value, {required bool defaultValue}) {
+  if (value == null) return defaultValue;
+  if (value is bool) return value;
+  if (value is int) return value == 1;
+  return defaultValue;
+}
+
 class Tiers {
   final String id;
   final String numeroCompte;
@@ -100,7 +110,7 @@ class Tiers {
       compteCollectif: map['compte_collectif'] as String,
       nif: map['nif'] as String?,
       adresse: map['adresse'] as String?,
-      isActive: (map['is_active'] as int?) == 1,
+      isActive: _boolFromDb(map['is_active'], defaultValue: true),
       createdAt:
           map['created_at'] != null
               ? DateTime.parse(map['created_at'] as String)

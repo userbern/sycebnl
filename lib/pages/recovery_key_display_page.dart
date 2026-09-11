@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/export_service.dart';
+import '../widgets/download_button.dart';
 
 /// Affiche une clé de récupération de dossier comptable une seule fois, avec
 /// les actions Copier / Exporter en PDF (module Sécurité du dossier
@@ -102,15 +103,24 @@ class RecoveryKeyDisplayPage extends StatelessWidget {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => ExportService.exportRecoveryKeyPDF(
-                            dossierUuid: dossierUuid,
-                            recoveryKey: recoveryKey,
-                            entiteNom: entiteNom ?? '',
-                            context: context,
+                        child: DownloadTooltip.pdf(
+                          child: OutlinedButton.icon(
+                            onPressed: () => ExportService.exportRecoveryKeyPDF(
+                              dossierUuid: dossierUuid,
+                              recoveryKey: recoveryKey,
+                              entiteNom: entiteNom ?? '',
+                              context: context,
+                            ),
+                            icon: const DownloadIcon(
+                              Icons.picture_as_pdf,
+                              color: Colors.white,
+                            ),
+                            label: const Text('Exporter PDF'),
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: kDownloadPdfColor,
+                              foregroundColor: Colors.white,
+                            ),
                           ),
-                          icon: const Icon(Icons.picture_as_pdf),
-                          label: const Text('Exporter PDF'),
                         ),
                       ),
                     ],

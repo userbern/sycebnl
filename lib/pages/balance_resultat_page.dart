@@ -2,7 +2,9 @@
 import '../models/exercice.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
+import '../services/local_repository.dart';
 import '../utils/format_utils.dart';
+import '../widgets/download_button.dart';
 
 class BalanceResultatPage extends StatefulWidget {
   final String typeEtat; // 'general' ou 'analytique'
@@ -65,7 +67,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         throw Exception('Base de données non connectée');
       }
 
-      final db = DatabaseService.database;
+      const db = LocalRepository();
 
       // Contraintes de dates — normalisées à minuit côté Dart,
       // la date de fin couvre toute la journée jusqu'à 23:59:59 en SQL.
@@ -96,10 +98,10 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
           SELECT 
             e.numero_tiers AS numero_compte,
             COALESCE(t.intitule, 'Tiers') AS intitule,
-            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_debit ELSE 0 END), 0) as ouverture_debit,
-            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_credit ELSE 0 END), 0) as ouverture_credit,
-            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_debit ELSE 0 END), 0) as mouvement_debit,
-            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_credit ELSE 0 END), 0) as mouvement_credit
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND e.numero_document LIKE 'OUV-%') THEN e.montant_debit ELSE 0 END), 0) as ouverture_debit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND e.numero_document LIKE 'OUV-%') THEN e.montant_credit ELSE 0 END), 0) as ouverture_credit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND e.numero_document LIKE 'OUV-%') THEN e.montant_debit ELSE 0 END), 0) as mouvement_debit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND e.numero_document LIKE 'OUV-%') THEN e.montant_credit ELSE 0 END), 0) as mouvement_credit
           FROM ecritures e
           LEFT JOIN tiers t ON e.numero_tiers = t.numero_compte
           LEFT JOIN journaux_periodes jp ON e.journal_periode_id = jp.id
@@ -124,10 +126,10 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
           SELECT 
             c.numero_compte,
             c.intitule,
-            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_debit ELSE 0 END), 0) as ouverture_debit,
-            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_credit ELSE 0 END), 0) as ouverture_credit,
-            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_debit ELSE 0 END), 0) as mouvement_debit,
-            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND jp.code_journal = 'AN') THEN e.montant_credit ELSE 0 END), 0) as mouvement_credit
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND e.numero_document LIKE 'OUV-%') THEN e.montant_debit ELSE 0 END), 0) as ouverture_debit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) < date(?) OR (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND e.numero_document LIKE 'OUV-%') THEN e.montant_credit ELSE 0 END), 0) as ouverture_credit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND e.numero_document LIKE 'OUV-%') THEN e.montant_debit ELSE 0 END), 0) as mouvement_debit,
+            COALESCE(SUM(CASE WHEN date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?) AND NOT (date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) = date(?) AND e.numero_document LIKE 'OUV-%') THEN e.montant_credit ELSE 0 END), 0) as mouvement_credit
           FROM compte c
           LEFT JOIN ecritures e ON c.numero_compte = e.numero_compte
           LEFT JOIN journaux_periodes jp ON e.journal_periode_id = jp.id
@@ -552,17 +554,16 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                 actions: [
                   Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: Tooltip(
-                      message: 'Exporter en PDF',
+                    child: DownloadTooltip.pdf(
                       child: ElevatedButton.icon(
                         onPressed: _isLoading ? null : _exportToPDF,
-                        icon: const Icon(
+                        icon: const DownloadIcon(
                           Icons.picture_as_pdf,
                           color: Colors.white,
                         ),
                         label: const Text('PDF'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade600,
+                          backgroundColor: kDownloadPdfColor,
                           foregroundColor: Colors.white,
                         ),
                       ),
@@ -570,17 +571,16 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                   ),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: Tooltip(
-                      message: 'Exporter en Excel',
+                    child: DownloadTooltip.excel(
                       child: ElevatedButton.icon(
                         onPressed: _isLoading ? null : _exportToExcel,
-                        icon: const Icon(
+                        icon: const DownloadIcon(
                           Icons.table_chart,
                           color: Colors.white,
                         ),
                         label: const Text('Excel'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green.shade600,
+                          backgroundColor: kDownloadExcelColor,
                           foregroundColor: Colors.white,
                         ),
                       ),

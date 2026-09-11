@@ -5,6 +5,7 @@ import '../models/user_session.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
+import '../widgets/download_button.dart';
 
 class ListeBailleursPage extends StatefulWidget {
   final bool showAppBar;
@@ -368,35 +369,47 @@ class _ListeBailleursPageState extends State<ListeBailleursPage> {
       runSpacing: 8,
       alignment: WrapAlignment.end,
       children: [
-        ElevatedButton.icon(
-          onPressed:
-              () => ExportService.exportBailleursListPDF(
-                bailleurs: _filteredBailleurs,
-                context: context,
-                entiteNom: _entiteNom,
-              ),
-          icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
-          label: const Text('PDF'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red.shade600,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            textStyle: const TextStyle(fontSize: 13),
+        DownloadTooltip.pdf(
+          child: ElevatedButton.icon(
+            onPressed:
+                () => ExportService.exportBailleursListPDF(
+                  bailleurs: _filteredBailleurs,
+                  context: context,
+                  entiteNom: _entiteNom,
+                ),
+            icon: const DownloadIcon(
+              Icons.picture_as_pdf,
+              size: 16,
+              color: Colors.white,
+            ),
+            label: const Text('PDF'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kDownloadPdfColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              textStyle: const TextStyle(fontSize: 13),
+            ),
           ),
         ),
-        ElevatedButton.icon(
-          onPressed:
-              () => ExportService.exportBailleursListExcel(
-                bailleurs: _filteredBailleurs,
-                context: context,
-              ),
-          icon: const Icon(Icons.table_chart, size: 16, color: Colors.white),
-          label: const Text('Excel'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green.shade700,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            textStyle: const TextStyle(fontSize: 13),
+        DownloadTooltip.excel(
+          child: ElevatedButton.icon(
+            onPressed:
+                () => ExportService.exportBailleursListExcel(
+                  bailleurs: _filteredBailleurs,
+                  context: context,
+                ),
+            icon: const DownloadIcon(
+              Icons.table_chart,
+              size: 16,
+              color: Colors.white,
+            ),
+            label: const Text('Excel'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kDownloadExcelColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              textStyle: const TextStyle(fontSize: 13),
+            ),
           ),
         ),
         if (_canCreate)

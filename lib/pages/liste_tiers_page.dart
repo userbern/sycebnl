@@ -8,6 +8,7 @@ import '../models/tiers.dart';
 import '../models/compte.dart';
 import '../models/user_session.dart';
 import '../services/export_service.dart';
+import '../widgets/download_button.dart';
 
 class ListeTiersPage extends StatefulWidget {
   final UserSession? userSession;
@@ -1541,56 +1542,68 @@ class _ListeTiersPageState extends State<ListeTiersPage> {
             icon: Icon(Icons.help_outline, color: Colors.grey.shade500),
           ),
         ],
-        ElevatedButton.icon(
-          onPressed: () {
-            final tiersList =
-                _filteredTiers
-                    .map(
-                      (t) => {
-                        'numeroCompte': t.numeroCompte,
-                        'intitule': t.intitule,
-                        'type': t.type.toLabel(),
-                        'compteCollectif': t.compteCollectif,
-                      },
-                    )
-                    .toList();
-            ExportService.exportTiersPDF(
-              tiers: tiersList,
-              context: context,
-              entiteNom: _entiteNom,
-            );
-          },
-          icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
-          label: const Text('PDF'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red.shade600,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            textStyle: const TextStyle(fontSize: 13),
+        DownloadTooltip.pdf(
+          child: ElevatedButton.icon(
+            onPressed: () {
+              final tiersList =
+                  _filteredTiers
+                      .map(
+                        (t) => {
+                          'numeroCompte': t.numeroCompte,
+                          'intitule': t.intitule,
+                          'type': t.type.toLabel(),
+                          'compteCollectif': t.compteCollectif,
+                        },
+                      )
+                      .toList();
+              ExportService.exportTiersPDF(
+                tiers: tiersList,
+                context: context,
+                entiteNom: _entiteNom,
+              );
+            },
+            icon: const DownloadIcon(
+              Icons.picture_as_pdf,
+              size: 16,
+              color: Colors.white,
+            ),
+            label: const Text('PDF'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kDownloadPdfColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              textStyle: const TextStyle(fontSize: 13),
+            ),
           ),
         ),
-        ElevatedButton.icon(
-          onPressed: () {
-            final tiersList =
-                _filteredTiers
-                    .map(
-                      (t) => {
-                        'numeroCompte': t.numeroCompte,
-                        'intitule': t.intitule,
-                        'type': t.type.toLabel(),
-                        'compteCollectif': t.compteCollectif,
-                      },
-                    )
-                    .toList();
-            ExportService.exportTiersExcel(tiers: tiersList, context: context);
-          },
-          icon: const Icon(Icons.table_chart, size: 16, color: Colors.white),
-          label: const Text('Excel'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green.shade700,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            textStyle: const TextStyle(fontSize: 13),
+        DownloadTooltip.excel(
+          child: ElevatedButton.icon(
+            onPressed: () {
+              final tiersList =
+                  _filteredTiers
+                      .map(
+                        (t) => {
+                          'numeroCompte': t.numeroCompte,
+                          'intitule': t.intitule,
+                          'type': t.type.toLabel(),
+                          'compteCollectif': t.compteCollectif,
+                        },
+                      )
+                      .toList();
+              ExportService.exportTiersExcel(tiers: tiersList, context: context);
+            },
+            icon: const DownloadIcon(
+              Icons.table_chart,
+              size: 16,
+              color: Colors.white,
+            ),
+            label: const Text('Excel'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kDownloadExcelColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              textStyle: const TextStyle(fontSize: 13),
+            ),
           ),
         ),
         if (_canCreate)

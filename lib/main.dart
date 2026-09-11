@@ -11,6 +11,8 @@ import 'services/database_service.dart';
 import 'services/dossier_crypto_service.dart';
 import 'services/export_service.dart';
 import 'services/file_association_service.dart';
+import 'services/network/accounting_server_service.dart';
+import 'services/network/network_connection_service.dart';
 import 'pages/splash_page.dart';
 import 'widgets/app_logo.dart';
 
@@ -239,6 +241,18 @@ class _MyAppState extends State<MyApp> with WindowListener {
 
   Future<void> _performClosingWork() async {
     final closeStopwatch = Stopwatch()..start();
+    if (NetworkConnectionService.instance.isConnected) {
+      await NetworkConnectionService.instance.disconnect();
+      debugPrint(
+          '[Fermeture] Session réseau fermée en ${closeStopwatch.elapsedMilliseconds} ms');
+      closeStopwatch.reset();
+    }
+    if (AccountingServerService.instance.isRunning) {
+      await AccountingServerService.instance.stop();
+      debugPrint(
+          '[Fermeture] Serveur réseau arrêté en ${closeStopwatch.elapsedMilliseconds} ms');
+      closeStopwatch.reset();
+    }
     if (DatabaseService.isConnected) {
       await DatabaseService.database.close();
       debugPrint(

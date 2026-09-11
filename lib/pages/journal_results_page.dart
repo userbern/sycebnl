@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
+import '../services/local_repository.dart';
+import '../widgets/download_button.dart';
 
 class JournalResultsPage extends StatefulWidget {
   final String? codeJournal;
@@ -50,7 +52,7 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
       if (!DatabaseService.isConnected)
         throw Exception('Base de donnees non connectee');
 
-      final db = DatabaseService.database;
+      const db = LocalRepository();
       final entiteRows = await db.query('entite', limit: 1);
       final rows = await db.rawQuery(_buildQuery(), _buildArgs());
 
@@ -213,20 +215,38 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
                     onPressed: _loadData,
                     icon: const Icon(Icons.refresh),
                   ),
-                  TextButton.icon(
-                    onPressed: _isLoading ? null : _exportPdf,
-                    icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
-                    label: const Text(
-                      'PDF',
-                      style: TextStyle(color: Colors.white),
+                  DownloadTooltip.pdf(
+                    child: TextButton.icon(
+                      onPressed: _isLoading ? null : _exportPdf,
+                      icon: const DownloadIcon(
+                        Icons.picture_as_pdf,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'PDF',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: TextButton.styleFrom(
+                        backgroundColor: kDownloadPdfColor,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ),
-                  TextButton.icon(
-                    onPressed: _isLoading ? null : _exportExcel,
-                    icon: const Icon(Icons.table_view, color: Colors.white),
-                    label: const Text(
-                      'Excel',
-                      style: TextStyle(color: Colors.white),
+                  DownloadTooltip.excel(
+                    child: TextButton.icon(
+                      onPressed: _isLoading ? null : _exportExcel,
+                      icon: const DownloadIcon(
+                        Icons.table_view,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'Excel',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: TextButton.styleFrom(
+                        backgroundColor: kDownloadExcelColor,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ),
                   TextButton.icon(
@@ -254,7 +274,7 @@ class _JournalResultsPageState extends State<JournalResultsPage> {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
                         'JOURNAL${_isAll ? '' : ' - ${widget.codeJournal}'}'
-                        ' (${widget.typeEtat == 'tiers' ? 'TIERS' : 'BASE'})',
+                        '${widget.typeEtat == 'tiers' ? ' (TIERS)' : ''}',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.blue.shade700,

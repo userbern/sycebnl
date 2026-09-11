@@ -4,6 +4,7 @@ import '../models/exercice.dart';
 import '../models/projet.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import '../services/local_repository.dart';
 import 'balance_resultat_page.dart';
 
 class BalanceComptesPage extends StatefulWidget {
@@ -254,7 +255,7 @@ class _BalanceComptesPageState extends State<BalanceComptesPage> {
 
       Exercice? exercice;
       if (widget.exerciceId != null) {
-        final results = await DatabaseService.database.query(
+        final results = await const LocalRepository().query(
           'exercice',
           where: 'id = ?',
           whereArgs: [widget.exerciceId],

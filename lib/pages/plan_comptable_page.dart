@@ -4,6 +4,7 @@ import '../models/compte.dart';
 import '../models/user_session.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
+import '../widgets/download_button.dart';
 import '../services/import_service.dart';
 
 class PlanComptablePage extends StatefulWidget {
@@ -1076,46 +1077,58 @@ class _PlanComptablePageState extends State<PlanComptablePage> {
             textStyle: const TextStyle(fontSize: 13),
           ),
         ),
-        ElevatedButton.icon(
-          onPressed: () {
-            final comptes = _filteredComptes.map((c) => {
-              'numeroCompte': c.numeroCompte,
-              'intitule': c.intitule,
-              'nature': c.nature.toLabel(),
-              'type': c.type.toLabel(),
-            }).toList();
-            ExportService.exportPlanComptablePDF(
-              comptes: comptes,
-              context: context,
-              entiteNom: _entiteNom,
-            );
-          },
-          icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
-          label: const Text('PDF'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red.shade600,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            textStyle: const TextStyle(fontSize: 13),
+        DownloadTooltip.pdf(
+          child: ElevatedButton.icon(
+            onPressed: () {
+              final comptes = _filteredComptes.map((c) => {
+                'numeroCompte': c.numeroCompte,
+                'intitule': c.intitule,
+                'nature': c.nature.toLabel(),
+                'type': c.type.toLabel(),
+              }).toList();
+              ExportService.exportPlanComptablePDF(
+                comptes: comptes,
+                context: context,
+                entiteNom: _entiteNom,
+              );
+            },
+            icon: const DownloadIcon(
+              Icons.picture_as_pdf,
+              size: 16,
+              color: Colors.white,
+            ),
+            label: const Text('PDF'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kDownloadPdfColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              textStyle: const TextStyle(fontSize: 13),
+            ),
           ),
         ),
-        ElevatedButton.icon(
-          onPressed: () {
-            final comptes = _filteredComptes.map((c) => {
-              'numeroCompte': c.numeroCompte,
-              'intitule': c.intitule,
-              'nature': c.nature.toLabel(),
-              'type': c.type.toLabel(),
-            }).toList();
-            ExportService.exportPlanComptableExcel(comptes: comptes, context: context);
-          },
-          icon: const Icon(Icons.table_chart, size: 16, color: Colors.white),
-          label: const Text('Excel'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green.shade700,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            textStyle: const TextStyle(fontSize: 13),
+        DownloadTooltip.excel(
+          child: ElevatedButton.icon(
+            onPressed: () {
+              final comptes = _filteredComptes.map((c) => {
+                'numeroCompte': c.numeroCompte,
+                'intitule': c.intitule,
+                'nature': c.nature.toLabel(),
+                'type': c.type.toLabel(),
+              }).toList();
+              ExportService.exportPlanComptableExcel(comptes: comptes, context: context);
+            },
+            icon: const DownloadIcon(
+              Icons.table_chart,
+              size: 16,
+              color: Colors.white,
+            ),
+            label: const Text('Excel'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kDownloadExcelColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              textStyle: const TextStyle(fontSize: 13),
+            ),
           ),
         ),
         // Bouton "Nouveau compte" mis en valeur

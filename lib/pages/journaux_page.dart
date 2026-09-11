@@ -9,6 +9,7 @@ import '../models/compte.dart';
 import '../models/user_session.dart';
 import '../utils/form_enter_shortcut.dart';
 import '../services/export_service.dart';
+import '../widgets/download_button.dart';
 import '../services/import_service.dart';
 
 class JournauxPage extends StatefulWidget {
@@ -397,58 +398,73 @@ class _JournauxPageState extends State<JournauxPage> {
             textStyle: const TextStyle(fontSize: 13),
           ),
         ),
-        ElevatedButton.icon(
-          onPressed: () {
-            final data =
-                _filteredJournaux
-                    .map(
-                      (j) => {
-                        'code': j.code,
-                        'intitule': j.intitule,
-                        'type': j.type.toLabel(),
-                        'compteTresorerie': j.compteTresorerie ?? '',
-                        'saisieAnalytique': j.saisieAnalytique,
-                      },
-                    )
-                    .toList();
-            ExportService.exportJournauxPDF(
-              journaux: data,
-              context: context,
-              entiteNom: _entiteNom,
-            );
-          },
-          icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
-          label: const Text('PDF'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red.shade600,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            textStyle: const TextStyle(fontSize: 13),
+        DownloadTooltip.pdf(
+          child: ElevatedButton.icon(
+            onPressed: () {
+              final data =
+                  _filteredJournaux
+                      .map(
+                        (j) => {
+                          'code': j.code,
+                          'intitule': j.intitule,
+                          'type': j.type.toLabel(),
+                          'compteTresorerie': j.compteTresorerie ?? '',
+                          'saisieAnalytique': j.saisieAnalytique,
+                        },
+                      )
+                      .toList();
+              ExportService.exportJournauxPDF(
+                journaux: data,
+                context: context,
+                entiteNom: _entiteNom,
+              );
+            },
+            icon: const DownloadIcon(
+              Icons.picture_as_pdf,
+              size: 16,
+              color: Colors.white,
+            ),
+            label: const Text('PDF'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kDownloadPdfColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              textStyle: const TextStyle(fontSize: 13),
+            ),
           ),
         ),
-        ElevatedButton.icon(
-          onPressed: () {
-            final data =
-                _filteredJournaux
-                    .map(
-                      (j) => {
-                        'code': j.code,
-                        'intitule': j.intitule,
-                        'type': j.type.toLabel(),
-                        'compteTresorerie': j.compteTresorerie ?? '',
-                        'saisieAnalytique': j.saisieAnalytique,
-                      },
-                    )
-                    .toList();
-            ExportService.exportJournauxExcel(journaux: data, context: context);
-          },
-          icon: const Icon(Icons.table_chart, size: 16, color: Colors.white),
-          label: const Text('Excel'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green.shade700,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            textStyle: const TextStyle(fontSize: 13),
+        DownloadTooltip.excel(
+          child: ElevatedButton.icon(
+            onPressed: () {
+              final data =
+                  _filteredJournaux
+                      .map(
+                        (j) => {
+                          'code': j.code,
+                          'intitule': j.intitule,
+                          'type': j.type.toLabel(),
+                          'compteTresorerie': j.compteTresorerie ?? '',
+                          'saisieAnalytique': j.saisieAnalytique,
+                        },
+                      )
+                      .toList();
+              ExportService.exportJournauxExcel(
+                journaux: data,
+                context: context,
+              );
+            },
+            icon: const DownloadIcon(
+              Icons.table_chart,
+              size: 16,
+              color: Colors.white,
+            ),
+            label: const Text('Excel'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kDownloadExcelColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              textStyle: const TextStyle(fontSize: 13),
+            ),
           ),
         ),
         if (_canCreate)
@@ -786,7 +802,7 @@ class _JournauxPageState extends State<JournauxPage> {
         ),
         const SizedBox(width: 16),
         Text(
-          '${_filteredJournaux.length} journal${_filteredJournaux.length > 1 ? 'aux' : ''}',
+          '${_filteredJournaux.length} journ${_filteredJournaux.length > 1 ? 'aux' : 'al'}',
           style: TextStyle(
             fontSize: 11,
             color: Colors.grey.shade500,
@@ -1180,7 +1196,7 @@ class _JournauxPageState extends State<JournauxPage> {
             return Column(
               children: [
                 Text(
-                  'Page $_currentPage / $totalPages  •  $totalItems journal${totalItems > 1 ? 'aux' : ''}',
+                  'Page $_currentPage / $totalPages  •  $totalItems journ${totalItems > 1 ? 'aux' : 'al'}',
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                 ),
                 const SizedBox(height: 8),
@@ -1209,7 +1225,7 @@ class _JournauxPageState extends State<JournauxPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Page $_currentPage sur $totalPages  •  $totalItems journal${totalItems > 1 ? 'aux' : ''}',
+                'Page $_currentPage sur $totalPages  •  $totalItems journ${totalItems > 1 ? 'aux' : 'al'}',
                 style: TextStyle(
                   fontSize: 13,
                   color: Colors.grey.shade700,
