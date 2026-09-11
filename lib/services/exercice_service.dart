@@ -1,7 +1,9 @@
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart' show ConflictAlgorithm;
 import '../models/compte.dart';
 import '../models/saisie_comptable.dart';
 import 'database_service.dart';
+import 'i_accounting_repository.dart';
+import 'local_repository.dart';
 
 /// Une ligne du journal des A-Nouveaux (report ou équilibrage).
 class AnLigne {
@@ -26,6 +28,9 @@ class AnPreview {
   final double totalCredit;
   final String? compteEquilibrage;
   final double montantEquilibrage;
+  /// Code du journal dans lequel les écritures de report ont été
+  /// enregistrées (choisi par l'utilisateur à la création de l'exercice).
+  final String? codeJournal;
 
   const AnPreview({
     required this.lignes,
@@ -33,6 +38,7 @@ class AnPreview {
     required this.totalCredit,
     required this.compteEquilibrage,
     required this.montantEquilibrage,
+    this.codeJournal,
   });
 
   bool get isEquilibre => (totalDebit - totalCredit).abs() <= 0.01;
@@ -54,13 +60,13 @@ class ExerciceOperationException implements Exception {
 /// La création avec report recalcule les soldes des comptes classes 1 à 5
 /// directement depuis les écritures de l'exercice précédent (aucune clôture
 /// préalable requise) et les inscrit comme écritures d'ouverture du nouvel
-/// exercice, taguées `code_journal = 'AN'`.
+/// exercice, dans le journal choisi par l'utilisateur (numéro de document
+/// `OUV-<code>`, voir [_documentReport]).
 ///
-/// `getAnPreview` reste disponible pour la consultation en lecture seule
-/// d'un éventuel journal AN généré par l'ancienne logique de clôture, sur
-/// des dossiers créés avant ce changement.
+/// `getAnPreview` reste disponible pour la consultation en lecture seule de
+/// ce journal de report, quel que soit le journal choisi.
 class ExerciceService {
-  static const String codeJournalAN = 'AN';
+  static const IAccountingRepository _repo = LocalRepository();
 
   static String _formatDateYMD(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}-'
@@ -180,7 +186,7 @@ class ExerciceService {
   /// comptable s'il n'existe pas encore (compte d'équilibrage libre choisi
   /// par l'utilisateur pour le report).
   static Future<void> _ensureCompteEquilibrage(
-    Transaction txn,
+    IAccountingRepository txn,
     String numeroCompte,
     String now,
   ) async {
@@ -206,21 +212,112 @@ class ExerciceService {
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
-  /// Lit le journal AN généré à la clôture de [exerciceId] et le restitue
-  /// sous forme d'aperçu (comptes reportés, total, compte d'équilibrage).
+  /// Agrège par dimension (projet/fonctionnement, sans distinction de
+  /// compte) les entrées de [ventilations] (résultat groupé par compte)
+  /// dont le montant net va dans le même sens que [ecart], pour les
+  /// reporter sur la ligne d'équilibre (résultat net de l'exercice
+  /// précédent).
+  static List<Map<String, Object?>> _aggregerVentilationsPourEquilibrage(
+    List<Map<String, Object?>> ventilations,
+    double ecart,
+  ) {
+    final parDimension = <String, Map<String, Object?>>{};
+    for (final v in ventilations) {
+      final netVentile = (v['net_ventile'] as num?)?.toDouble() ?? 0.0;
+      final memeSens = ecart > 0 ? netVentile > 0.01 : netVentile < -0.01;
+      if (!memeSens) continue;
+
+      final cle = [
+        v['type'],
+        v['id_projet'],
+        v['volet'],
+        v['id_bailleur'],
+        v['id_poste_budgetaire'],
+        v['id_ligne_budgetaire'],
+      ].join('|');
+
+      final existante = parDimension[cle];
+      if (existante == null) {
+        parDimension[cle] = {
+          'type': v['type'],
+          'id_projet': v['id_projet'],
+          'volet': v['volet'],
+          'id_bailleur': v['id_bailleur'],
+          'id_poste_budgetaire': v['id_poste_budgetaire'],
+          'id_ligne_budgetaire': v['id_ligne_budgetaire'],
+          'net_ventile': netVentile,
+        };
+      } else {
+        existante['net_ventile'] =
+            (existante['net_ventile'] as double) + netVentile;
+      }
+    }
+    return parDimension.values
+        .where((v) => ((v['net_ventile'] as double).abs()) > 0.01)
+        .toList();
+  }
+
+  /// Insère les [ventilations] (dimension + `net_ventile`) sur [ecritureId],
+  /// réduites proportionnellement si leur somme dépasse [montantLigne] (le
+  /// montant total de la ligne portée), afin de ne jamais sur-ventiler une
+  /// ligne reportée.
+  static Future<void> _insererVentilationsReport(
+    IAccountingRepository txn,
+    int ecritureId,
+    List<Map<String, Object?>> ventilations,
+    double montantLigne,
+    String now,
+  ) async {
+    if (ventilations.isEmpty) return;
+    final total = ventilations.fold<double>(
+      0.0,
+      (sum, v) => sum + ((v['net_ventile'] as num).toDouble()).abs(),
+    );
+    final scale =
+        (total > montantLigne && total > 0) ? montantLigne / total : 1.0;
+
+    for (final v in ventilations) {
+      final montant = ((v['net_ventile'] as num).toDouble()).abs() * scale;
+      if (montant <= 0.01) continue;
+      await txn.insert('ventilations_analytiques', {
+        'ecriture_id': ecritureId,
+        'type': v['type'],
+        'id_projet': v['id_projet'],
+        'volet': v['volet'],
+        'id_bailleur': v['id_bailleur'],
+        'id_poste_budgetaire': v['id_poste_budgetaire'],
+        'id_ligne_budgetaire': v['id_ligne_budgetaire'],
+        'montant_ventile': montant,
+        'created_at': now,
+        'updated_at': now,
+      });
+    }
+  }
+
+  /// Lit le journal de report généré à la création de [exerciceId] et le
+  /// restitue sous forme d'aperçu (comptes reportés, total, compte
+  /// d'équilibrage). Le journal utilisé n'est pas figé sur 'AN' : c'est
+  /// celui choisi par l'utilisateur à la création, identifié via le numéro
+  /// de document 'OUV-<code>' apposé sur les écritures de report (voir
+  /// [_documentReport]).
   static Future<AnPreview?> getAnPreview(int exerciceId) async {
     await DatabaseService.ensureDatabaseOpen();
 
-    final periodeRows = await DatabaseService.database.query(
-      'journaux_periodes',
-      where: 'code_journal = ? AND exercice_id = ?',
-      whereArgs: [codeJournalAN, exerciceId],
-      limit: 1,
+    final periodeRows = await _repo.rawQuery(
+      '''
+      SELECT jp.id, jp.code_journal
+      FROM journaux_periodes jp
+      JOIN ecritures e ON e.journal_periode_id = jp.id
+      WHERE jp.exercice_id = ? AND e.numero_document LIKE 'OUV-%'
+      LIMIT 1
+      ''',
+      [exerciceId],
     );
     if (periodeRows.isEmpty) return null;
 
     final periodeId = periodeRows.first['id'] as int;
-    final ecritures = await DatabaseService.database.rawQuery(
+    final codeJournal = periodeRows.first['code_journal']?.toString();
+    final ecritures = await _repo.rawQuery(
       '''
       SELECT e.numero_compte, e.libelle, e.montant_debit, e.montant_credit,
              COALESCE(c.intitule, e.libelle) AS intitule_compte
@@ -264,6 +361,7 @@ class ExerciceService {
       totalCredit: totalCredit,
       compteEquilibrage: compteEquilibrage,
       montantEquilibrage: montantEquilibrage,
+      codeJournal: codeJournal,
     );
   }
 
@@ -276,7 +374,7 @@ class ExerciceService {
   ) async {
     await DatabaseService.ensureDatabaseOpen();
 
-    final soldes = await DatabaseService.database.rawQuery(
+    final soldes = await _repo.rawQuery(
       '''
       SELECT COALESCE(SUM(e.montant_debit - e.montant_credit), 0) AS solde
       FROM compte c
@@ -315,7 +413,7 @@ class ExerciceService {
   }) async {
     await DatabaseService.ensureDatabaseOpen();
 
-    final soldes = await DatabaseService.database.rawQuery(
+    final soldes = await _repo.rawQuery(
       '''
       SELECT
         c.numero_compte,
@@ -368,7 +466,7 @@ class ExerciceService {
       totalDebit += debit;
       totalCredit += credit;
 
-      final compteRows = await DatabaseService.database.query(
+      final compteRows = await _repo.query(
         'compte',
         where: 'numero_compte = ? AND deleted_at IS NULL',
         whereArgs: [compteEquilibrage],
@@ -426,7 +524,7 @@ class ExerciceService {
     }
 
     await DatabaseService.ensureDatabaseOpen();
-    final rows = await DatabaseService.database.query(
+    final rows = await _repo.query(
       'ecritures',
       where: 'journal_periode_id = ? AND numero_document = ?',
       whereArgs: [periode.id, _documentReport(exercice['code'].toString())],
@@ -464,7 +562,7 @@ class ExerciceService {
     if (exercice == null) return null;
 
     await DatabaseService.ensureDatabaseOpen();
-    final rows = await DatabaseService.database.query(
+    final rows = await _repo.query(
       'ecritures',
       where: 'journal_periode_id = ? AND numero_document = ? AND libelle LIKE ?',
       whereArgs: [
@@ -513,7 +611,7 @@ class ExerciceService {
 
     late AnPreview preview;
 
-    await DatabaseService.database.transaction((txn) async {
+    await _repo.transaction((txn) async {
       await txn.delete(
         'ecritures',
         where: 'journal_periode_id = ? AND numero_document = ?',
@@ -535,6 +633,31 @@ class ExerciceService {
         GROUP BY c.numero_compte, c.intitule
         HAVING ABS(solde) > 0.01
         ORDER BY c.numero_compte
+        ''',
+        [precedentId],
+      );
+
+      final ventilations = await txn.rawQuery(
+        '''
+        SELECT
+          e.numero_compte,
+          v.type,
+          v.id_projet,
+          v.volet,
+          v.id_bailleur,
+          v.id_poste_budgetaire,
+          v.id_ligne_budgetaire,
+          SUM(CASE WHEN e.montant_debit > 0 THEN v.montant_ventile
+                   ELSE -v.montant_ventile END) AS net_ventile
+        FROM ventilations_analytiques v
+        JOIN ecritures e ON e.id = v.ecriture_id
+        JOIN journaux_periodes jp ON jp.id = e.journal_periode_id
+        WHERE jp.exercice_id = ?
+          AND v.deleted_at IS NULL
+          AND substr(e.numero_compte, 1, 1) IN ('1', '2', '3', '4', '5')
+        GROUP BY e.numero_compte, v.type, v.id_projet, v.volet,
+                 v.id_bailleur, v.id_poste_budgetaire, v.id_ligne_budgetaire
+        HAVING ABS(net_ventile) > 0.01
         ''',
         [precedentId],
       );
@@ -569,7 +692,16 @@ class ExerciceService {
           montantCredit: credit,
         ));
 
-        await txn.insert('ecritures', {
+        // Ventilations du compte allant dans le même sens que le solde
+        // reporté (seul un montant net cohérent avec ce sens peut être
+        // exprimé comme portion positive de la nouvelle ligne).
+        final ventilationsCompte = ventilations.where((v) {
+          if (v['numero_compte'] != numeroCompte) return false;
+          final netVentile = (v['net_ventile'] as num?)?.toDouble() ?? 0.0;
+          return solde > 0 ? netVentile > 0.01 : netVentile < -0.01;
+        }).toList();
+
+        final ecritureId = await txn.insert('ecritures', {
           'journal_periode_id': periode.id,
           'numero_enregistrement': numeroEnregistrement++,
           'jour': dateDebut.day,
@@ -581,10 +713,18 @@ class ExerciceService {
           'libelle': 'Ouverture $code',
           'montant_debit': debit,
           'montant_credit': credit,
-          'is_ventilee': 0,
+          'is_ventilee': ventilationsCompte.isEmpty ? 0 : 1,
           'created_at': now,
           'updated_at': now,
         });
+
+        await _insererVentilationsReport(
+          txn,
+          ecritureId,
+          ventilationsCompte,
+          debit + credit,
+          now,
+        );
       }
 
       String? compteEquilibrageUtilise;
@@ -618,7 +758,10 @@ class ExerciceService {
           montantCredit: credit,
         ));
 
-        await txn.insert('ecritures', {
+        final ventilationsEquilibrage =
+            _aggregerVentilationsPourEquilibrage(ventilations, ecart);
+
+        final ecritureEquilibrageId = await txn.insert('ecritures', {
           'journal_periode_id': periode.id,
           'numero_enregistrement': numeroEnregistrement++,
           'jour': dateDebut.day,
@@ -632,10 +775,18 @@ class ExerciceService {
               : 'Report à nouveau débiteur (déficit) $code',
           'montant_debit': debit,
           'montant_credit': credit,
-          'is_ventilee': 0,
+          'is_ventilee': ventilationsEquilibrage.isEmpty ? 0 : 1,
           'created_at': now,
           'updated_at': now,
         });
+
+        await _insererVentilationsReport(
+          txn,
+          ecritureEquilibrageId,
+          ventilationsEquilibrage,
+          debit + credit,
+          now,
+        );
       }
 
       // Recalcule les totaux agrégés de la période à partir de TOUTES ses
@@ -725,7 +876,7 @@ class ExerciceService {
 
     final dureeMois = _dureeMois(dateDebut, dateFin);
 
-    await DatabaseService.database.transaction((txn) async {
+    await _repo.transaction((txn) async {
       final soldes = await txn.rawQuery(
         '''
         SELECT
@@ -745,13 +896,46 @@ class ExerciceService {
         [exercicePrecedentId],
       );
 
+      // Ventilations analytiques nettes (débit − crédit) par compte reporté,
+      // pour reporter également la répartition projet/fonctionnement sur
+      // les nouvelles écritures d'ouverture.
+      final ventilations = await txn.rawQuery(
+        '''
+        SELECT
+          e.numero_compte,
+          v.type,
+          v.id_projet,
+          v.volet,
+          v.id_bailleur,
+          v.id_poste_budgetaire,
+          v.id_ligne_budgetaire,
+          SUM(CASE WHEN e.montant_debit > 0 THEN v.montant_ventile
+                   ELSE -v.montant_ventile END) AS net_ventile
+        FROM ventilations_analytiques v
+        JOIN ecritures e ON e.id = v.ecriture_id
+        JOIN journaux_periodes jp ON jp.id = e.journal_periode_id
+        WHERE jp.exercice_id = ?
+          AND v.deleted_at IS NULL
+          AND substr(e.numero_compte, 1, 1) IN ('1', '2', '3', '4', '5')
+        GROUP BY e.numero_compte, v.type, v.id_projet, v.volet,
+                 v.id_bailleur, v.id_poste_budgetaire, v.id_ligne_budgetaire
+        HAVING ABS(net_ventile) > 0.01
+        ''',
+        [exercicePrecedentId],
+      );
+
       final now = DateTime.now().toIso8601String();
+      // Le nouvel exercice devient l'exercice en cours.
+      await txn.update(
+        'exercice',
+        {'is_active': 0, 'updated_at': now},
+      );
       final nouvelExerciceId = await txn.insert('exercice', {
         'code': code,
         'date_debut': _formatDateYMD(dateDebut),
         'date_fin': _formatDateYMD(dateFin),
         'duree_mois': dureeMois,
-        'is_active': 0,
+        'is_active': 1,
         'is_cloture': 0,
         'created_at': now,
         'updated_at': now,
@@ -789,7 +973,16 @@ class ExerciceService {
           totalDebit += debit;
           totalCredit += credit;
 
-          await txn.insert('ecritures', {
+          // Ventilations du compte allant dans le même sens que le solde
+          // reporté (seul un montant net cohérent avec ce sens peut être
+          // exprimé comme portion positive de la nouvelle ligne).
+          final ventilationsCompte = ventilations.where((v) {
+            if (v['numero_compte'] != numeroCompte) return false;
+            final netVentile = (v['net_ventile'] as num?)?.toDouble() ?? 0.0;
+            return solde > 0 ? netVentile > 0.01 : netVentile < -0.01;
+          }).toList();
+
+          final ecritureId = await txn.insert('ecritures', {
             'journal_periode_id': nouvellePeriodeId,
             'numero_enregistrement': numeroEnregistrement++,
             'jour': dateDebut.day,
@@ -801,10 +994,18 @@ class ExerciceService {
             'libelle': 'Ouverture $code',
             'montant_debit': debit,
             'montant_credit': credit,
-            'is_ventilee': 0,
+            'is_ventilee': ventilationsCompte.isEmpty ? 0 : 1,
             'created_at': now,
             'updated_at': now,
           });
+
+          await _insererVentilationsReport(
+            txn,
+            ecritureId,
+            ventilationsCompte,
+            debit + credit,
+            now,
+          );
         }
 
         final ecart = totalDebit - totalCredit;
@@ -817,7 +1018,10 @@ class ExerciceService {
           totalDebit += debit;
           totalCredit += credit;
 
-          await txn.insert('ecritures', {
+          final ventilationsEquilibrage =
+              _aggregerVentilationsPourEquilibrage(ventilations, ecart);
+
+          final ecritureEquilibrageId = await txn.insert('ecritures', {
             'journal_periode_id': nouvellePeriodeId,
             'numero_enregistrement': numeroEnregistrement++,
             'jour': dateDebut.day,
@@ -831,10 +1035,18 @@ class ExerciceService {
                 : 'Report à nouveau débiteur (déficit) $code',
             'montant_debit': debit,
             'montant_credit': credit,
-            'is_ventilee': 0,
+            'is_ventilee': ventilationsEquilibrage.isEmpty ? 0 : 1,
             'created_at': now,
             'updated_at': now,
           });
+
+          await _insererVentilationsReport(
+            txn,
+            ecritureEquilibrageId,
+            ventilationsEquilibrage,
+            debit + credit,
+            now,
+          );
         }
 
         await txn.update(
@@ -867,15 +1079,19 @@ class ExerciceService {
     _validerContinuiteApres(dateDebut, exercices);
 
     final now = DateTime.now().toIso8601String();
-    await DatabaseService.database.insert('exercice', {
-      'code': code,
-      'date_debut': _formatDateYMD(dateDebut),
-      'date_fin': _formatDateYMD(dateFin),
-      'duree_mois': _dureeMois(dateDebut, dateFin),
-      'is_active': 0,
-      'is_cloture': 0,
-      'created_at': now,
-      'updated_at': now,
+    await _repo.transaction((txn) async {
+      // Le nouvel exercice devient l'exercice en cours.
+      await txn.update('exercice', {'is_active': 0, 'updated_at': now});
+      await txn.insert('exercice', {
+        'code': code,
+        'date_debut': _formatDateYMD(dateDebut),
+        'date_fin': _formatDateYMD(dateFin),
+        'duree_mois': _dureeMois(dateDebut, dateFin),
+        'is_active': 1,
+        'is_cloture': 0,
+        'created_at': now,
+        'updated_at': now,
+      });
     });
   }
 
@@ -900,7 +1116,7 @@ class ExerciceService {
     _validerContinuiteAvant(dateFin, exercices);
 
     final now = DateTime.now().toIso8601String();
-    await DatabaseService.database.insert('exercice', {
+    await _repo.insert('exercice', {
       'code': code,
       'date_debut': _formatDateYMD(dateDebut),
       'date_fin': _formatDateYMD(dateFin),

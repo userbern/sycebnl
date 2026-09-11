@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../services/database_service.dart';
 import '../services/auth_service_local.dart';
 import '../services/dossier_crypto_service.dart';
@@ -21,8 +20,6 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
   final _loginFocusNode = FocusNode();
   bool _isLoading = false;
   bool _obscurePassword = true;
-  List<Map<String, dynamic>> _users = [];
-  String? _selectedLogin;
   bool _isLoadingUsers = true;
   bool _isEncrypted = false;
 
@@ -34,43 +31,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
 
   Future<void> _init() async {
     _isEncrypted = await DossierCryptoService.isFileEncrypted(widget.filePath);
-    if (_isEncrypted) {
-      // Le fichier réel est chiffré : impossible de lire la liste des
-      // utilisateurs avant d'avoir déchiffré avec le mot de passe. Le login
-      // sera saisi manuellement (repli existant : voir _users vide ci-dessous).
-      if (mounted) setState(() => _isLoadingUsers = false);
-      return;
-    }
-    await _loadUsers();
-  }
-
-  Future<void> _loadUsers() async {
-    try {
-      // Ouvrir temporairement la base de données pour lire les utilisateurs
-      await DatabaseService.initializeFfi();
-      final db = await databaseFactoryFfi.openDatabase(widget.filePath);
-      final users = await db.query(
-        'utilisateur',
-        where: 'is_active = 1 AND deleted_at IS NULL',
-        orderBy: 'login ASC',
-      );
-      await db.close();
-
-      if (mounted) {
-        setState(() {
-          _users = users;
-          _isLoadingUsers = false;
-          if (_users.isNotEmpty) {
-            _selectedLogin = _users.first['login'] as String;
-            _loginController.text = _selectedLogin!;
-          }
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingUsers = false);
-      }
-    }
+    if (mounted) setState(() => _isLoadingUsers = false);
   }
 
   @override
@@ -83,7 +44,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
 
   Future<void> _login() async {
     if (_loginController.text.isEmpty) {
-      _showError('Veuillez saisir ou sélectionner un login');
+      _showError('Veuillez saisir un login');
       return;
     }
 
@@ -108,18 +69,6 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
           password: _passwordController.text,
         );
         openPath = decrypted.tempPath;
-
-        // La liste des utilisateurs n'a pu être chargée qu'après déchiffrement.
-        if (_users.isEmpty) {
-          await DatabaseService.initializeFfi();
-          final db = await databaseFactoryFfi.openDatabase(openPath);
-          _users = await db.query(
-            'utilisateur',
-            where: 'is_active = 1 AND deleted_at IS NULL',
-            orderBy: 'login ASC',
-          );
-          await db.close();
-        }
       }
 
       // Ouvrir la base de données
@@ -168,14 +117,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
       ),
     );
     if (newPasswordSet == true && mounted) {
-      // Le mot de passe a changé : réinitialiser le formulaire. Le dossier
-      // reste chiffré, la liste des utilisateurs sera rechargée après le
-      // prochain déchiffrement réussi dans _login().
       _passwordController.clear();
-      setState(() {
-        _users = [];
-        _selectedLogin = null;
-      });
     }
   }
 
@@ -328,97 +270,25 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                             top: 10,
                             bottom: 10,
                           ),
-                          child:
-                              _users.isNotEmpty
-                                  ? DropdownButtonHideUnderline(
-                                    child: DropdownButtonFormField<String>(
-                                      value: _selectedLogin,
-                                      isExpanded: true,
-                                      decoration: InputDecoration(
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          borderSide: BorderSide(
-                                            color: Colors.grey.shade300,
-                                          ),
-                                        ),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          borderSide: BorderSide(
-                                            color: Colors.grey.shade300,
-                                          ),
-                                        ),
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 10,
-                                            ),
-                                        filled: true,
-                                        fillColor: Colors.white,
-                                        isDense: true,
-                                      ),
-                                      items: [
-                                        ..._users.map(
-                                          (u) => DropdownMenuItem(
-                                            value: u['login'] as String,
-                                            child: Text(
-                                              u['login'] as String,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const DropdownMenuItem(
-                                          value: '__manual__',
-                                          child: Text(
-                                            'Saisir manuellement…',
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                      onChanged:
-                                          _isLoading
-                                              ? null
-                                              : (v) {
-                                                setState(() {
-                                                  if (v == '__manual__') {
-                                                    _selectedLogin = null;
-                                                    _loginController.clear();
-                                                  } else {
-                                                    _selectedLogin = v;
-                                                    _loginController.text = v!;
-                                                  }
-                                                });
-                                              },
-                                    ),
-                                  )
-                                  : TextField(
-                                    controller: _loginController,
-                                    focusNode: _loginFocusNode,
-                                    autofocus: true,
-                                    style: const TextStyle(fontSize: 13),
-                                    decoration: InputDecoration(
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 10,
-                                          ),
-                                      filled: true,
-                                      fillColor: Colors.white,
-                                      isDense: true,
-                                    ),
-                                    enabled: !_isLoading,
-                                  ),
+                          child: TextField(
+                            controller: _loginController,
+                            focusNode: _loginFocusNode,
+                            autofocus: true,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                              isDense: true,
+                            ),
+                            enabled: !_isLoading,
+                          ),
                         ),
                       ],
                     ),
@@ -438,74 +308,6 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                         ),
                       ],
                     ),
-
-                    // Ligne saisie manuelle (si sélectionné)
-                    if (_selectedLogin == null && _users.isNotEmpty) ...[
-                      TableRow(
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                            child: _label('Login', Icons.edit_outlined),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              right: 16,
-                              top: 10,
-                              bottom: 10,
-                            ),
-                            child: TextField(
-                              controller: _loginController,
-                              autofocus: true,
-                              style: const TextStyle(fontSize: 13),
-                              decoration: InputDecoration(
-                                hintText: 'Entrez votre login',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: Colors.orange.shade300,
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(
-                                    color: Colors.orange.shade300,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                                filled: true,
-                                fillColor: Colors.white,
-                                isDense: true,
-                              ),
-                              enabled: !_isLoading,
-                            ),
-                          ),
-                        ],
-                      ),
-                      TableRow(
-                        children: [
-                          Divider(
-                            height: 1,
-                            thickness: 1,
-                            color: Colors.grey.shade200,
-                          ),
-                          Divider(
-                            height: 1,
-                            thickness: 1,
-                            color: Colors.grey.shade200,
-                          ),
-                        ],
-                      ),
-                    ],
 
                     // Ligne Mot de passe
                     TableRow(

@@ -8,6 +8,8 @@ import '../widgets/app_icon.dart';
 import 'new_file_wizard_page.dart';
 import 'password_login_page.dart';
 import 'home_page.dart';
+import 'network_connect_page.dart';
+import 'network_session_page.dart';
 import '../models/user_session.dart';
 
 class WelcomePage extends StatefulWidget {
@@ -135,14 +137,31 @@ class _WelcomePageState extends State<WelcomePage> {
     );
   }
 
+  Future<void> _connectToNetwork() async {
+    final userSession = await Navigator.push<UserSession>(
+      context,
+      MaterialPageRoute(builder: (context) => const NetworkConnectPage()),
+    );
+
+    if (userSession != null) {
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => NetworkSessionPage(userSession: userSession),
+        ),
+      );
+    }
+  }
+
   Future<void> _createNewFile() async {
-    final result = await Navigator.push<String>(
+    final result = await Navigator.push<NewFileResult>(
       context,
       MaterialPageRoute(builder: (context) => const NewFileWizardPage()),
     );
 
     if (result != null) {
-      await _openFileSuccess(result);
+      await _openFileSuccess(result.path, userSession: result.userSession);
     }
   }
 
@@ -258,6 +277,26 @@ class _WelcomePageState extends State<WelcomePage> {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: _connectToNetwork,
+                        icon: Icon(
+                          Icons.wifi_tethering,
+                          size: 24,
+                          color: Colors.blue.shade400,
+                        ),
+                        label: Text(
+                          'Se connecter à une base réseau',
+                          style: TextStyle(fontSize: 16, color: Colors.blue.shade400),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.all(16),
+                          side: BorderSide(color: Colors.blue, width: 2),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
                       ),
 
                       const SizedBox(height: 32),

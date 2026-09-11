@@ -4,6 +4,7 @@ import '../models/exercice.dart';
 import '../models/journal.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import '../services/local_repository.dart';
 import 'journal_results_page.dart';
 
 class JournalPage extends StatefulWidget {
@@ -38,7 +39,7 @@ class _JournalPageState extends State<JournalPage> {
         throw Exception('Base de donnees non connectee');
       }
 
-      final db = DatabaseService.database;
+      const db = LocalRepository();
       final journalRows = await db.rawQuery(
         'SELECT * FROM journal ORDER BY code ASC',
       );

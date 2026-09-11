@@ -36,6 +36,8 @@ class _DossierSecurityPageState extends State<DossierSecurityPage> {
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _regenCurrentPasswordController = TextEditingController();
+  final _enablePasswordController = TextEditingController();
+  final _enableConfirmPasswordController = TextEditingController();
 
   bool get _isAdmin => widget.userSession?.isAdmin == true;
 
@@ -51,6 +53,8 @@ class _DossierSecurityPageState extends State<DossierSecurityPage> {
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     _regenCurrentPasswordController.dispose();
+    _enablePasswordController.dispose();
+    _enableConfirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -72,6 +76,59 @@ class _DossierSecurityPageState extends State<DossierSecurityPage> {
         _error = e.toString();
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _enableEncryption() async {
+    final realPath = DatabaseService.currentDatabasePath;
+    if (realPath == null) {
+      _showMessage('Aucun dossier ouvert', isError: true);
+      return;
+    }
+    final password = _enablePasswordController.text;
+    if (password.isEmpty) {
+      _showMessage('Veuillez saisir un mot de passe', isError: true);
+      return;
+    }
+    if (password != _enableConfirmPasswordController.text) {
+      _showMessage('Les mots de passe ne correspondent pas', isError: true);
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final (recoveryKey, dossierUuid) =
+          await DatabaseService.enableDossierEncryption(realPath, password);
+
+      // enableDossierEncryption() ferme la base et chiffre le fichier sur
+      // disque : il faut la rouvrir en mode déchiffré, comme le ferait
+      // password_login_page à la prochaine connexion.
+      final decrypted =
+          await DossierCryptoService.decryptToTemp(realPath, password);
+      DossierCryptoService.registerOpenSession(
+        tempPath: decrypted.tempPath,
+        realPath: realPath,
+        password: password,
+      );
+      await DatabaseService.openDatabase(decrypted.tempPath);
+
+      _enablePasswordController.clear();
+      _enableConfirmPasswordController.clear();
+
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => RecoveryKeyDisplayPage(
+            dossierUuid: dossierUuid,
+            recoveryKey: recoveryKey,
+          ),
+        ),
+      );
+      if (mounted) await _load();
+    } catch (e) {
+      _showMessage('Erreur: ${e.toString()}', isError: true);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -254,12 +311,46 @@ class _DossierSecurityPageState extends State<DossierSecurityPage> {
               _sectionCard(
                 title: 'Chiffrement',
                 icon: Icons.lock_open,
-                child: const Text(
-                  'Ce dossier n\'a pas été créé avec le chiffrement activé. '
-                  'Le changement de mot de passe et la clé de récupération ne '
-                  'sont disponibles que pour les dossiers créés avec un mot '
-                  'de passe (module Sécurité).',
-                  style: TextStyle(color: Colors.grey),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Ce dossier n\'a pas été créé avec le chiffrement '
+                      'activé. Vous pouvez l\'activer maintenant en '
+                      'définissant un mot de passe de dossier : le fichier '
+                      'sera alors chiffré et une clé de récupération vous '
+                      'sera affichée une seule fois.',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _enablePasswordController,
+                      obscureText: true,
+                      enabled: !_isSaving,
+                      decoration: const InputDecoration(
+                        labelText: 'Mot de passe du dossier',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _enableConfirmPasswordController,
+                      obscureText: true,
+                      enabled: !_isSaving,
+                      decoration: const InputDecoration(
+                        labelText: 'Confirmer le mot de passe',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: _isSaving ? null : _enableEncryption,
+                      icon: const Icon(Icons.lock_outline),
+                      label: const Text('Activer le chiffrement'),
+                    ),
+                  ],
                 ),
               )
             else ...[

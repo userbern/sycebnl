@@ -5,6 +5,10 @@ import '../models/user_session.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/exercice_service.dart';
+import '../services/export_service.dart';
+import '../services/local_repository.dart';
+import '../widgets/download_button.dart';
+import '../utils/format_utils.dart';
 
 enum _ModeCreation { avecReport, sansReport, anterieur }
 
@@ -41,6 +45,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
   final _compteEquilibrageController = TextEditingController();
   List<Compte> _comptes = [];
   Future<({double totalDebit, double totalCredit})>? _totauxReportFuture;
+  Map<String, dynamic>? _entite;
 
   late int selectedDebutDay, selectedDebutMonth, selectedDebutYear;
   late int selectedFinDay, selectedFinMonth, selectedFinYear;
@@ -63,6 +68,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     _loadExercices();
     _loadJournaux();
     _loadComptes();
+    _loadEntite();
   }
 
   @override
@@ -98,7 +104,28 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     }
   }
 
+  Future<void> _loadEntite() async {
+    try {
+      if (!DatabaseService.isConnected) return;
+      final rows = await const LocalRepository().query('entite', limit: 1);
+      if (!mounted) return;
+      setState(() => _entite = rows.isNotEmpty ? rows.first : null);
+    } catch (_) {}
+  }
+
   // ── Computed ────────────────────────────────────────────────────────────────
+
+  /// Nom du journal choisi pour le report, tel qu'affiché dans les exports
+  /// (code + intitulé), ou `null` si aucun journal n'est sélectionné.
+  /// Utilise un tiret simple (et non le tiret cadratin de [_journalLabel])
+  /// pour rester lisible dans les polices PDF/Excel.
+  String? get _journalSelectionneLabel {
+    if (_journalSelectionne == null) return null;
+    for (final j in _journaux) {
+      if (j.code == _journalSelectionne) return '${j.code} - ${j.intitule}';
+    }
+    return _journalSelectionne;
+  }
 
   DateTime get _dateDebut =>
       DateTime(selectedDebutYear, selectedDebutMonth, selectedDebutDay);
@@ -150,6 +177,30 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
   /// Message d'erreur si la période saisie ne chaîne pas exactement
   /// (sans trou ni chevauchement) avec l'exercice adjacent existant, ou
   /// `null` si tout est cohérent.
+  int? _codeAsInt(dynamic code) => int.tryParse(code?.toString().trim() ?? '');
+
+  /// Prochain code d'exercice suggéré (dernier code existant + 1), ou `null`
+  /// si aucun exercice existant n'a de code numérique exploitable.
+  String? get _codeSuivantSuggere {
+    final codes = _exercices
+        .map((e) => _codeAsInt(e['code']))
+        .whereType<int>()
+        .toList();
+    if (codes.isEmpty) return null;
+    return (codes.reduce((a, b) => a > b ? a : b) + 1).toString();
+  }
+
+  /// Code d'exercice antérieur suggéré (premier code existant - 1), ou
+  /// `null` si aucun exercice existant n'a de code numérique exploitable.
+  String? get _codeAnterieurSuggere {
+    final codes = _exercices
+        .map((e) => _codeAsInt(e['code']))
+        .whereType<int>()
+        .toList();
+    if (codes.isEmpty) return null;
+    return (codes.reduce((a, b) => a < b ? a : b) - 1).toString();
+  }
+
   String? get _erreurContinuite {
     if (_mode == _ModeCreation.anterieur) {
       final plusAncien = _plusAncienDebut;
@@ -233,6 +284,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
       _exercicePrecedentId = dernier['id'] as int;
       _journalSelectionne = null;
       _compteEquilibrageController.clear();
+      _anneeController.text = _codeSuivantSuggere ?? '';
       _totauxReportFuture =
           ExerciceService.calculerTotauxReport(dernier['id'] as int);
       selectedDebutDay = debut.day;
@@ -266,6 +318,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     setState(() {
       _mode = _ModeCreation.sansReport;
       _datesModifieesManuellement = false;
+      _anneeController.text = _codeSuivantSuggere ?? '';
       _step = 1;
     });
   }
@@ -288,6 +341,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     setState(() {
       _mode = _ModeCreation.anterieur;
       _datesModifieesManuellement = false;
+      _anneeController.text = _codeAnterieurSuggere ?? '';
       _step = 1;
     });
   }
@@ -501,7 +555,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
         return 'Veuillez choisir le journal de report.';
       }
       if (_compteEquilibrageController.text.trim().isEmpty) {
-        return 'Veuillez saisir le compte d\'équilibrage.';
+        return 'Veuillez saisir le compte d\'équilibre.';
       }
     }
     return null;
@@ -636,18 +690,27 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
       children: [
         _buildHeader(),
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720),
-                child: switch (_step) {
-                  1 => _buildStepDates(),
-                  2 => _buildStepRecap(),
-                  _ => _buildStepChoixMode(),
-                },
-              ),
-            ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 720),
+                        child: switch (_step) {
+                          1 => _buildStepDates(),
+                          2 => _buildStepRecap(),
+                          _ => _buildStepChoixMode(),
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -674,9 +737,9 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
       2: 'Récapitulatif des reports',
     };
     const subtitles = {
-      0: 'Choisissez comment créer ce nouvel exercice',
+      0: 'Choisissez les options ci-dessous',
       1: 'Définissez les dates de début et de fin',
-      2: 'Vérifiez les soldes à reporter avant de confirmer',
+      2: '',
     };
     return Container(
       width: double.infinity,
@@ -736,8 +799,8 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           color: Colors.blue,
           title: 'Créer un exercice avec report',
           description:
-              'Reprend les soldes de l\'exercice précédent (comptes classes '
-              '1 à 5)',
+              'Reprend les soldes des comptes (classe '
+              '1 à 5) vers le nouvel exercice.',
           onTap: _choisirAvecReport,
         ),
         const SizedBox(height: 12),
@@ -746,7 +809,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           color: Colors.green,
           title: 'Créer un exercice sans report',
           description:
-              'Crée un exercice totalement vide, sans compte d\'ouverture.',
+              'Crée un nouvel exercice sans les soldes d\'ouverture.',
           onTap: _choisirSansReport,
         ),
         const SizedBox(height: 12),
@@ -755,8 +818,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           color: Colors.purple,
           title: 'Créer un exercice antérieur',
           description:
-              'Ajoute un exercice plus ancien que ceux déjà présents (ex : '
-              'ajouter 2024 alors que 2025 existe déjà).',
+              'Ajoute un exercice plus ancien que ceux déjà présents.',
           onTap: _choisirAnterieur,
         ),
       ],
@@ -837,7 +899,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                         color: Colors.white,
                       ),
                 label: Text(_mode == _ModeCreation.avecReport
-                    ? 'Voir le récapitulatif'
+                    ? 'Consulter la situation d\'ouverture'
                     : 'Créer l\'exercice'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 13),
@@ -861,7 +923,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Code de l\'exercice',
+          'Exercice',
           style: TextStyle(
               fontSize: 13,
               color: Colors.grey.shade700,
@@ -873,7 +935,6 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           focusNode: _anneeFocusNode,
           onChanged: _onCodeChanged,
           decoration: InputDecoration(
-            hintText: 'Ex : 2025, EX-2025, AN2025…',
             prefixIcon:
                 Icon(Icons.tag, size: 18, color: Colors.grey.shade400),
             border: OutlineInputBorder(
@@ -1035,7 +1096,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
         _buildSoldeTotalBanner(),
         const SizedBox(height: 12),
         Text(
-          'Compte d\'équilibrage',
+          'Compte d\'équilibre',
           style: TextStyle(
               fontSize: 13,
               color: Colors.grey.shade700,
@@ -1059,9 +1120,10 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
             return TextField(
               controller: controller,
               focusNode: focusNode,
-              onChanged: (v) => _compteEquilibrageController.text = v,
+              onChanged: (v) =>
+                  setState(() => _compteEquilibrageController.text = v),
               decoration: _fieldDecoration(
-                hint: 'Ex : 120000',
+                hint: 'Veuillez saisir le numéro de compte',
                 icon: Icons.account_balance_outlined,
               ),
             );
@@ -1075,12 +1137,212 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
           ),
         ),
         const SizedBox(height: 6),
-        Text(
-          'Compte sur lequel imputer l\'écart de balancement (excédent ou '
-          'déficit). Créé automatiquement s\'il n\'existe pas encore.',
-          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-        ),
+        if (_compteEquilibrageIntrouvable) ...[
+          InkWell(
+            onTap: () => _showCreateCompteDialog(
+              _compteEquilibrageController.text.trim(),
+            ),
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.add_circle_outline,
+                      size: 15, color: Colors.blue.shade600),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Ce compte n\'existe pas. Créer le compte '
+                    '"${_compteEquilibrageController.text.trim()}"',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade600,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ] else
+          Text(
+            'Compte de résultat net (Excédent ou déficit). Compte à créer au '
+            'cas où il n\'existe pas',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+          ),
       ],
+    );
+  }
+
+  bool get _compteEquilibrageIntrouvable {
+    final numero = _compteEquilibrageController.text.trim();
+    if (numero.isEmpty) return false;
+    return !_comptes.any((c) => c.numeroCompte == numero);
+  }
+
+  String _padNumeroCompte(String numero, TypeCompte type) {
+    const longueurCompteGeneral = 7;
+    if (type == TypeCompte.total) return numero;
+    if (numero.length >= longueurCompteGeneral) return numero;
+    return numero.padRight(longueurCompteGeneral, '0');
+  }
+
+  void _showCreateCompteDialog(String numeroInitial) {
+    final numeroController = TextEditingController(text: numeroInitial);
+    final intituleController = TextEditingController();
+    TypeCompte selectedType = TypeCompte.detail;
+    NatureCompte? calculatedNature =
+        calculateNatureFromNumeroCompte(numeroInitial);
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.add_circle, color: Colors.blue.shade700),
+                  const SizedBox(width: 12),
+                  const Text('Nouveau compte',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: SizedBox(
+                width: 480,
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextFormField(
+                          controller: numeroController,
+                          autofocus: true,
+                          keyboardType: TextInputType.number,
+                          decoration: _fieldDecoration(
+                            hint: 'N° Compte',
+                            icon: Icons.numbers,
+                          ),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) {
+                              return 'Champ requis';
+                            }
+                            if (!RegExp(r'^[0-9]+$').hasMatch(v.trim())) {
+                              return 'Seuls les chiffres sont autorisés';
+                            }
+                            return null;
+                          },
+                          onChanged: (v) => setDialogState(() =>
+                              calculatedNature =
+                                  calculateNatureFromNumeroCompte(v.trim())),
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: intituleController,
+                          decoration: _fieldDecoration(
+                            hint: 'Intitulé',
+                            icon: Icons.title,
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Champ requis'
+                              : null,
+                        ),
+                        const SizedBox(height: 14),
+                        DropdownButtonFormField<TypeCompte>(
+                          value: selectedType,
+                          decoration: _fieldDecoration(
+                            hint: 'Type',
+                            icon: Icons.category,
+                          ),
+                          items: TypeCompte.values
+                              .map((t) => DropdownMenuItem(
+                                    value: t,
+                                    child: Text(t.toLabel()),
+                                  ))
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setDialogState(() => selectedType = v);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          calculatedNature != null
+                              ? 'Nature détectée : ${calculatedNature!.toLabel()}'
+                              : 'Nature : saisissez un numéro de compte valide',
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annuler'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    if (!formKey.currentState!.validate()) return;
+                    if (calculatedNature == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Numéro de compte invalide'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+                    final paddedNumero = _padNumeroCompte(
+                      numeroController.text.trim(),
+                      selectedType,
+                    );
+                    try {
+                      await DatabaseService.createCompte(
+                        numeroCompte: paddedNumero,
+                        intitule: intituleController.text.trim(),
+                        type: selectedType.toDbString(),
+                        nature: calculatedNature!.toDbString(),
+                      );
+                      await _loadComptes();
+                      if (!context.mounted) return;
+                      Navigator.pop(context);
+                      setState(() =>
+                          _compteEquilibrageController.text = paddedNumero);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Compte créé avec succès'),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Erreur: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Créer le compte'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1115,17 +1377,20 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
         final totalDebit = snapshot.data!.totalDebit;
         final totalCredit = snapshot.data!.totalCredit;
         // Solde total = Crédit - Débit : positif → excédent créditeur (on
-        // débitera le compte d'équilibrage), négatif → excédent débiteur
-        // (on créditera le compte d'équilibrage).
+        // débitera le compte d'équilibre), négatif → excédent débiteur
+        // (on créditera le compte d'équilibre).
         final soldeCreditMoinsDebit = totalCredit - totalDebit;
         final estEquilibre = soldeCreditMoinsDebit.abs() <= 0.01;
-        final estCrediteur = soldeCreditMoinsDebit > 0;
+        // Le résultat affiché est le solde Crédit − Débit avec son signe
+        // naturel : "+" si crédit > débit, "-" sinon.
+        final signe = soldeCreditMoinsDebit >= 0 ? '+' : '-';
         final sens = estEquilibre
             ? 'Équilibré'
-            : (estCrediteur ? 'Créditeur' : 'Débiteur');
-        final color = estEquilibre || estCrediteur
+            : (signe == '-' ? 'Excédent' : 'Déficit');
+        final color = estEquilibre
             ? Colors.green
-            : Colors.orange;
+            : (signe == '-' ? Colors.red : Colors.orange);
+        final codeExercicePrecedent = _dernierExercice?['code']?.toString();
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1143,8 +1408,8 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Total débit : ${totalDebit.toStringAsFixed(2)}   ·   '
-                      'Total crédit : ${totalCredit.toStringAsFixed(2)}',
+                      'Total débit : ${formatMontant(totalDebit)}   ·   '
+                      'Total crédit : ${formatMontant(totalCredit)}',
                       style: TextStyle(fontSize: 12, color: color.shade700),
                     ),
                   ),
@@ -1156,12 +1421,11 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                 child: Text(
                   estEquilibre
                       ? 'Solde total (Crédit − Débit) : équilibré, aucune '
-                          'écriture d\'équilibrage nécessaire.'
-                      : 'Solde total (Crédit − Débit) : '
-                          '${soldeCreditMoinsDebit >= 0 ? '' : '-'}'
-                          '${soldeCreditMoinsDebit.abs().toStringAsFixed(2)} '
-                          '($sens) — c\'est ce montant qui sera imputé sur le '
-                          'compte d\'équilibrage ci-dessous.',
+                          'écriture d\'équilibre nécessaire.'
+                      : 'Le montant du déséquilibre est $signe'
+                          '${formatMontant(soldeCreditMoinsDebit.abs())} '
+                          '($sens). Cela représente le résultat net de '
+                          'l\'exercice ${codeExercicePrecedent ?? 'précédent'}.',
                   style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1298,6 +1562,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
     required IconData icon,
     required String title,
     required Widget child,
+    Widget? trailing,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -1330,6 +1595,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                     letterSpacing: 0.9,
                   ),
                 ),
+                if (trailing != null) ...[const Spacer(), trailing],
               ],
             ),
             const SizedBox(height: 16),
@@ -1361,6 +1627,53 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
             _buildSection(
               icon: Icons.summarize_outlined,
               title: 'SOLDES À REPORTER',
+              trailing: aucuneEcriture
+                  ? null
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DownloadTooltip.pdf(
+                          verticalOffset: 28,
+                          child: IconButton(
+                            icon: const DownloadIcon(
+                                Icons.picture_as_pdf_outlined,
+                                size: 20,
+                                color: Colors.white),
+                            style: IconButton.styleFrom(
+                              backgroundColor: kDownloadPdfColor,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () => ExportService.exportAnPreviewPDF(
+                              preview: preview,
+                              entite: _entite,
+                              context: context,
+                              exerciceLabel: _anneeController.text.trim(),
+                              journalLabel: _journalSelectionneLabel,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        DownloadTooltip.excel(
+                          verticalOffset: 28,
+                          child: IconButton(
+                            icon: const DownloadIcon(Icons.table_chart_outlined,
+                                size: 20, color: Colors.white),
+                            style: IconButton.styleFrom(
+                              backgroundColor: kDownloadExcelColor,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () => ExportService.exportAnPreviewExcel(
+                              preview: preview,
+                              context: context,
+                              entiteNom:
+                                  _entite?['denomination_sociale']?.toString(),
+                              exerciceLabel: _anneeController.text.trim(),
+                              journalLabel: _journalSelectionneLabel,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1430,15 +1743,15 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
             ),
             Expanded(
               child: _recapStat(
-                  'Total débit', preview.totalDebit.toStringAsFixed(2)),
+                  'Total débit', formatMontant(preview.totalDebit)),
             ),
             Expanded(
               child: _recapStat(
-                  'Total crédit', preview.totalCredit.toStringAsFixed(2)),
+                  'Total crédit', formatMontant(preview.totalCredit)),
             ),
             Expanded(
               child: _recapStat(
-                  'Compte d\'équilibrage', preview.compteEquilibrage ?? '-'),
+                  'Compte d\'équilibre', preview.compteEquilibrage ?? '-'),
             ),
           ],
         ),
@@ -1475,7 +1788,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                 SizedBox(
                   width: 90,
                   child: Text(
-                    l.montantDebit == 0 ? '-' : l.montantDebit.toStringAsFixed(2),
+                    l.montantDebit == 0 ? '-' : formatMontant(l.montantDebit),
                     textAlign: TextAlign.right,
                     style: const TextStyle(fontSize: 12),
                   ),
@@ -1485,7 +1798,7 @@ class _NouvelExercicePageState extends State<NouvelExercicePage> {
                   child: Text(
                     l.montantCredit == 0
                         ? '-'
-                        : l.montantCredit.toStringAsFixed(2),
+                        : formatMontant(l.montantCredit),
                     textAlign: TextAlign.right,
                     style: const TextStyle(fontSize: 12),
                   ),

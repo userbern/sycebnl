@@ -6,6 +6,12 @@ import 'package:flutter/services.dart';
 import 'package:sycebnl_accounting/widgets/app_icon.dart';
 import 'package:sycebnl_accounting/widgets/company_header_card.dart';
 import '../services/database_service.dart';
+import '../services/local_repository.dart';
+import '../services/repository_provider.dart';
+import '../services/network/accounting_server_service.dart';
+import '../services/network/network_connection_service.dart';
+import '../widgets/network_share_dialog.dart';
+import 'network_data_page.dart';
 import '../models/user_session.dart';
 import 'entite_identification_page.dart';
 import 'nouvel_exercice_page.dart';
@@ -24,9 +30,11 @@ import 'balance_comptes_page.dart';
 import 'permissions_page.dart';
 import 'dossier_security_page.dart';
 import '../widgets/app_logo.dart';
+import '../widgets/global_search_bar.dart';
 import 'interrogations_lettrages_page.dart';
 import 'liste_exercices_page.dart';
 import 'journal_an_page.dart';
+import 'dashboard_dg_page.dart';
 import '../models/saisie_comptable.dart';
 
 class HomePage extends StatefulWidget {
@@ -53,7 +61,18 @@ class _HomePageState extends State<HomePage> {
   bool _isSidebarCollapsed = false;
   final List<int> _pageHistory = [];
   final List<int> _pageForwardStack = [];
+  final FocusNode _globalSearchFocusNode = FocusNode();
+  // Permet au bouton "précédent" de d'abord remonter le drill-down interne
+  // de la page Indicateurs (Dashboard DG, index 18) avant de changer de
+  // page — sinon un détail ouvert (classe/groupe/compte/écriture) est perdu
+  // d'un coup dès qu'on clique "précédent".
+  final DashboardDgController _dashboardDgController = DashboardDgController();
   static const List<_QuickAccessItem> _quickAccessItems = [
+    _QuickAccessItem(
+      label: 'Indicateurs de performances',
+      icon: Icons.dashboard,
+      pageIndex: 18,
+    ),
     _QuickAccessItem(
       label: 'Plan comptable',
       icon: Icons.list_alt,
@@ -80,10 +99,46 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    _dashboardDgController.addListener(_onDashboardDgLevelChanged);
     _loadDatabaseInfo();
   }
 
+  @override
+  void dispose() {
+    _dashboardDgController.removeListener(_onDashboardDgLevelChanged);
+    _dashboardDgController.dispose();
+    _globalSearchFocusNode.dispose();
+    super.dispose();
+  }
+
+  /// Rafraîchit l'état (activé/désactivé) du bouton "précédent" quand le
+  /// drill-down de la page Indicateurs change de niveau.
+  void _onDashboardDgLevelChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// En mode réseau (client distant), il n'y a pas de connexion SQLite
+  /// locale : `DatabaseService.database` lèverait immédiatement. Seules les
+  /// données déjà exposées en lecture par `RemoteRepository` (exercices,
+  /// entité) sont chargées ; la config n'est pas encore disponible à
+  /// distance (voir `network_routes.dart`).
+  bool get _isNetworkMode => NetworkConnectionService.instance.isConnected;
+
   Future<void> _loadDatabaseInfo() async {
+    if (_isNetworkMode) {
+      await _refreshExercices();
+      try {
+        final entites = await RepositoryProvider.current.query('entite');
+        if (entites.isNotEmpty) {
+          setState(() {
+            _entiteData = entites.first;
+          });
+        }
+      } catch (e) {
+        print('Erreur lors du chargement de l\'entité (réseau): $e');
+      }
+      return;
+    }
     print('DEBUG: Début du chargement des données...');
     try {
       print('DEBUG: Récupération de l\'entité...');
@@ -127,7 +182,10 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _refreshExercices() async {
     try {
-      final exercices = await DatabaseService.getExercices();
+      final exercices = _isNetworkMode
+          ? await RepositoryProvider.current
+              .query('exercice', orderBy: 'date_debut DESC')
+          : await DatabaseService.getExercices();
       final activeExercice = exercices.firstWhere(
         (e) => e['is_active'] == 1,
         orElse: () => exercices.isNotEmpty ? exercices.first : {},
@@ -166,6 +224,7 @@ class _HomePageState extends State<HomePage> {
       15: 'journal',
       12: 'exercices',
       17: 'exercices',
+      18: 'dashboard_dg',
     };
     if (!_canRead(pageModules[index])) {
       if (mounted) {
@@ -173,6 +232,23 @@ class _HomePageState extends State<HomePage> {
           const SnackBar(
             content: Text('Accès refusé : permission de lecture requise'),
             backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    // En mode réseau, seuls comptes/tiers/journaux (CRUD) et la liste des
+    // exercices (lecture) sont câblés sur `RemoteRepository` (voir
+    // `_buildContentPage`). Les autres pages dépendent encore directement de
+    // `DatabaseService` (connexion SQLite locale) et planteraient.
+    const networkAvailablePages = {0, 4, 5, 6, 17};
+    if (_isNetworkMode && !networkAvailablePages.contains(index)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Non disponible en mode réseau pour le moment'),
+            backgroundColor: Colors.orange,
           ),
         );
       }
@@ -194,10 +270,18 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  bool get _canGoBack => _pageHistory.isNotEmpty;
+  bool get _canGoBack =>
+      _pageHistory.isNotEmpty ||
+      (_currentPageIndex == 18 && !_dashboardDgController.isAtRoot);
   bool get _canGoForward => _pageForwardStack.isNotEmpty;
 
   void _goBack() {
+    // Priorité au détail ouvert dans la page Indicateurs (Dashboard DG) :
+    // on remonte d'abord d'un niveau (écritures → comptes → groupes →
+    // grille) avant de changer de page.
+    if (_currentPageIndex == 18 && _dashboardDgController.popLevel()) {
+      return;
+    }
     if (_pageHistory.isEmpty) return;
     final previous = _pageHistory.removeLast();
     _pageForwardStack.add(_currentPageIndex);
@@ -265,137 +349,31 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _reloadCurrentPage() {
+    // La page Nouvel exercice est un assistant à plusieurs étapes : la
+    // remonter détruirait sa progression (retour forcé au choix du mode).
+    // Elle recharge déjà ses propres données, un rafraîchissement forcé
+    // n'est donc pas nécessaire ici.
+    if (_currentPageIndex == 12) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Actualisation non nécessaire : les données de cette page se '
+            'rechargent automatiquement.',
+          ),
+        ),
+      );
+      return;
+    }
     setState(() {
       _contentRefreshSeed++;
     });
   }
 
-  void _showDatabaseInfo() {
-    final dbPath = DatabaseService.currentDatabasePath;
-    if (dbPath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Aucune base de données connectée'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    final file = File(dbPath);
-    final fileSize = file.existsSync() ? file.lengthSync() : 0;
-    final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
-    final lastModified =
-        file.existsSync()
-            ? file.lastModifiedSync().toString().substring(0, 19)
-            : 'N/A';
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Row(
-              children: [
-                /* Icon(Icons.storage, color: Colors.blue.shade400), */
-                IconButton(
-                  icon: Icon(Icons.storage, color: Colors.blue.shade400),
-                  onPressed: () {
-                    print('Bouton stockage cliqué');
-                  },
-                  tooltip: 'Stockage', // texte d'aide au survol
-                ),
-                const SizedBox(width: 12),
-                const Text('Informations sur la base de données'),
-              ],
-            ),
-            content: SizedBox(
-              width: 500,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildInfoRow('Emplacement', dbPath, canCopy: true),
-                  const Divider(),
-                  _buildInfoRow('Taille', '$fileSizeMB MB'),
-                  const Divider(),
-                  _buildInfoRow('Dernière modification', lastModified),
-                  const Divider(),
-                  _buildInfoRow(
-                    'Statut',
-                    file.existsSync() ? 'Connecté' : 'Introuvable',
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Fermer'),
-              ),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: dbPath));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Chemin copié dans le presse-papiers'),
-                      backgroundColor: Colors.green,
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.copy),
-                label: const Text('Copier le chemin'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value, {bool canCopy = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              if (canCopy)
-                IconButton(
-                  icon: const Icon(Icons.copy, size: 16),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: value));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Copié!'),
-                        duration: Duration(seconds: 1),
-                      ),
-                    );
-                  },
-                  tooltip: 'Copier',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-            ],
-          ),
-        ],
+  void _showNetworkUnavailable() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Non disponible en mode réseau pour le moment'),
+        backgroundColor: Colors.orange,
       ),
     );
   }
@@ -595,6 +573,8 @@ class _HomePageState extends State<HomePage> {
         if (_currentPageIndex == 2)
           LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyN):
               _openCreateUserShortcut,
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyK):
+            () => _globalSearchFocusNode.requestFocus(),
       },
       child: Focus(
         autofocus: true,
@@ -625,6 +605,20 @@ class _HomePageState extends State<HomePage> {
                       ),
                   ],
                 ),
+                const SizedBox(width: 20),
+                // Recherche globale (avant l'entité/exercice)
+                SizedBox(
+                  width: 260,
+                  child: GlobalSearchBar(
+                    focusNode: _globalSearchFocusNode,
+                    exerciceId: _activeExerciceId,
+                    onNavigateToPage: (index) => _showPage(index),
+                    onOpenEcriture: (periode) async {
+                      await _openSaisie(periode);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 20),
                 // Centre: Entité + Exercice (cliquable)
                 Expanded(
                   child: InkWell(
@@ -656,8 +650,6 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                 ),
-                // Droite: actions
-                const SizedBox(width: 100), // Espace pour équilibrer
               ],
             ),
             backgroundColor: Colors.blue.shade400,
@@ -710,21 +702,45 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(width: 8),
               IconButton(
-                icon: const Icon(Icons.info_outline),
-                onPressed: _showDatabaseInfo,
-                tooltip: 'Informations base de données',
-              ),
-              IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: _reloadCurrentPage,
                 tooltip: 'Actualiser la page',
               ),
+              if (!_isNetworkMode)
+                IconButton(
+                  icon: Icon(
+                    AccountingServerService.instance.isRunning
+                        ? Icons.wifi_tethering
+                        : Icons.wifi_tethering_off,
+                    color:
+                        AccountingServerService.instance.isRunning
+                            ? Colors.greenAccent
+                            : Colors.white,
+                  ),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (_) => const NetworkShareDialog(),
+                    ).then((_) {
+                      if (mounted) setState(() {});
+                    });
+                  },
+                  tooltip: 'Partager cette base sur le réseau',
+                ),
               IconButton(
                 icon: const Icon(Icons.logout),
-                onPressed: () {
+                onPressed: () async {
+                  if (_isNetworkMode) {
+                    await NetworkConnectionService.instance.disconnect();
+                  } else {
+                    await AccountingServerService.instance.stop();
+                  }
+                  if (!context.mounted) return;
                   Navigator.of(context).pushReplacementNamed('/');
                 },
-                tooltip: 'Fermer le fichier',
+                tooltip: _isNetworkMode
+                    ? 'Se déconnecter de la base réseau'
+                    : 'Fermer le fichier',
               ),
               const SizedBox(width: 8),
             ],
@@ -795,6 +811,12 @@ class _HomePageState extends State<HomePage> {
                       child: ListView(
                         padding: EdgeInsets.zero,
                         children: [
+                          _buildDirectMenuItem(
+                            'INDICATEURS DE PERFORMANCES',
+                            Icons.dashboard,
+                            18,
+                            moduleNom: 'dashboard_dg',
+                          ),
                           _buildMenuItem('NOTRE ENTITE', Icons.business, [
                             _SubMenuItem(
                               'Identification',
@@ -1028,6 +1050,76 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// Élément de menu sans sous-items : navigue directement vers [pageIndex]
+  /// au clic, sans passer par un sous-menu déroulant.
+  Widget _buildDirectMenuItem(
+    String title,
+    IconData icon,
+    int pageIndex, {
+    String? moduleNom,
+  }) {
+    if (!_canRead(moduleNom)) {
+      return const SizedBox.shrink();
+    }
+    final bool isActive = _currentPageIndex == pageIndex;
+
+    if (_isSidebarCollapsed) {
+      return Tooltip(
+        message: title,
+        preferBelow: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _showPage(pageIndex),
+            child: Container(
+              height: 44,
+              alignment: Alignment.center,
+              child: Icon(
+                icon,
+                color: isActive ? Colors.blue.shade900 : Colors.blue.shade400,
+                size: 22,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return InkWell(
+      onTap: () => _showPage(pageIndex),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.blue.shade100 : Colors.transparent,
+          border: Border(
+            left: BorderSide(
+              color: isActive ? Colors.blue.shade400 : Colors.transparent,
+              width: 3,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.blue.shade400, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: Colors.blue.shade900,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMenuItem(
     String title,
     IconData icon,
@@ -1155,7 +1247,7 @@ class _HomePageState extends State<HomePage> {
       return;
     }
     try {
-      final db = DatabaseService.database;
+      const db = LocalRepository();
       final d = DateTime.parse(dateDebut);
       final f = DateTime.parse(dateFin);
       final dureeMois = (f.year - d.year) * 12 + (f.month - d.month) + 1;
@@ -1261,11 +1353,17 @@ class _HomePageState extends State<HomePage> {
           userSession: widget.userSession,
         );
       case 4:
-        return PlanComptablePage(userSession: widget.userSession);
+        return _isNetworkMode
+            ? const NetworkComptesView()
+            : PlanComptablePage(userSession: widget.userSession);
       case 5:
-        return ListeTiersPage(userSession: widget.userSession);
+        return _isNetworkMode
+            ? const NetworkTiersView()
+            : ListeTiersPage(userSession: widget.userSession);
       case 6:
-        return JournauxPage(userSession: _session, showAppBar: false);
+        return _isNetworkMode
+            ? const NetworkJournauxView()
+            : JournauxPage(userSession: _session, showAppBar: false);
       case 7:
         return ListeBailleursPage(
           showAppBar: false,
@@ -1304,9 +1402,15 @@ class _HomePageState extends State<HomePage> {
         return ListeExercicesPage(
           exercices: _exercices,
           activeExerciceId: _activeExerciceId,
-          onSwitch: _switchExercice,
-          onCreateNew: () => _showPage(12),
-          onEdit: _editExercice,
+          onSwitch: _isNetworkMode
+              ? (_) async => _showNetworkUnavailable()
+              : _switchExercice,
+          onCreateNew: _isNetworkMode
+              ? _showNetworkUnavailable
+              : () => _showPage(12),
+          onEdit: _isNetworkMode
+              ? (_, __, ___, ____) async => _showNetworkUnavailable()
+              : _editExercice,
           onViewJournalAN:
               (exerciceId) => Navigator.push(
                 context,
@@ -1330,6 +1434,12 @@ class _HomePageState extends State<HomePage> {
           key: ValueKey(_journauxRefreshSeed),
           showAppBar: false,
           onOpenPeriode: _openSaisie,
+        );
+      case 18:
+        return DashboardDgPage(
+          exerciceId: _activeExerciceId,
+          showAppBar: false,
+          controller: _dashboardDgController,
         );
       default:
         return _buildWelcomePage();

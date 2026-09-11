@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/dossier_crypto_service.dart';
+import '../models/user_session.dart';
 import '../utils/app_constants.dart';
 import 'recovery_key_display_page.dart';
+
+/// Résultat de l'assistant : chemin du fichier créé, et session déjà
+/// authentifiée si un compte admin a été créé avec mot de passe (évite
+/// d'obliger l'utilisateur à fermer/rouvrir le fichier pour se connecter).
+typedef NewFileResult = ({String path, UserSession? userSession});
 
 class NewFileWizardPage extends StatefulWidget {
   const NewFileWizardPage({super.key});
@@ -254,10 +261,43 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
         );
       }
 
+      // Le compte admin vient d'être créé avec mot de passe : on se connecte
+      // immédiatement avec ces mêmes identifiants pour que HomePage reçoive
+      // une session réelle, plutôt que de forcer une fermeture/réouverture
+      // du fichier juste pour se logguer.
+      UserSession? userSession;
+      if (_usePassword) {
+        try {
+          final loginResult = await AuthService.login(
+            login: _loginController.text,
+            password: _passwordController.text,
+          );
+          final userData = loginResult['user'] as Map<String, dynamic>;
+          final permissions = loginResult['permissions'] as List<dynamic>;
+          userSession = UserSession(
+            id: userData['id'].toString(),
+            login: userData['login'] ?? '',
+            nom: (userData['nom'] ?? '').toString(),
+            prenom: (userData['prenom'] ?? '').toString(),
+            email: '',
+            role: (userData['role'] ?? 'utilisateur').toString(),
+            permissions: permissions.cast<Map<String, dynamic>>(),
+          );
+          AuthService.setCurrentUser(userData);
+        } catch (e) {
+          // La base a bien été créée : une session non établie ne doit pas
+          // bloquer l'utilisateur, il pourra se reconnecter manuellement.
+          userSession = null;
+        }
+      }
+
       if (!mounted) return;
 
-      // Retourner le chemin du fichier créé
-      Navigator.pop(context, _selectedFilePath);
+      // Retourner le chemin du fichier créé (et la session si disponible)
+      Navigator.pop(
+        context,
+        (path: _selectedFilePath!, userSession: userSession),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isCreating = false);

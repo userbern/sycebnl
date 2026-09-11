@@ -7,9 +7,52 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:sycebnl_accounting/widgets/app_icon.dart';
+import 'exercice_service.dart' show AnPreview;
 
 class ExportService {
   static Uint8List? _logoBytes;
+
+  // ==================== IDENTITÉ VISUELLE PARTAGÉE ====================
+  //
+  // Palette et styles alignés sur ceux déjà utilisés à l'écran (thème
+  // Material 3 à seed bleu défini dans main.dart, et repris tel quel dans
+  // les widgets/pages ci-dessous) afin que les PDF exportés reprennent
+  // l'identité graphique existante plutôt que d'en maintenir une seconde,
+  // indépendante. Chaque constante documente le nuancier Flutter `Colors`
+  // dont elle est l'équivalent PDF.
+
+  /// ↔ Colors.blue.shade800 (titre de balance_resultat_page.dart, ligne
+  /// "color: Colors.blue.shade800") : couleur de marque, titres de rapport.
+  static const PdfColor _kBrand = PdfColors.blue800;
+
+  /// ↔ Colors.blue.shade700 (bandeaux de section et AppBar de
+  /// journal_results_page.dart / grand_livre_page.dart) : variante utilisée
+  /// pour les rapports "journal" et "grand livre".
+  static const PdfColor _kBrandMid = PdfColors.blue700;
+
+  /// ↔ Colors.blue.shade900 (CompanyHeaderCard, texte sur fond
+  /// [_kBrandBandBg]).
+  static const PdfColor _kBrandDark = PdfColors.blue900;
+
+  /// ↔ Colors.blue.shade100 (CompanyHeaderCard et en-têtes de tableau dans
+  /// toutes les pages de rapport) : fond des bandeaux de marque.
+  static const PdfColor _kBrandBandBg = PdfColors.blue100;
+
+  /// ↔ Colors.grey.shade600 : mentions secondaires (pied de page).
+  static const PdfColor _kMuted = PdfColors.grey600;
+
+  /// Style de titre de rapport commun à tous les exports PDF : évite que
+  /// chaque export redéfinisse sa propre variante de la même identité.
+  static pw.TextStyle _reportTitleStyle({
+    PdfColor color = _kBrand,
+    double fontSize = 16,
+  }) {
+    return pw.TextStyle(
+      fontSize: fontSize,
+      fontWeight: pw.FontWeight.bold,
+      color: color,
+    );
+  }
 
   /// Précharge le logo officiel en mémoire pour les en-têtes PDF (voir
   /// [_pdfEntiteHeader]). À appeler une fois au démarrage de l'application
@@ -168,14 +211,7 @@ class ExportService {
           return [
             // Titre
             pw.Center(
-              child: pw.Text(
-                title,
-                style: pw.TextStyle(
-                  fontSize: 14,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.blue800,
-                ),
-              ),
+              child: pw.Text(title, style: _reportTitleStyle(fontSize: 14)),
             ),
             pw.SizedBox(height: 8),
 
@@ -475,7 +511,11 @@ class ExportService {
             decoration: const pw.BoxDecoration(color: PdfColors.blue100),
             children: [
               _balanceCell('N° COMPTE', bold: true),
-              _balanceCell('INTITULES', bold: true),
+              _balanceCell(
+                'INTITULES',
+                bold: true,
+                align: pw.TextAlign.left,
+              ),
               _balanceCell(
                 'DEBITEUR',
                 bold: true,
@@ -509,7 +549,10 @@ class ExportService {
               ),
               children: [
                 _balanceCell(_pdfSafe(compte['numero'] ?? '-'), bold: true),
-                _balanceCell(_pdfSafe(compte['intitule'] ?? ' ')),
+                _balanceCell(
+                  _pdfSafe(compte['intitule'] ?? ' '),
+                  align: pw.TextAlign.left,
+                ),
                 _balanceCell(
                   _formatNumber(compte['ouvertureDebit'] ?? 0),
                   align: pw.TextAlign.center,
@@ -663,9 +706,15 @@ class ExportService {
     pw.TextAlign align = pw.TextAlign.center,
     PdfColor? color,
   }) {
+    final alignment = switch (align) {
+      pw.TextAlign.left || pw.TextAlign.start => pw.Alignment.centerLeft,
+      pw.TextAlign.right || pw.TextAlign.end => pw.Alignment.centerRight,
+      _ => pw.Alignment.center,
+    };
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-      child: pw.Center(
+      child: pw.Align(
+        alignment: alignment,
         child: pw.Text(
           _pdfSafe(text),
           textAlign: align,
@@ -1106,11 +1155,7 @@ class ExportService {
               pw.Center(
                 child: pw.Text(
                   'PLAN COMPTABLE',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.blue800,
-                  ),
+                  style: _reportTitleStyle(),
                 ),
               ),
               pw.SizedBox(height: 4),
@@ -1346,11 +1391,7 @@ class ExportService {
               pw.Center(
                 child: pw.Text(
                   'LISTE DES TIERS',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.blue800,
-                  ),
+                  style: _reportTitleStyle(),
                 ),
               ),
               pw.SizedBox(height: 4),
@@ -1730,11 +1771,7 @@ class ExportService {
               pw.Center(
                 child: pw.Text(
                   'LISTE DES BAILLEURS',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.blue800,
-                  ),
+                  style: _reportTitleStyle(),
                 ),
               ),
               pw.SizedBox(height: 4),
@@ -1920,11 +1957,7 @@ class ExportService {
               pw.Center(
                 child: pw.Text(
                   'LISTE DES PROJETS',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.blue800,
-                  ),
+                  style: _reportTitleStyle(),
                 ),
               ),
               pw.SizedBox(height: 4),
@@ -2126,6 +2159,14 @@ class ExportService {
         (sum, row) => sum + ((row['credit'] as num?)?.toDouble() ?? 0.0),
       );
       final solde = totalDebit - totalCredit;
+      // Dans ce PDF uniquement, un total ou un solde nul doit s'afficher
+      // "0 FCFA" plutôt que le tiret utilisé par _formatNumber pour les
+      // valeurs à zéro.
+      String formatTotalPdf(double v) =>
+          v == 0 ? '0 FCFA' : '${_formatNumber(v)} FCFA';
+      final totalDebitTextPdf = formatTotalPdf(totalDebit);
+      final totalCreditTextPdf = formatTotalPdf(totalCredit);
+      final soldeTextPdf = formatTotalPdf(solde);
 
       final periodeText =
           (dateDebut != null && dateFin != null)
@@ -2141,11 +2182,10 @@ class ExportService {
           build: (context) {
             return [
               _pdfEntiteHeader(entiteNom),
-              pw.Text(
-                'Interrogation de compte',
-                style: pw.TextStyle(
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
+              pw.Center(
+                child: pw.Text(
+                  'Interrogation de compte',
+                  style: _reportTitleStyle(),
                 ),
               ),
               pw.SizedBox(height: 6),
@@ -2193,10 +2233,10 @@ class ExportService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
-                    pw.Text('Total debit: ${_formatNumber(totalDebit)}'),
-                    pw.Text('Total credit: ${_formatNumber(totalCredit)}'),
+                    pw.Text('Total debit: $totalDebitTextPdf'),
+                    pw.Text('Total credit: $totalCreditTextPdf'),
                     pw.Text(
-                      'Solde: ${_formatNumber(solde)}',
+                      'Solde: $soldeTextPdf',
                       style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                     ),
                   ],
@@ -2396,11 +2436,7 @@ class ExportService {
                 pw.Center(
                   child: pw.Text(
                     'JOURNAL ($typeLabel)',
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                      color: PdfColors.blue700,
-                    ),
+                    style: _reportTitleStyle(color: _kBrandMid, fontSize: 14),
                   ),
                 ),
                 pw.SizedBox(height: 10),
@@ -2418,7 +2454,7 @@ class ExportService {
                   return [
                     pw.Container(
                       width: double.infinity,
-                      color: PdfColors.blue700,
+                      color: _kBrandMid,
                       padding: const pw.EdgeInsets.all(6),
                       child: pw.Text(
                         'Journal ${group['code']} - ${group['libelle']}',
@@ -2765,14 +2801,11 @@ class ExportService {
           footer: (context) => _pdfFooter(),
           build:
               (context) => [
+                _pdfEntiteHeader(entite?['denomination_sociale']?.toString()),
                 pw.Center(
                   child: pw.Text(
                     'GRAND LIVRE $typeLabel',
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                      color: PdfColors.blue700,
-                    ),
+                    style: _reportTitleStyle(color: _kBrandMid, fontSize: 14),
                   ),
                 ),
                 pw.SizedBox(height: 10),
@@ -2792,7 +2825,7 @@ class ExportService {
                   return [
                     pw.Container(
                       width: double.infinity,
-                      color: PdfColors.blue700,
+                      color: _kBrandMid,
                       padding: const pw.EdgeInsets.all(6),
                       child: pw.Text(
                         'Compte ${group['numero']} - ${group['intitule']}',
@@ -3278,35 +3311,50 @@ class ExportService {
   /// d'un PDF. Le logo est chargé une seule fois via [preloadLogo].
   static pw.Widget _pdfEntiteHeader(String? entiteNom) {
     final logoBytes = _logoBytes;
-    final children = <pw.Widget>[];
+    final hasLogo = logoBytes != null;
+    final hasNom = entiteNom != null && entiteNom.isNotEmpty;
 
-    if (logoBytes != null) {
-      children.add(
-        pw.Container(
-          height: 36,
-          alignment: pw.Alignment.centerLeft,
-          child: pw.Image(pw.MemoryImage(logoBytes), fit: pw.BoxFit.contain),
-        ),
-      );
-      children.add(pw.SizedBox(height: 4));
-    }
-
-    if (entiteNom != null && entiteNom.isNotEmpty) {
-      children.add(
-        pw.Text(
-          'Dénomination sociale : $entiteNom',
-          style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
-        ),
-      );
-      children.add(pw.SizedBox(height: 4));
-    }
-
-    if (children.isEmpty) {
+    if (!hasLogo && !hasNom) {
       return pw.SizedBox();
     }
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: children,
+
+    // Bandeau bleu clair + logo + dénomination en gras : reprend le style
+    // du CompanyHeaderCard affiché dans la barre latérale de l'application
+    // (lib/widgets/company_header_card.dart), au lieu d'un en-tête PDF
+    // générique sans lien avec l'identité de l'application.
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      margin: const pw.EdgeInsets.only(bottom: 10),
+      decoration: const pw.BoxDecoration(color: _kBrandBandBg),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          if (hasLogo) ...[
+            pw.Container(
+              height: 32,
+              child: pw.Image(
+                pw.MemoryImage(logoBytes),
+                fit: pw.BoxFit.contain,
+              ),
+            ),
+            pw.SizedBox(width: 10),
+          ],
+          if (hasNom)
+            pw.Expanded(
+              child: pw.Text(
+                entiteNom,
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  color: _kBrandDark,
+                ),
+                maxLines: 1,
+                overflow: pw.TextOverflow.clip,
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -3322,7 +3370,7 @@ class ExportService {
             'Imprimé depuis l\'application SYCEBNL ACCOUNTING',
             style: pw.TextStyle(
               fontSize: 8,
-              color: PdfColors.grey600,
+              color: _kMuted,
               fontStyle: pw.FontStyle.italic,
             ),
           ),
@@ -3421,11 +3469,7 @@ class ExportService {
               pw.Center(
                 child: pw.Text(
                   'CODES JOURNAUX',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.blue800,
-                  ),
+                  style: _reportTitleStyle(),
                 ),
               ),
               pw.SizedBox(height: 4),
@@ -3521,11 +3565,7 @@ class ExportService {
                 pw.SizedBox(height: 16),
                 pw.Text(
                   'CLÉ DE RÉCUPÉRATION DU DOSSIER COMPTABLE',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.blue800,
-                  ),
+                  style: _reportTitleStyle(),
                 ),
                 pw.SizedBox(height: 8),
                 pw.Text(
@@ -3683,5 +3723,218 @@ class ExportService {
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (Match m) => '${m[1]} ',
     );
+  }
+
+  // ==================== EXPORT JOURNAL DES A-NOUVEAUX ====================
+
+  /// Exporte le récapitulatif des reports (journal des A-Nouveaux) en PDF.
+  static Future<void> exportAnPreviewPDF({
+    required AnPreview preview,
+    required Map<String, dynamic>? entite,
+    required BuildContext context,
+    String? exerciceLabel,
+    String? journalLabel,
+  }) async {
+    try {
+      final journal =
+          (journalLabel != null && journalLabel.isNotEmpty)
+              ? journalLabel
+              : 'DES A-NOUVEAUX';
+      final titre = (exerciceLabel != null && exerciceLabel.isNotEmpty)
+          ? 'REPORT DU JOURNAL $journal DE L\'EXERCICE $exerciceLabel'
+          : 'JOURNAL $journal';
+      final pdf = pw.Document();
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(20),
+          maxPages: 2000,
+          footer: (context) => _pdfFooter(),
+          build:
+              (context) => [
+                _pdfEntiteHeader(entite?['denomination_sociale']?.toString()),
+                pw.Center(
+                  child: pw.Text(
+                    titre,
+                    style: _reportTitleStyle(color: _kBrandMid, fontSize: 14),
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+                pw.Table(
+                  defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
+                  border: pw.TableBorder.all(color: PdfColors.black, width: .5),
+                  columnWidths: const {
+                    0: pw.FlexColumnWidth(1.3),
+                    1: pw.FlexColumnWidth(3.2),
+                    2: pw.FlexColumnWidth(1.3),
+                    3: pw.FlexColumnWidth(1.3),
+                  },
+                  children: [
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(color: PdfColors.blue100),
+                      children: [
+                        _journalPdfCell('N° Compte', bold: true),
+                        _journalPdfCell('Intitulé', bold: true),
+                        _journalPdfCell('Débit', bold: true),
+                        _journalPdfCell('Crédit', bold: true),
+                      ],
+                    ),
+                    ...preview.lignes.map(
+                      (l) => pw.TableRow(
+                        children: [
+                          _journalPdfCell(l.numeroCompte),
+                          _journalPdfCell(l.intitule),
+                          _journalPdfCell(_formatNumber(l.montantDebit)),
+                          _journalPdfCell(_formatNumber(l.montantCredit)),
+                        ],
+                      ),
+                    ),
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(color: PdfColors.blue100),
+                      children: [
+                        _journalPdfCell(''),
+                        _journalPdfCell('TOTAL', bold: true),
+                        _journalPdfCell(_formatNumber(preview.totalDebit), bold: true),
+                        _journalPdfCell(_formatNumber(preview.totalCredit), bold: true),
+                      ],
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  'Compte d\'équilibre : ${preview.compteEquilibrage ?? '-'}',
+                  style: const pw.TextStyle(fontSize: 10),
+                ),
+              ],
+        ),
+      );
+
+      final fileName =
+          'journal_an_${DateTime.now().toString().split(' ').first}.pdf';
+      await _saveBytesWithPicker(
+        bytes: await pdf.save(),
+        suggestedFileName: fileName,
+        context: context,
+        label: 'PDF',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur export PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Exporte le récapitulatif des reports (journal des A-Nouveaux) en Excel.
+  static Future<void> exportAnPreviewExcel({
+    required AnPreview preview,
+    required BuildContext context,
+    String? entiteNom,
+    String? exerciceLabel,
+    String? journalLabel,
+  }) async {
+    try {
+      final excel = Excel.createExcel();
+      const sheetName = 'Journal AN';
+      final defaultSheet = excel.getDefaultSheet();
+      if (defaultSheet != null && defaultSheet != sheetName) {
+        excel.rename(defaultSheet, sheetName);
+      }
+      final sheet = excel[sheetName];
+
+      final entiteStyle = CellStyle(bold: true);
+      final titleStyle = CellStyle(
+        bold: true,
+        fontSize: 14,
+        horizontalAlign: HorizontalAlign.Center,
+      );
+      final headerStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Center,
+        backgroundColorHex: ExcelColor.fromHexString('#DCE6F1'),
+      );
+
+      int row = 0;
+      if (entiteNom != null && entiteNom.isNotEmpty) {
+        final entiteCell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
+        );
+        entiteCell.value = TextCellValue('Dénomination sociale : $entiteNom');
+        entiteCell.cellStyle = entiteStyle;
+        row += 1;
+      }
+      if (exerciceLabel != null && exerciceLabel.isNotEmpty) {
+        final journal =
+            (journalLabel != null && journalLabel.isNotEmpty)
+                ? journalLabel
+                : 'DES A-NOUVEAUX';
+        final titleCell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
+        );
+        titleCell.value = TextCellValue(
+          'REPORT DU JOURNAL $journal DE L\'EXERCICE $exerciceLabel',
+        );
+        titleCell.cellStyle = titleStyle;
+        sheet.merge(
+          CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
+          CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row),
+        );
+        row += 1;
+      }
+      if (row > 0) row += 1;
+      const headers = ['N° Compte', 'Intitulé', 'Débit', 'Crédit'];
+      for (int col = 0; col < headers.length; col++) {
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+        );
+        cell.value = TextCellValue(headers[col]);
+        cell.cellStyle = headerStyle;
+      }
+      row++;
+
+      for (final l in preview.lignes) {
+        _excelText(sheet, 0, row, l.numeroCompte);
+        _excelText(sheet, 1, row, l.intitule);
+        _excelNumber(sheet, 2, row, l.montantDebit);
+        _excelNumber(sheet, 3, row, l.montantCredit);
+        row++;
+      }
+
+      _excelText(sheet, 0, row, '');
+      _excelText(sheet, 1, row, 'TOTAL');
+      _excelNumber(sheet, 2, row, preview.totalDebit);
+      _excelNumber(sheet, 3, row, preview.totalCredit);
+      for (int col = 0; col < 4; col++) {
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row))
+            .cellStyle = CellStyle(bold: true);
+      }
+
+      final fileName =
+          'journal_an_${DateTime.now().toString().split(' ').first}.xlsx';
+      final bytes = excel.encode();
+      if (bytes != null) {
+        await _saveBytesWithPicker(
+          bytes: Uint8List.fromList(bytes),
+          suggestedFileName: fileName,
+          context: context,
+          label: 'Excel',
+        );
+      }
+    } catch (e) {
+      debugPrint('Erreur Excel: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

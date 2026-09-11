@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/user_session.dart';
 import '../services/auth_service.dart';
+import '../utils/format_utils.dart';
 
 class GestionBudgetsPage extends StatefulWidget {
   final bool showAppBar;
@@ -126,28 +127,7 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
   }
 
   // ── Formatage ─────────────────────────────────────────────────────────────
-  String _fmt(double v) {
-    if (v == 0) return '0 XOF';
-    final abs = v.abs();
-    final sign = v < 0 ? '-' : '';
-    if (abs >= 1000000) {
-      final s = abs.toStringAsFixed(0).replaceAllMapped(
-        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
-      return '$sign$s XOF';
-    }
-    final s = abs.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
-    return '$sign$s XOF';
-  }
-
-  String _fmtShort(double v) {
-    final abs = v.abs();
-    final sign = v < 0 ? '-' : '';
-    if (abs >= 1000000000) return '$sign${(abs / 1000000000).toStringAsFixed(1)} Md';
-    if (abs >= 1000000) return '$sign${(abs / 1000000).toStringAsFixed(1)} M';
-    if (abs >= 1000) return '$sign${(abs / 1000).toStringAsFixed(0)} K';
-    return '$sign${abs.toStringAsFixed(0)}';
-  }
+  String _fmt(double v) => formatMontantFcfa(v);
 
   // ── Stats globales ────────────────────────────────────────────────────────
   double get _grandTotalBudget =>
@@ -330,11 +310,11 @@ class _GestionBudgetsPageState extends State<GestionBudgetsPage> {
         children: [
           _statCard(icon: Icons.account_balance_wallet, label: 'Budgets', value: '${_filteredBudgets.length}', sub: 'actifs', color: Colors.blue.shade700, width: w),
           const SizedBox(width: 12),
-          _statCard(icon: Icons.payments_outlined, label: 'Budget Total', value: _fmtShort(_grandTotalBudget), sub: 'XOF', color: Colors.green.shade700, width: w),
+          _statCard(icon: Icons.payments_outlined, label: 'Budget Total', value: _fmt(_grandTotalBudget), sub: '', color: Colors.green.shade700, width: w),
           const SizedBox(width: 12),
-          _statCard(icon: Icons.trending_up, label: 'Exécuté', value: _fmtShort(_grandTotalRealise), sub: '${_tauxGlobal.toStringAsFixed(0)}% du total', color: Colors.orange.shade700, width: w),
+          _statCard(icon: Icons.trending_up, label: 'Exécuté', value: _fmt(_grandTotalRealise), sub: '${_tauxGlobal.toStringAsFixed(0)}% du total', color: Colors.orange.shade700, width: w),
           const SizedBox(width: 12),
-          _statCard(icon: Icons.account_balance, label: 'Solde', value: _fmtShort(_grandSolde), sub: 'disponible', color: _grandSolde >= 0 ? Colors.purple.shade700 : Colors.red.shade700, width: w),
+          _statCard(icon: Icons.account_balance, label: 'Solde', value: _fmt(_grandSolde), sub: 'disponible', color: _grandSolde >= 0 ? Colors.purple.shade700 : Colors.red.shade700, width: w),
         ],
       );
     });
@@ -1170,14 +1150,11 @@ class _BudgetDetailsPageState extends State<BudgetDetailsPage> {
         (value is num)
             ? value.toDouble()
             : (value == null ? 0.0 : double.tryParse(value.toString()) ?? 0.0);
-    final parts = numVal.toStringAsFixed(2).split('.');
-    final intPart = parts[0];
-    final decPart = parts.length > 1 ? parts[1] : '00';
-    final intWithSep = intPart.replaceAllMapped(
+    final intWithSep = numVal.round().toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (m) => '${m[1]} ',
     );
-    return '$intWithSep.$decPart XOF';
+    return '$intWithSep XOF';
   }
 
   Widget _buildMontantCard(String title, double montant) {
