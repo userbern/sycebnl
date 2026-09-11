@@ -29,7 +29,6 @@ import 'saisie_ecriture_page.dart';
 import 'balance_comptes_page.dart';
 import 'permissions_page.dart';
 import 'dossier_security_page.dart';
-import '../widgets/app_logo.dart';
 import '../widgets/global_search_bar.dart';
 import 'interrogations_lettrages_page.dart';
 import 'liste_exercices_page.dart';
