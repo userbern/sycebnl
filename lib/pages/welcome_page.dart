@@ -278,26 +278,28 @@ class _WelcomePageState extends State<WelcomePage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      OutlinedButton.icon(
-                        onPressed: _connectToNetwork,
-                        icon: Icon(
-                          Icons.wifi_tethering,
-                          size: 24,
-                          color: Colors.blue.shade400,
-                        ),
-                        label: Text(
-                          'Se connecter à une base réseau',
-                          style: TextStyle(fontSize: 16, color: Colors.blue.shade400),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.all(16),
-                          side: BorderSide(color: Colors.blue, width: 2),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
+                      // Bouton "Se connecter à une base réseau" désactivé temporairement :
+                      // les écritures comptables ne sont pas encore branchées en réseau (atomicité de transaction() à garantir avant).
+                      // const SizedBox(height: 16),
+                      // OutlinedButton.icon(
+                      //   onPressed: _connectToNetwork,
+                      //   icon: Icon(
+                      //     Icons.wifi_tethering,
+                      //     size: 24,
+                      //     color: Colors.blue.shade400,
+                      //   ),
+                      //   label: Text(
+                      //     'Se connecter à une base réseau',
+                      //     style: TextStyle(fontSize: 16, color: Colors.blue.shade400),
+                      //   ),
+                      //   style: OutlinedButton.styleFrom(
+                      //     padding: const EdgeInsets.all(16),
+                      //     side: BorderSide(color: Colors.blue, width: 2),
+                      //     shape: RoundedRectangleBorder(
+                      //       borderRadius: BorderRadius.circular(8),
+                      //     ),
+                      //   ),
+                      // ),
 
                       const SizedBox(height: 32),
 

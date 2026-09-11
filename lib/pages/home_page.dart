@@ -10,7 +10,7 @@ import '../services/local_repository.dart';
 import '../services/repository_provider.dart';
 import '../services/network/accounting_server_service.dart';
 import '../services/network/network_connection_service.dart';
-import '../widgets/network_share_dialog.dart';
+// import '../widgets/network_share_dialog.dart'; // bouton de partage réseau désactivé temporairement
 import 'network_data_page.dart';
 import '../models/user_session.dart';
 import 'entite_identification_page.dart';
@@ -707,27 +707,30 @@ class _HomePageState extends State<HomePage> {
                 onPressed: _reloadCurrentPage,
                 tooltip: 'Actualiser la page',
               ),
-              if (!_isNetworkMode)
-                IconButton(
-                  icon: Icon(
-                    AccountingServerService.instance.isRunning
-                        ? Icons.wifi_tethering
-                        : Icons.wifi_tethering_off,
-                    color:
-                        AccountingServerService.instance.isRunning
-                            ? Colors.greenAccent
-                            : Colors.white,
-                  ),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => const NetworkShareDialog(),
-                    ).then((_) {
-                      if (mounted) setState(() {});
-                    });
-                  },
-                  tooltip: 'Partager cette base sur le réseau',
-                ),
+              // Bouton "Partager cette base sur le réseau" désactivé temporairement :
+              // la mise en réseau de l'écriture comptable n'est pas encore prête (voir CLAUDE.md).
+              // if (!_isNetworkMode)
+              //   IconButton(
+              //     icon: Icon(
+              //       AccountingServerService.instance.isRunning
+              //           ? Icons.wifi_tethering
+              //           : Icons.wifi_tethering_off,
+              //       color:
+              //           AccountingServerService.instance.isRunning
+              //               ? Colors.greenAccent
+              //               : Colors.white,
+              //     ),
+              //     onPressed: () {
+              //       showDialog(
+              //         context: context,
+              //         builder: (_) => const NetworkShareDialog(),
+              //       ).then((_) {
+              //         if (mounted) setState(() {});
+              //       });
+              //     },
+              //     tooltip: 'Partager cette base sur le réseau',
+              //   ),
+              // Selon le mode : ferme la session réseau (client) ou arrête le serveur local (hôte) avant de revenir à l'accueil.
               IconButton(
                 icon: const Icon(Icons.logout),
                 onPressed: () async {

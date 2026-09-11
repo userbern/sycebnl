@@ -217,6 +217,7 @@ class _NetworkConnectPageState extends State<NetworkConnectPage> {
                         (v == null || v.isEmpty) ? 'Requis' : null,
                   ),
                   const SizedBox(height: 24),
+                  // Authentifie l'utilisateur et retourne une UserSession vers HomePage ; ne charge pas encore les écritures.
                   ElevatedButton.icon(
                     onPressed: _isConnecting ? null : _connect,
                     icon: _isConnecting
