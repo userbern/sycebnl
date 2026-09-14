@@ -25,6 +25,7 @@ import 'journal_page.dart';
 import 'journal_periode_selection_page.dart';
 import 'journaux_de_saisie_page.dart';
 import 'grand_livre_page.dart';
+import 'livre_page.dart';
 import 'saisie_ecriture_page.dart';
 import 'balance_comptes_page.dart';
 import 'permissions_page.dart';
@@ -908,6 +909,11 @@ class _HomePageState extends State<HomePage> {
                               14,
                               moduleNom: 'grand_livre',
                             ),
+                            _SubMenuItem(
+                              'Livre',
+                              20,
+                              moduleNom: 'grand_livre',
+                            ),
                             _SubMenuItem('Journal', 15, moduleNom: 'journal'),
                           ]),
                         ],
@@ -1446,6 +1452,8 @@ class _HomePageState extends State<HomePage> {
         );
       case 14:
         return const GrandLivreScreen();
+      case 20:
+        return const LivreScreen();
       case 15:
         return const JournalPage(showAppBar: false);
       case 16:

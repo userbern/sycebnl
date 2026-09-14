@@ -740,11 +740,15 @@ class ExportService {
       (sum, c) => sum + ((c['mouvementCredit'] as num?)?.toDouble() ?? 0.0),
     );
 
-    String natureResultat = 'NUL';
-    if (totalCredit > totalDebit) {
+    String natureResultat;
+    if (totalDebit == 0 && totalCredit == 0) {
+      natureResultat = 'Aucune saisie';
+    } else if (totalCredit > totalDebit) {
       natureResultat = 'EXCEDENT';
     } else if (totalCredit < totalDebit) {
       natureResultat = 'DEFICIT';
+    } else {
+      natureResultat = 'NUL';
     }
 
     final color =
@@ -1059,11 +1063,15 @@ class ExportService {
         (sum, row) => sum + toDouble(row['mouvementCredit']),
       );
 
-      String natureResultat = 'NUL';
-      if (totalGestionCredit > totalGestionDebit) {
+      String natureResultat;
+      if (totalGestionDebit == 0 && totalGestionCredit == 0) {
+        natureResultat = 'Aucune saisie';
+      } else if (totalGestionCredit > totalGestionDebit) {
         natureResultat = 'EXCEDENT';
       } else if (totalGestionCredit < totalGestionDebit) {
         natureResultat = 'DEFICIT';
+      } else {
+        natureResultat = 'NUL';
       }
 
       final summaryRows = [
