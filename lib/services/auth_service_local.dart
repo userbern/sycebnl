@@ -102,6 +102,8 @@ class AuthService {
                 )
                 .toList(),
       };
+    } on Exception {
+      rethrow;
     } catch (e) {
       throw Exception('Erreur lors du login: $e');
     }
