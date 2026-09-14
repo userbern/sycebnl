@@ -119,9 +119,7 @@ class AuthService {
                 )
                 .toList(),
       };
-    } on UserNotFoundException {
-      rethrow;
-    } on InvalidPasswordException {
+    } on Exception {
       rethrow;
     } catch (e) {
       throw Exception('Erreur lors du login: $e');

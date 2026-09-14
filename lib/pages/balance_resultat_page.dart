@@ -773,6 +773,25 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                       ),
                     ),
                     // Tableau des comptes
+                    if (_comptes.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                'Aucune ecriture ne correspond aux filtres.',
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -1130,11 +1149,15 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
     final tC = gestion.fold<double>(
       0.0, (s, c) => s + (c['mouvementCredit'] as double? ?? 0));
 
-    String nature = 'NUL';
-    if (tC > tD) {
+    String nature;
+    if (tD == 0 && tC == 0) {
+      nature = 'Aucune saisie';
+    } else if (tC > tD) {
       nature = 'EXCEDENT';
     } else if (tC < tD) {
       nature = 'DEFICIT';
+    } else {
+      nature = 'NUL';
     }
 
     final col = nature == 'EXCEDENT'
