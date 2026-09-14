@@ -1,28 +1,56 @@
-### 1. Page de saisie des comptes
+### Modification du sous-menu « Balance »
 
-* Lorsqu’une écriture est fermée sans avoir été ventilée, **toutes les lignes de l’écriture doivent être considérées comme « Non ventilées »**, même si l’écriture comporte deux enregistrements.
-* Le fait qu’une ligne soit équilibrée ne signifie pas que l’écriture est ventilée. **Une écriture équilibrée ne doit donc pas automatiquement être considérée comme ventilée.**
-* Lorsqu’un utilisateur souhaite quitter la page alors que certaines écritures ne sont pas ventilées, afficher un message d’alerte :
+Dans le sous-menu **Balance**, modifier le comportement des options **Analytique** et **Analytique et tiers**.
 
-> **« Certaines écritures ne sont pas ventilées. Voulez-vous quand même quitter la page ? »**
+Lorsqu’un utilisateur sélectionne l’une de ces deux options, le système doit d’abord lui demander de choisir le type de ventilation à consulter :
 
-* L’utilisateur doit pouvoir choisir d’**ignorer l’alerte et quitter la page** s’il le souhaite.
+* **Fonctionnement**
+* **Projet**
+* **Fonctionnement + Projet**
 
-### 2. Page de consultation des balances
+#### 1. Fonctionnement
 
-* Lorsqu’il existe des écritures non ventilées, afficher un **bouton permettant de consulter directement ces écritures**.
-* Ce bouton doit permettre à l’utilisateur d’identifier les écritures concernées et d’y accéder afin de les ventiler avant de consulter les balances.
+Si l’utilisateur sélectionne **Fonctionnement**, afficher tous les comptes ayant au moins une ventilation de type **Fonctionnement**.
 
-### 3. Bouton « Équilibrer » – Journaux de banque
+#### 2. Projet
 
-* Dans les journaux de banque, lorsqu’on clique sur **« Équilibrer »**, la ligne concernée doit être **enregistrée automatiquement**.
-* L’utilisateur ne doit pas avoir besoin de revenir ensuite cliquer sur un autre bouton pour valider ou enregistrer la ligne.
+Si l’utilisateur sélectionne **Projet**, demander à l’utilisateur de sélectionner le ou les **bailleurs** concernés.
 
-### 4. Bouton « Équilibrer » – Journaux autres que banque
+Après la sélection du ou des bailleurs, demander à l’utilisateur de choisir le type de projet :
 
-* Pour les journaux qui ne sont pas des journaux de banque, si l’utilisateur a déjà renseigné le **numéro de compte** avant de cliquer sur « Équilibrer », la ligne doit également être **enregistrée automatiquement**.
-* Il ne doit donc pas être nécessaire de revenir cliquer sur **« Ajouter »** pour enregistrer cette ligne.
+* **Activité**
+* **Administration**
+* **Activité + Administration**
 
-### 5. Modification du libellé du bouton
+Le système affiche ensuite les comptes correspondant aux critères sélectionnés.
 
-* Sur la page de saisie des écritures, si le bouton **« Ajouter »** est toujours présent, remplacer son libellé par **« Valider »**.
+#### 3. Fonctionnement + Projet
+
+Si l’utilisateur sélectionne **Fonctionnement + Projet**, appliquer les deux filtres :
+
+* les comptes ayant une ventilation **Fonctionnement** ;
+* les comptes liés à un **Projet**, avec sélection du ou des **bailleurs**.
+
+Après la sélection des bailleurs, demander également le type de projet :
+
+* **Activité**
+* **Administration**
+* **Activité + Administration**
+
+### Parcours attendu
+
+**Analytique / Analytique et tiers**
+→ Choix : **Fonctionnement / Projet / Fonctionnement + Projet**
+
+**Si Fonctionnement**
+→ Afficher les comptes avec ventilation Fonctionnement.
+
+**Si Projet**
+→ Choisir le(s) bailleur(s)
+→ Choisir : **Activité / Administration / Activité + Administration**
+→ Afficher les comptes correspondants.
+
+**Si Fonctionnement + Projet**
+→ Choisir le(s) bailleur(s)
+→ Choisir : **Activité / Administration / Activité + Administration**
+→ Afficher les comptes correspondant aux deux types de ventilation.
