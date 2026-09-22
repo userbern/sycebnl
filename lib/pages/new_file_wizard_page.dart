@@ -28,6 +28,8 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
   final _sigleController = TextEditingController();
   final _domaineController = TextEditingController();
   String? _formeJuridique;
+  final _formeJuridiquePreciseController = TextEditingController();
+  final _formeJuridiquePreciseFocusNode = FocusNode();
   final _paysController = TextEditingController();
   final _regionController = TextEditingController();
   final _villeController = TextEditingController();
@@ -74,6 +76,8 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
     _denominationController.dispose();
     _sigleController.dispose();
     _domaineController.dispose();
+    _formeJuridiquePreciseController.dispose();
+    _formeJuridiquePreciseFocusNode.dispose();
     _paysController.dispose();
     _regionController.dispose();
     _villeController.dispose();
@@ -164,6 +168,10 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
         'domaine_intervention':
             _domaineController.text.isEmpty ? null : _domaineController.text,
         'forme_juridique': _formeJuridique,
+        'forme_juridique_autre':
+            _formeJuridique == 'Autres'
+                ? _formeJuridiquePreciseController.text
+                : null,
         'pays': _paysController.text.isEmpty ? null : _paysController.text,
         'region':
             _regionController.text.isEmpty ? null : _regionController.text,
@@ -498,6 +506,12 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
         _showError('La dénomination sociale est obligatoire');
         return;
       }
+      if (_currentStep == 1 &&
+          _formeJuridique == 'Autres' &&
+          _formeJuridiquePreciseController.text.trim().isEmpty) {
+        _showError('Veuillez préciser la forme juridique.');
+        return;
+      }
       if (_currentStep == 2 && _usePassword) {
         if (_passwordController.text.isEmpty) {
           _showError('Veuillez saisir un mot de passe');
@@ -714,20 +728,44 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
                         child: Text('Club sportif'),
                       ),
                       DropdownMenuItem(
-                        value: 'Club services',
-                        child: Text('Club services'),
-                      ),
-                      DropdownMenuItem(
                         value: 'Parti politique',
                         child: Text('Parti politique'),
                       ),
+                      DropdownMenuItem(
+                        value: 'Autres',
+                        child: Text('Autres'),
+                      ),
                     ],
                     onChanged:
-                        (value) => setState(() => _formeJuridique = value),
+                        (value) => setState(() {
+                          _formeJuridique = value;
+                          if (value != 'Autres') {
+                            _formeJuridiquePreciseController.clear();
+                          } else {
+                            // Le champ n'est construit qu'après ce setState :
+                            // on attend la fin du frame pour lui donner le
+                            // focus, sinon le FocusNode n'est pas encore
+                            // attaché à un widget.
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted) {
+                                _formeJuridiquePreciseFocusNode.requestFocus();
+                              }
+                            });
+                          }
+                        }),
                   ),
                 ),
               ],
             ),
+            if (_formeJuridique == 'Autres') ...[
+              const SizedBox(height: 12),
+              _buildTextField(
+                controller: _formeJuridiquePreciseController,
+                label: 'Précisez la forme juridique *',
+                icon: Icons.edit_note,
+                focusNode: _formeJuridiquePreciseFocusNode,
+              ),
+            ],
             const SizedBox(height: 16),
             // Section Localisation
             _buildSectionHeader('Localisation et contact'),
@@ -1165,9 +1203,11 @@ class _NewFileWizardPageState extends State<NewFileWizardPage> {
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
+    FocusNode? focusNode,
   }) {
     return TextField(
       controller: controller,
+      focusNode: focusNode,
       keyboardType: keyboardType,
       maxLines: maxLines,
       decoration: InputDecoration(
