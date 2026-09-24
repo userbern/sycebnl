@@ -688,7 +688,7 @@ class _DashboardDgPageState extends State<DashboardDgPage> {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
-            _buildEvolutionBadge(evolution),
+            _buildEvolutionBadge(evolution, def.code),
           ],
         ),
       ),
@@ -799,25 +799,64 @@ class _DashboardDgPageState extends State<DashboardDgPage> {
     );
   }
 
-  Widget _buildEvolutionBadge(double? evolutionPct) {
+  /// Sens économique d'une hausse pour un indicateur donné : une hausse des
+  /// produits/de la trésorerie est une bonne nouvelle (vert), une hausse des
+  /// charges est une dégradation (rouge), une hausse des créances/dettes est
+  /// à surveiller (orange) sans être aussi grave qu'une dégradation directe.
+  /// Les indicateurs non listés ci-dessous (résultat, immobilisations,
+  /// stocks, fonds propres...) gardent le sens historique (hausse = vert).
+  static const _kpiSensInverse = {'charges'};
+  static const _kpiSensAlerte = {'creances', 'dettes'};
+
+  /// Formate une variation en supprimant les décimales inutiles (960,0 %
+  /// devient 960 %) tout en conservant celles qui sont significatives
+  /// (100,4 % reste 100,4 %). Aucun plafond n'est appliqué : contrairement à
+  /// une part du total (ex. Répartition de l'actif, 0-100 %), une variation
+  /// « vs exercice précédent » peut légitimement dépasser 100 %.
+  String _formatVariationPct(double valeurAbsolue) {
+    return valeurAbsolue == valeurAbsolue.roundToDouble()
+        ? valeurAbsolue.toStringAsFixed(0)
+        : valeurAbsolue.toStringAsFixed(1);
+  }
+
+  Widget _buildEvolutionBadge(double? evolutionPct, String kpiCode) {
     if (evolutionPct == null) {
       return Text(
         'vs exercice précédent : N/A',
         style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
       );
     }
-    final positive = evolutionPct >= 0;
-    final color = positive ? Colors.green.shade700 : Colors.red.shade700;
+    if (evolutionPct == 0) {
+      return Row(
+        children: [
+          Icon(Icons.remove, size: 13, color: Colors.grey.shade600),
+          const SizedBox(width: 3),
+          Text(
+            '0 % vs exercice précédent',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+          ),
+        ],
+      );
+    }
+    final hausse = evolutionPct > 0;
+    final Color color;
+    if (_kpiSensInverse.contains(kpiCode)) {
+      color = hausse ? Colors.red.shade700 : Colors.green.shade700;
+    } else if (_kpiSensAlerte.contains(kpiCode)) {
+      color = hausse ? Colors.orange.shade800 : Colors.green.shade700;
+    } else {
+      color = hausse ? Colors.green.shade700 : Colors.red.shade700;
+    }
     return Row(
       children: [
         Icon(
-          positive ? Icons.arrow_upward : Icons.arrow_downward,
+          hausse ? Icons.arrow_upward : Icons.arrow_downward,
           size: 13,
           color: color,
         ),
         const SizedBox(width: 3),
         Text(
-          '${evolutionPct.abs().toStringAsFixed(1)} % vs exercice précédent',
+          '${hausse ? '+' : '-'}${_formatVariationPct(evolutionPct.abs())} % vs exercice précédent',
           style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
         ),
       ],
@@ -1417,7 +1456,7 @@ class _DashboardDgPageState extends State<DashboardDgPage> {
               ],
             ),
             const SizedBox(height: 4),
-            _buildEvolutionBadge(result?.evolutionPct),
+            _buildEvolutionBadge(result?.evolutionPct, def.code),
             const Divider(height: 20),
             for (final item in breakdown)
               Padding(

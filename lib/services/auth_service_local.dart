@@ -11,6 +11,23 @@ import '../models/bailleur.dart';
 import '../models/projet.dart';
 import '../models/exercice.dart';
 
+/// Exception levée quand le login saisi ne correspond à aucun utilisateur.
+class UserNotFoundException implements Exception {
+  final String message;
+  UserNotFoundException([this.message = 'Utilisateur introuvable']);
+  @override
+  String toString() => message;
+}
+
+/// Exception levée quand l'utilisateur existe mais que le mot de passe
+/// fourni ne correspond pas.
+class InvalidPasswordException implements Exception {
+  final String message;
+  InvalidPasswordException([this.message = 'Mot de passe incorrect']);
+  @override
+  String toString() => message;
+}
+
 class AuthService {
   static IAccountingRepository get _db => RepositoryProvider.current;
 
@@ -28,7 +45,7 @@ class AuthService {
       );
 
       if (users.isEmpty) {
-        throw Exception('Login ou mot de passe incorrect');
+        throw UserNotFoundException();
       }
 
       final user = users.first;
@@ -66,7 +83,7 @@ class AuthService {
         }
       }
       if (!passwordOk) {
-        throw Exception('Login ou mot de passe incorrect');
+        throw InvalidPasswordException();
       }
 
       // 3. Récupérer les permissions de l'utilisateur

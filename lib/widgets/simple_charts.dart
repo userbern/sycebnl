@@ -515,6 +515,24 @@ class EvolutionPanel extends StatelessWidget {
   }
 }
 
+/// Formate un pourcentage pour l'affichage, avec une précision adaptative :
+/// jusqu'à 2 décimales pour les valeurs courantes, davantage pour les très
+/// petites valeurs non nulles, afin de ne jamais afficher « 0% » pour une
+/// valeur réellement non nulle et de rester capable de distinguer deux
+/// petites valeurs proches. Ne change que l'affichage : le calcul du
+/// pourcentage réel (fait par l'appelant) n'est pas modifié.
+String _formatPourcentageAdaptatif(double pourcentage) {
+  if (pourcentage == 0) return '0%';
+  if (pourcentage >= 0.1) {
+    return '${pourcentage.toStringAsFixed(2)}%';
+  }
+  var decimales = 4;
+  while (double.parse(pourcentage.toStringAsFixed(decimales)) == 0 && decimales < 10) {
+    decimales += 2;
+  }
+  return '${pourcentage.toStringAsFixed(decimales)}%';
+}
+
 /// Panneau complet de répartition de l'actif (donut, légende détaillée et
 /// bandeau de total), pour la section « Évolution et répartition ».
 class AssetRepartitionPanel extends StatelessWidget {
@@ -629,7 +647,7 @@ class AssetRepartitionPanel extends StatelessWidget {
                                           ),
                                         ),
                                         Text(
-                                          '${(s.value / total * 100).toStringAsFixed(0)}%',
+                                          _formatPourcentageAdaptatif(s.value / total * 100),
                                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                                         ),
                                       ],

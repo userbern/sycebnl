@@ -688,6 +688,7 @@ class DatabaseService {
         sigle_usuel TEXT,
         domaine_intervention TEXT,
         forme_juridique TEXT,
+        forme_juridique_autre TEXT,
         ong_type TEXT,
         pays TEXT,
         region TEXT,
@@ -998,6 +999,7 @@ class DatabaseService {
       'deleted_at': 'TEXT',
     },
     'entite': {
+      'forme_juridique_autre': 'TEXT',
       'currency': "TEXT DEFAULT 'XOF'",
       'created_by': 'INTEGER',
       'created_at': 'TEXT',
