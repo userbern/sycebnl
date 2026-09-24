@@ -3,12 +3,17 @@ import '../models/exercice.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
 import '../services/local_repository.dart';
+import '../services/saisie_comptable_service.dart';
 import '../utils/format_utils.dart';
 import '../widgets/download_button.dart';
+import 'saisie_ecriture_page.dart';
 
 class BalanceResultatPage extends StatefulWidget {
   final String typeEtat; // 'general' ou 'analytique'
-  final int? projetId;
+  // 'fonctionnement' | 'projet' | 'fonctionnement_projet'
+  final String? typeVentilationAnalytique;
+  // 'activite' | 'administration' | 'activite_administration'
+  final String? typeProjetVentilation;
   final List<int>? bailleursSelectionnes;
   final bool tousLesBailleurs;
   final DateTime dateDebut;
@@ -23,7 +28,8 @@ class BalanceResultatPage extends StatefulWidget {
   const BalanceResultatPage({
     super.key,
     required this.typeEtat,
-    this.projetId,
+    this.typeVentilationAnalytique,
+    this.typeProjetVentilation,
     this.bailleursSelectionnes,
     this.tousLesBailleurs = false,
     required this.dateDebut,
@@ -45,10 +51,10 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
   List<Map<String, dynamic>> _comptes = [];
   String? _errorMessage;
   Map<String, dynamic>? _entite;
-  String? _projetDesignation;
   String? _bailleursDesignation;
   double _soldeOuvertureDebit = 0.0;
   double _soldeOuvertureCredit = 0.0;
+  List<Map<String, Object?>> _lignesNonVentilees = [];
 
   @override
   void initState() {
@@ -107,12 +113,8 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
           LEFT JOIN journaux_periodes jp ON e.journal_periode_id = jp.id
         ''';
 
-        // Utiliser INNER JOIN pour les ventilations analytiques si filtrage actif
-        if (isAnalytique &&
-            (widget.projetId != null ||
-                (!widget.tousLesBailleurs &&
-                    widget.bailleursSelectionnes != null &&
-                    widget.bailleursSelectionnes!.isNotEmpty))) {
+        // Ventilation par type (Fonctionnement / Projet / Fonctionnement + Projet)
+        if (isAnalytique) {
           query += '''
           INNER JOIN ventilations_analytiques va ON e.id = va.ecriture_id AND va.deleted_at IS NULL
           ''';
@@ -135,12 +137,8 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
           LEFT JOIN journaux_periodes jp ON e.journal_periode_id = jp.id
         ''';
 
-        // Utiliser INNER JOIN pour les ventilations analytiques si filtrage actif
-        if (isAnalytique &&
-            (widget.projetId != null ||
-                (!widget.tousLesBailleurs &&
-                    widget.bailleursSelectionnes != null &&
-                    widget.bailleursSelectionnes!.isNotEmpty))) {
+        // Ventilation par type (Fonctionnement / Projet / Fonctionnement + Projet)
+        if (isAnalytique) {
           query += '''
           INNER JOIN ventilations_analytiques va ON e.id = va.ecriture_id AND va.deleted_at IS NULL
           ''';
@@ -173,20 +171,54 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         queryArgs.add(widget.exerciceId);
       }
 
-      // Filtre analytique : projet et bailleurs
+      // Filtre analytique : type de ventilation (Fonctionnement / Projet /
+      // Fonctionnement + Projet), bailleur(s) et Activité/Administration.
       if (isAnalytique) {
-        if (widget.projetId != null) {
-          query += ' AND va.id_projet = ?';
-          queryArgs.add(widget.projetId);
+        // Condition "Projet" : bailleur(s) sélectionné(s) + Activité/Administration.
+        // Le volet est enregistré tel quel depuis la saisie ('Activités' /
+        // 'Administration'), d'où la comparaison insensible à la casse/accent.
+        String projetCondition() {
+          final buffer = StringBuffer("va.type = 'projet'");
+          if (!widget.tousLesBailleurs &&
+              widget.bailleursSelectionnes != null &&
+              widget.bailleursSelectionnes!.isNotEmpty) {
+            final placeholders = widget.bailleursSelectionnes!
+                .map((_) => '?')
+                .join(', ');
+            buffer.write(' AND va.id_bailleur IN ($placeholders)');
+          }
+          switch (widget.typeProjetVentilation) {
+            case 'activite':
+              buffer.write(" AND LOWER(va.volet) LIKE 'activit%'");
+              break;
+            case 'administration':
+              buffer.write(" AND LOWER(va.volet) LIKE 'admin%'");
+              break;
+          }
+          return buffer.toString();
         }
 
-        // Si bailleurs sélectionnés (pas "tous")
-        if (!widget.tousLesBailleurs &&
-            widget.bailleursSelectionnes != null &&
-            widget.bailleursSelectionnes!.isNotEmpty) {
-          query +=
-              ' AND va.id_bailleur IN (${widget.bailleursSelectionnes!.map((_) => '?').join(', ')})';
-          queryArgs.addAll(widget.bailleursSelectionnes!);
+        void addBailleursArgsIfNeeded() {
+          if (!widget.tousLesBailleurs &&
+              widget.bailleursSelectionnes != null &&
+              widget.bailleursSelectionnes!.isNotEmpty) {
+            queryArgs.addAll(widget.bailleursSelectionnes!);
+          }
+        }
+
+        switch (widget.typeVentilationAnalytique) {
+          case 'fonctionnement':
+            query += " AND va.type = 'fonctionnement'";
+            break;
+          case 'projet':
+            query += ' AND (${projetCondition()})';
+            addBailleursArgsIfNeeded();
+            break;
+          case 'fonctionnement_projet':
+            query +=
+                " AND (va.type = 'fonctionnement' OR (${projetCondition()}))";
+            addBailleursArgsIfNeeded();
+            break;
         }
       }
 
@@ -214,24 +246,6 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         if (rows.isNotEmpty) entite = rows.first;
       } catch (_) {
         entite = null;
-      }
-
-      // Projet designation
-      String? projetDesignation;
-      if (widget.projetId != null) {
-        try {
-          final rows = await db.query(
-            'projet',
-            where: 'id = ?',
-            whereArgs: [widget.projetId],
-            limit: 1,
-          );
-          if (rows.isNotEmpty) {
-            projetDesignation = rows.first['designation'] as String?;
-          }
-        } catch (_) {
-          projetDesignation = null;
-        }
       }
 
       // Bailleurs designations
@@ -354,13 +368,26 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         }
       }
 
+      List<Map<String, Object?>> lignesNonVentilees = [];
+      try {
+        lignesNonVentilees = await SaisieComptableService.getLignesNonVentilees(
+          dateDebut: widget.dateDebut,
+          dateFin: widget.dateFin,
+          exerciceId: widget.exerciceId,
+        );
+      } catch (_) {
+        lignesNonVentilees = [];
+      }
+
+      if (!mounted) return;
+
       setState(() {
         _comptes = comptes;
         _entite = entite;
-        _projetDesignation = projetDesignation;
         _bailleursDesignation = bailleursDesignation;
         _soldeOuvertureDebit = soldeOuvDebit;
         _soldeOuvertureCredit = soldeOuvCredit;
+        _lignesNonVentilees = lignesNonVentilees;
         _isLoading = false;
       });
     } catch (e) {
@@ -369,6 +396,73 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         _isLoading = false;
         _errorMessage = e.toString();
       });
+    }
+  }
+
+  Future<void> _showLignesNonVentilees() async {
+    await showDialog<void>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Écritures non ventilées'),
+            content: SizedBox(
+              width: 480,
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: _lignesNonVentilees.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, index) {
+                  final ligne = _lignesNonVentilees[index];
+                  final codeJournal = ligne['code_journal'] as String? ?? '?';
+                  final compte = ligne['numero_compte'] as String? ?? '';
+                  final libelle = ligne['libelle'] as String? ?? '';
+                  final montant =
+                      ((ligne['montant_debit'] as num?)?.toDouble() ?? 0.0) +
+                      ((ligne['montant_credit'] as num?)?.toDouble() ?? 0.0);
+                  return ListTile(
+                    dense: true,
+                    title: Text('$codeJournal — $compte — $libelle'),
+                    subtitle: Text(_formatMontant(montant)),
+                    trailing: TextButton(
+                      onPressed: () => _openLigneNonVentilee(ligne),
+                      child: const Text('Ouvrir'),
+                    ),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _openLigneNonVentilee(Map<String, Object?> ligne) async {
+    final journalPeriodeId = ligne['journal_periode_id'] as int?;
+    if (journalPeriodeId == null) return;
+    Navigator.of(context).pop();
+    try {
+      final periode = await SaisieComptableService.getJournalPeriodeById(
+        journalPeriodeId,
+      );
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SaisieEcriturePage(journalPeriode: periode),
+        ),
+      );
+      if (mounted) await _loadBalance();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+      }
     }
   }
 
@@ -462,6 +556,29 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
     }
   }
 
+  bool get _isAnalytique =>
+      widget.typeEtat == 'analytique' || widget.typeEtat == 'tiers_analytique';
+
+  bool get _showsBailleurColumn =>
+      _isAnalytique && widget.typeVentilationAnalytique != 'fonctionnement';
+
+  String _typeVentilationLabel() {
+    final base = switch (widget.typeVentilationAnalytique) {
+      'fonctionnement' => 'Fonctionnement',
+      'projet' => 'Projet',
+      'fonctionnement_projet' => 'Fonctionnement + Projet',
+      _ => '',
+    };
+    if (!_showsBailleurColumn) return base;
+    final typeProjetLabel = switch (widget.typeProjetVentilation) {
+      'activite' => 'Activité',
+      'administration' => 'Administration',
+      'activite_administration' => 'Activité + Administration',
+      _ => null,
+    };
+    return typeProjetLabel != null ? '$base ($typeProjetLabel)' : base;
+  }
+
   Widget _buildDocumentHeader(double tableWidth) {
     final denSociale = _entite?['denomination_sociale']?.toString() ?? '-';
     final nif = _entite?['numero_fiscal']?.toString() ?? '-';
@@ -508,18 +625,14 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                 _headerCell('TYPE', bold: true),
                 _headerCell(type),
                 _headerCell(
-                  widget.projetId != null
-                      ? 'PROJET : ${_projetDesignation ?? ''}'
-                      : '',
+                  _isAnalytique ? 'VENTILATION : ${_typeVentilationLabel()}' : '',
                 ),
                 _headerCell(
-                  widget.projetId != null ? 'BAILLEUR' : '',
-                  bold: widget.projetId != null,
+                  _showsBailleurColumn ? 'BAILLEUR' : '',
+                  bold: _showsBailleurColumn,
                 ),
                 _headerCell(
-                  widget.projetId != null
-                      ? (_bailleursDesignation ?? '')
-                      : '',
+                  _showsBailleurColumn ? (_bailleursDesignation ?? '') : '',
                 ),
               ],
             ),
@@ -552,6 +665,28 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                 backgroundColor: Colors.blue.shade700,
                 elevation: 0,
                 actions: [
+                  if (_lignesNonVentilees.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Tooltip(
+                        message:
+                            'Des écritures ne sont pas ventilées : consultez-les avant de valider la balance',
+                        child: ElevatedButton.icon(
+                          onPressed: _showLignesNonVentilees,
+                          icon: const Icon(
+                            Icons.warning_amber_rounded,
+                            color: Colors.white,
+                          ),
+                          label: Text(
+                            'Écritures non ventilées (${_lignesNonVentilees.length})',
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange.shade800,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: DownloadTooltip.pdf(
@@ -638,6 +773,25 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
                       ),
                     ),
                     // Tableau des comptes
+                    if (_comptes.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                'Aucune ecriture ne correspond aux filtres.',
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -995,11 +1149,15 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
     final tC = gestion.fold<double>(
       0.0, (s, c) => s + (c['mouvementCredit'] as double? ?? 0));
 
-    String nature = 'NUL';
-    if (tC > tD) {
+    String nature;
+    if (tD == 0 && tC == 0) {
+      nature = 'Aucune saisie';
+    } else if (tC > tD) {
       nature = 'EXCEDENT';
     } else if (tC < tD) {
       nature = 'DEFICIT';
+    } else {
+      nature = 'NUL';
     }
 
     final col = nature == 'EXCEDENT'
@@ -1067,7 +1225,7 @@ class _BalanceResultatPageState extends State<BalanceResultatPage> {
         totals: null,
         context: context,
         entite: _entite,
-        projetDesignation: _projetDesignation,
+        projetDesignation: _isAnalytique ? _typeVentilationLabel() : null,
         bailleursDesignation: _bailleursDesignation,
         typeEtat: widget.typeEtat,
         dateDebut: widget.dateDebut,

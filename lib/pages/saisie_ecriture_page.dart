@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'
+    show HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
 import 'package:sycebnl_accounting/models/saisie_comptable.dart';
 import 'package:sycebnl_accounting/models/compte.dart';
 import 'package:sycebnl_accounting/models/tiers.dart';
@@ -26,6 +28,10 @@ String _montantSaisieText(double montant) {
       ? montant.round().toString()
       : montant.toString();
 }
+
+/// Champ montant à privilégier, une fois la navigation TAB parvenue à la
+/// zone montant, en fonction du compte sélectionné sur la ligne.
+enum _PreferredAmountField { debit, credit }
 
 class SaisieEcriturePage extends StatefulWidget {
   final JournalPeriode journalPeriode;
@@ -70,6 +76,13 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
   final _debitFocusNode = FocusNode();
   final _creditFocusNode = FocusNode();
   FocusNode? _compteFocusNode;
+
+  // Préférence de focus Débit/Crédit déduite du compte sélectionné : elle ne
+  // sert qu'à choisir, une fois arrivé sur la zone montant via TAB depuis
+  // LIBELLÉ, quel champ (Débit ou Crédit) reçoit le focus en premier. Elle
+  // n'affecte ni l'ordre des autres champs, ni la possibilité de saisir dans
+  // l'un ou l'autre champ.
+  _PreferredAmountField _preferredAmountField = _PreferredAmountField.debit;
 
   // Contrôleur utilisé par le champ Autocomplete pour pouvoir le nettoyer / compléter
   TextEditingController? _compteFieldController;
@@ -117,6 +130,9 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     super.initState();
     _initializeControllers();
     _compteFocusNode = FocusNode();
+    _libelleFocusNode.onKeyEvent = _handleLibelleTabKey;
+    _debitFocusNode.onKeyEvent = _handleDebitTabKey;
+    _creditFocusNode.onKeyEvent = _handleCreditTabKey;
     _loadData();
   }
 
@@ -140,6 +156,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       if (query.isEmpty) {
         _filteredComptes = _comptes;
         _showTiersField = false;
+        _preferredAmountField = _PreferredAmountField.debit;
       } else {
         _filteredComptes =
             _comptes.where((compte) {
@@ -153,6 +170,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
           _compteController.text = compteExact.numeroCompte;
           _selectedCompteNumero = compteExact.numeroCompte;
           _showTiersField = compteExact.liaisonTiers;
+          _updatePreferredAmountField(compteExact.numeroCompte);
         } else {
           // Vérifier si un compte exact correspond et a liaison_tiers = true
           try {
@@ -160,6 +178,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
               (c) => c.numeroCompte.toLowerCase() == query,
             );
             _showTiersField = compteExact.liaisonTiers;
+            _updatePreferredAmountField(compteExact.numeroCompte);
           } catch (e) {
             _showTiersField = false;
           }
@@ -338,6 +357,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     _selectedTiersNumero = null;
     _showTiersField = false;
     _filteredTiers = [];
+    _preferredAmountField = _PreferredAmountField.debit;
   }
 
   void _updateTiersForCompte(String numeroCompte) {
@@ -355,11 +375,112 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     }
   }
 
+  /// Déduit, à partir de la nature comptable déjà calculée pour le compte
+  /// (voir [NatureCompte] / `calculateNatureFromNumeroCompte`), le champ
+  /// montant à privilégier lorsque la navigation TAB atteint la zone
+  /// montant. Il ne s'agit que d'une suggestion de focus : les deux champs
+  /// Débit et Crédit restent toujours actifs et modifiables librement.
+  void _updatePreferredAmountField(String numeroCompte) {
+    Compte? compte;
+    try {
+      compte = _comptes.firstWhere((c) => c.numeroCompte == numeroCompte);
+    } catch (_) {
+      compte = null;
+    }
+
+    if (compte == null) {
+      _preferredAmountField = _PreferredAmountField.debit;
+      return;
+    }
+
+    switch (compte.nature) {
+      // Comptes de nature Actif ou Charges : normalement mouvementés au
+      // Débit.
+      case NatureCompte.bilanActifImmobilise:
+      case NatureCompte.bilanStocks:
+      case NatureCompte.bilanAdherentsClientsUsagers:
+      case NatureCompte.bilanBanque:
+      case NatureCompte.bilanCaisse:
+      case NatureCompte.bilanAutresTresoreries:
+      case NatureCompte.chargesAO:
+      case NatureCompte.chargesHAO:
+        _preferredAmountField = _PreferredAmountField.debit;
+        break;
+      // Comptes de nature Passif ou Produits : normalement mouvementés au
+      // Crédit.
+      case NatureCompte.bilanRessourcesDurables:
+      case NatureCompte.bilanFournisseurs:
+      case NatureCompte.bilanPersonnel:
+      case NatureCompte.bilanOrganismesSociaux:
+      case NatureCompte.bilanEtatCollectivitesPubliques:
+      case NatureCompte.bilanAutresTiers:
+      case NatureCompte.produitsAO:
+      case NatureCompte.produitsHAO:
+        _preferredAmountField = _PreferredAmountField.credit;
+        break;
+      // Nature sans convention fiable : on conserve le comportement par
+      // défaut (Débit).
+      case NatureCompte.engagementsHorsBilan:
+        _preferredAmountField = _PreferredAmountField.debit;
+        break;
+    }
+  }
+
+  /// Gère la touche TAB (sans Shift) sur le champ LIBELLÉ : si le compte
+  /// sélectionné recommande le Crédit, saute directement sur CRÉDIT.
+  /// Sinon, ne fait rien et laisse la navigation par défaut continuer vers
+  /// DÉBIT (ordre inchangé).
+  KeyEventResult _handleLibelleTabKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.tab ||
+        HardwareKeyboard.instance.isShiftPressed) {
+      return KeyEventResult.ignored;
+    }
+    if (_preferredAmountField != _PreferredAmountField.credit) {
+      return KeyEventResult.ignored;
+    }
+    _creditFocusNode.requestFocus();
+    return KeyEventResult.handled;
+  }
+
+  /// Gère la touche TAB (sans Shift) sur le champ CRÉDIT : lorsque CRÉDIT a
+  /// été rejoint en premier (compte recommandant le Crédit), TAB doit
+  /// ensuite amener sur DÉBIT plutôt que de quitter la ligne.
+  KeyEventResult _handleCreditTabKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.tab ||
+        HardwareKeyboard.instance.isShiftPressed) {
+      return KeyEventResult.ignored;
+    }
+    if (_preferredAmountField != _PreferredAmountField.credit) {
+      return KeyEventResult.ignored;
+    }
+    _debitFocusNode.requestFocus();
+    return KeyEventResult.handled;
+  }
+
+  /// Gère la touche TAB (sans Shift) sur le champ DÉBIT : lorsque l'ordre a
+  /// été inversé (CRÉDIT visité avant DÉBIT), TAB doit poursuivre après la
+  /// zone montant au lieu de revenir sur CRÉDIT.
+  KeyEventResult _handleDebitTabKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.tab ||
+        HardwareKeyboard.instance.isShiftPressed) {
+      return KeyEventResult.ignored;
+    }
+    if (_preferredAmountField != _PreferredAmountField.credit) {
+      return KeyEventResult.ignored;
+    }
+    _creditFocusNode.nextFocus();
+    return KeyEventResult.handled;
+  }
+
   void _setCompteSelectionFromNumero(String numeroCompte) {
     _compteController.text = numeroCompte;
     _compteFieldController?.text = numeroCompte;
     _selectedCompteNumero = numeroCompte;
     _updateTiersForCompte(numeroCompte);
+    _updatePreferredAmountField(numeroCompte);
   }
 
   Widget _buildVentilationBadge(LigneEcriture ecriture) {
@@ -376,7 +497,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       lignesEnregistrement,
     );
 
-    final bool isVentileeManuellement = ecriture.hasVentilation == true;
+    final bool isVentilee = ecriture.hasVentilation == true;
 
     Color borderColor;
     Color backgroundColor;
@@ -384,23 +505,19 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     IconData iconData;
     String tooltipMessage;
 
-    // Principe métier : Une ligne d'équilibre est toujours considérée comme ventilée
-    if (isLigneEquilibre) {
-      // Ligne d'équilibre : pas besoin de ventilation pour être valide
+    // Une ligne équilibrée n'est pas pour autant ventilée : seul le flag
+    // hasVentilation (saisie manuelle ou agrégation réelle sur la ligne
+    // d'équilibre) fait foi.
+    if (isVentilee) {
       borderColor = Colors.green.shade600;
       backgroundColor = Colors.green.shade50;
       iconColor = Colors.green.shade700;
       iconData = Icons.check_circle;
-      tooltipMessage = 'Ligne d\'équilibre (ventilation automatique)';
-    } else if (isVentileeManuellement) {
-      // Ligne NON-équilibre ventilée manuellement
-      borderColor = Colors.green.shade600;
-      backgroundColor = Colors.green.shade50;
-      iconColor = Colors.green.shade700;
-      iconData = Icons.check_circle;
-      tooltipMessage = 'Ventilé manuellement';
+      tooltipMessage =
+          isLigneEquilibre
+              ? 'Ligne d\'équilibre ventilée (agrégation automatique)'
+              : 'Ventilé manuellement';
     } else {
-      // Ligne NON-équilibre non ventilée
       borderColor = Colors.red.shade600;
       backgroundColor = Colors.red.shade50;
       iconColor = Colors.red.shade700;
@@ -447,6 +564,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       _compteFieldController?.text = numeroCompte;
       _selectedTiersNumero = null;
       _updateTiersForCompte(numeroCompte);
+      _updatePreferredAmountField(numeroCompte);
     });
   }
 
@@ -1008,6 +1126,11 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
       return;
     }
 
+    // Ne pas écraser le compte si l'utilisateur l'a déjà saisi lui-même ;
+    // sert aussi à décider de l'enregistrement automatique ci-dessous.
+    final bool compteDejaSaisi =
+        _selectedCompteNumero != null && _selectedCompteNumero!.isNotEmpty;
+
     setState(() {
       if (ecrituresActuelles.isNotEmpty) {
         final derniere = ecrituresActuelles.last;
@@ -1015,11 +1138,6 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         _numeroDocController.text = derniere.numeroDocument;
         _referenceController.text = derniere.reference ?? '';
         _libelleController.text = derniere.libelle;
-
-        // Ne pas écraser le compte si l'utilisateur l'a déjà saisi lui-même
-        final compteDejaSaisi =
-            _selectedCompteNumero != null &&
-            _selectedCompteNumero!.isNotEmpty;
 
         if (!compteDejaSaisi) {
           // Utilise le compte de trésorerie s'il est défini sur le journal
@@ -1058,6 +1176,22 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
         }
       }
     });
+
+    // Enregistrement automatique de la ligne d'équilibrage :
+    // - journaux de banque (financier) : le compte de trésorerie est
+    //   auto-rempli ci-dessus, donc toujours prêt à être validé ;
+    // - autres journaux : uniquement si l'utilisateur avait déjà renseigné
+    //   le compte avant de cliquer sur "Équilibrer".
+    final bool isJournalBanque = _journal?.type == TypeJournal.financier;
+    final bool compteRenseigne =
+        _selectedCompteNumero != null && _selectedCompteNumero!.isNotEmpty;
+    final bool enregistrerAutomatiquement =
+        compteRenseigne && (isJournalBanque || compteDejaSaisi);
+
+    if (enregistrerAutomatiquement) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _submitForm());
+      return;
+    }
 
     // Donner le focus au champ montant rempli pour permettre
     // l'enregistrement immédiat par Entrée
@@ -1254,46 +1388,77 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
     return body;
   }
 
+  /// Une écriture équilibrée n'est pas forcément ventilée : seules les lignes
+  /// avec hasVentilation == true comptent comme réellement ventilées.
+  bool get _hasLignesNonVentilees =>
+      _ecritures.any((e) => e.hasVentilation != true);
+
+  void _closeNow() {
+    if (widget.onClose != null) {
+      widget.onClose!(true);
+    } else if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
   Future<void> _handleClose(BuildContext context) async {
-    if (_totaux.isEquilibre) {
-      if (widget.onClose != null) {
-        widget.onClose!(true);
-      } else if (context.mounted) {
-        Navigator.of(context).pop();
-      }
-      return;
-    }
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Journal déséquilibré'),
-            content: Text(
-              'Le solde n\'est pas équilibré (${formatMontantCFA(_totaux.solde)}).\nVoulez-vous quitter quand même ?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Rester'),
+    if (!_totaux.isEquilibre) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder:
+            (ctx) => AlertDialog(
+              title: const Text('Journal déséquilibré'),
+              content: Text(
+                'Le solde n\'est pas équilibré (${formatMontantCFA(_totaux.solde)}).\nVoulez-vous quitter quand même ?',
               ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Rester'),
                 ),
-                child: const Text('Quitter quand même'),
-              ),
-            ],
-          ),
-    );
-    if (confirm == true) {
-      if (widget.onClose != null) {
-        widget.onClose!(true);
-      } else if (context.mounted) {
-        Navigator.of(context).pop();
-      }
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Quitter quand même'),
+                ),
+              ],
+            ),
+      );
+      if (confirm != true || !context.mounted) return;
     }
+
+    if (_hasLignesNonVentilees) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder:
+            (ctx) => AlertDialog(
+              title: const Text('Écritures non ventilées'),
+              content: const Text(
+                'Certaines écritures ne sont pas ventilées. Voulez-vous quand même quitter la page ?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Rester'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Quitter quand même'),
+                ),
+              ],
+            ),
+      );
+      if (confirm != true || !context.mounted) return;
+    }
+
+    _closeNow();
   }
 
   Widget _buildSoldeTotalBanner(
@@ -2161,6 +2326,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                               } catch (e) {
                                 _showTiersField = false;
                               }
+                              _updatePreferredAmountField(value);
                             });
                           },
                           onSubmitted: (value) {
@@ -2198,6 +2364,8 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                                           _selectedCompteNumero = null;
                                           _compteFieldError = null;
                                           _showTiersField = false;
+                                          _preferredAmountField =
+                                              _PreferredAmountField.debit;
                                         });
                                       },
                                     )
@@ -2423,7 +2591,7 @@ class _SaisieEcriturePageState extends State<SaisieEcriturePage> {
                         color: Colors.white,
                       ),
                       label: Text(
-                        _editingIndex != null ? 'Modifier' : 'Ajouter',
+                        _editingIndex != null ? 'Modifier' : 'Valider',
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue.shade500,
@@ -3498,7 +3666,7 @@ class _VentilationDialogState extends State<VentilationDialog> {
                             child: const FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text(
-                                'Ajouter',
+                                'Valider',
                                 softWrap: false,
                                 style: TextStyle(
                                   fontSize: 15,

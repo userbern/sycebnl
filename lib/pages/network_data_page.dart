@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../models/bailleur.dart';
 import '../models/compte.dart';
 import '../models/journal.dart';
+import '../models/projet.dart';
 import '../models/tiers.dart';
 import '../services/auth_service_local.dart';
 
@@ -239,6 +241,282 @@ class _NetworkComptesViewState extends State<NetworkComptesView> {
                             leading: const Icon(Icons.account_balance_outlined),
                             title: Text('${c.numeroCompte} — ${c.intitule}'),
                             subtitle: Text(c.nature.toLabel()),
+                          );
+                        },
+                      ),
+                    ),
+      floatingActionButton: _isLoading || _error != null
+          ? null
+          : FloatingActionButton(
+              onPressed: _showCreateDialog,
+              child: const Icon(Icons.add),
+            ),
+    );
+  }
+}
+
+/// Vue « Bailleurs » du mode réseau : liste + création, via
+/// [AuthService.getBailleurs]/[AuthService.createBailleur]. Embarquable
+/// seule dans [HomePage] (voir `home_page.dart`, cas réseau de l'index 7).
+class NetworkBailleursView extends StatefulWidget {
+  const NetworkBailleursView({super.key});
+
+  @override
+  State<NetworkBailleursView> createState() => _NetworkBailleursViewState();
+}
+
+class _NetworkBailleursViewState extends State<NetworkBailleursView> {
+  List<Bailleur> _bailleurs = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final bailleurs = await AuthService.getBailleurs();
+      if (!mounted) return;
+      setState(() {
+        _bailleurs = bailleurs;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _showCreateDialog() {
+    final codeController = TextEditingController();
+    final nomController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nouveau bailleur'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: codeController,
+                decoration: const InputDecoration(labelText: 'Sigle'),
+                autofocus: true,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Champ requis' : null,
+              ),
+              TextFormField(
+                controller: nomController,
+                decoration: const InputDecoration(labelText: 'Désignation'),
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Champ requis' : null,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+              try {
+                await AuthService.createBailleur(
+                  code: codeController.text.trim(),
+                  nom: nomController.text.trim(),
+                );
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                await _load();
+                if (mounted) {
+                  _showMessage(context, 'Bailleur créé avec succès');
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  _showMessage(context, 'Erreur: $e', isError: true);
+                }
+              }
+            },
+            child: const Text('Créer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(child: Text('Erreur: $_error'))
+              : _bailleurs.isEmpty
+                  ? const Center(child: Text('Aucun bailleur'))
+                  : RefreshIndicator(
+                      onRefresh: _load,
+                      child: ListView.builder(
+                        itemCount: _bailleurs.length,
+                        itemBuilder: (context, i) {
+                          final b = _bailleurs[i];
+                          return ListTile(
+                            leading: const Icon(Icons.handshake_outlined),
+                            title: Text('${b.sigle} — ${b.designation}'),
+                          );
+                        },
+                      ),
+                    ),
+      floatingActionButton: _isLoading || _error != null
+          ? null
+          : FloatingActionButton(
+              onPressed: _showCreateDialog,
+              child: const Icon(Icons.add),
+            ),
+    );
+  }
+}
+
+/// Vue « Projets » du mode réseau : liste + création, via
+/// [AuthService.getProjets]/[AuthService.createProjet]. La liaison aux
+/// bailleurs n'est volontairement pas proposée ici : `createProjet` insère
+/// dans `projet` puis `projet_bailleur` en deux appels non atomiques, et
+/// `projet_bailleur` n'est pas une table exposée en écriture par le serveur
+/// (voir `RemoteRepository._writableTables`). Un projet créé à distance peut
+/// ensuite être associé à un bailleur depuis le poste local.
+class NetworkProjetsView extends StatefulWidget {
+  const NetworkProjetsView({super.key});
+
+  @override
+  State<NetworkProjetsView> createState() => _NetworkProjetsViewState();
+}
+
+class _NetworkProjetsViewState extends State<NetworkProjetsView> {
+  List<Projet> _projets = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final projets = await AuthService.getProjets();
+      if (!mounted) return;
+      setState(() {
+        _projets = projets;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _showCreateDialog() {
+    final codeController = TextEditingController();
+    final designationController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nouveau projet'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: codeController,
+                decoration: const InputDecoration(labelText: 'Code'),
+                autofocus: true,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Champ requis' : null,
+              ),
+              TextFormField(
+                controller: designationController,
+                decoration: const InputDecoration(labelText: 'Désignation'),
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Champ requis' : null,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+              try {
+                await AuthService.createProjet(
+                  code: codeController.text.trim(),
+                  designation: designationController.text.trim(),
+                );
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                await _load();
+                if (mounted) {
+                  _showMessage(context, 'Projet créé avec succès');
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  _showMessage(context, 'Erreur: $e', isError: true);
+                }
+              }
+            },
+            child: const Text('Créer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(child: Text('Erreur: $_error'))
+              : _projets.isEmpty
+                  ? const Center(child: Text('Aucun projet'))
+                  : RefreshIndicator(
+                      onRefresh: _load,
+                      child: ListView.builder(
+                        itemCount: _projets.length,
+                        itemBuilder: (context, i) {
+                          final p = _projets[i];
+                          return ListTile(
+                            leading: const Icon(Icons.work_outline),
+                            title: Text('${p.code} — ${p.nom}'),
                           );
                         },
                       ),

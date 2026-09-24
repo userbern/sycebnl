@@ -80,6 +80,39 @@ class SaisieComptableService {
     }
   }
 
+  /// Lignes non ventilées sur une période donnée, hors ligne de trésorerie/
+  /// équilibrage du journal (qui n'a pas vocation à être ventilée elle-même).
+  static Future<List<Map<String, Object?>>> getLignesNonVentilees({
+    required DateTime dateDebut,
+    required DateTime dateFin,
+    int? exerciceId,
+  }) async {
+    final dateDebutStr = _formatDateYMD(dateDebut);
+    final dateFinStr = _formatDateYMD(dateFin);
+    final args = <dynamic>[dateDebutStr, dateFinStr];
+
+    var query = '''
+      SELECT e.id, e.journal_periode_id, e.numero_compte, e.libelle,
+             e.montant_debit, e.montant_credit, e.jour,
+             jp.code_journal, jp.annee, jp.mois
+      FROM ecritures e
+      LEFT JOIN journaux_periodes jp ON e.journal_periode_id = jp.id
+      LEFT JOIN journal j ON jp.code_journal = j.code
+      WHERE (e.is_ventilee IS NULL OR e.is_ventilee = 0)
+        AND (j.numero_compte_tresorerie IS NULL OR e.numero_compte != j.numero_compte_tresorerie)
+        AND date(COALESCE(e.date_comptable, jp.annee || '-' || printf('%02d', jp.mois) || '-' || printf('%02d', e.jour))) BETWEEN date(?) AND date(?)
+    ''';
+
+    if (exerciceId != null) {
+      query += ' AND (jp.exercice_id = ? OR jp.exercice_id IS NULL)';
+      args.add(exerciceId);
+    }
+
+    query += ' ORDER BY jp.annee, jp.mois, e.jour';
+
+    return database.rawQuery(query, args);
+  }
+
   /// Recuperer une periode par ID
   static Future<JournalPeriode> getJournalPeriodeById(int id) async {
     try {

@@ -15,10 +15,14 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
+  final _loginFieldKey = GlobalKey<FormFieldState<String>>();
+  final _passwordFieldKey = GlobalKey<FormFieldState<String>>();
   final _loginController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  String? _userError;
+  String? _passwordError;
 
   @override
   void dispose() {
@@ -28,6 +32,11 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _login() async {
+    setState(() {
+      _userError = null;
+      _passwordError = null;
+    });
+
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -64,6 +73,20 @@ class _LoginPageState extends State<LoginPage> {
           builder: (context) => HomePage(userSession: userSession),
         ),
       );
+    } on UserNotFoundException {
+      if (!mounted) return;
+      setState(() {
+        _userError = 'Utilisateur introuvable';
+        _isLoading = false;
+      });
+      _loginFieldKey.currentState?.validate();
+    } on InvalidPasswordException {
+      if (!mounted) return;
+      setState(() {
+        _passwordError = 'Mot de passe incorrect';
+        _isLoading = false;
+      });
+      _passwordFieldKey.currentState?.validate();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -133,6 +156,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 32),
                       TextFormField(
+                        key: _loginFieldKey,
                         controller: _loginController,
                         autofocus: true,
                         decoration: InputDecoration(
@@ -146,14 +170,20 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Veuillez saisir votre login';
+                            return 'Utilisateur requis';
                           }
-                          return null;
+                          return _userError;
+                        },
+                        onChanged: (_) {
+                          if (_userError != null) {
+                            setState(() => _userError = null);
+                          }
                         },
                         enabled: !_isLoading,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
+                        key: _passwordFieldKey,
                         controller: _passwordController,
                         decoration: InputDecoration(
                           labelText: 'Mot de passe',
@@ -179,9 +209,14 @@ class _LoginPageState extends State<LoginPage> {
                         obscureText: _obscurePassword,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Veuillez saisir votre mot de passe';
+                            return 'Mot de passe requis';
                           }
-                          return null;
+                          return _passwordError;
+                        },
+                        onChanged: (_) {
+                          if (_passwordError != null) {
+                            setState(() => _passwordError = null);
+                          }
                         },
                         enabled: !_isLoading,
                         onFieldSubmitted: (_) => _login(),

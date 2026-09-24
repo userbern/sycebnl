@@ -10,7 +10,7 @@ import '../services/local_repository.dart';
 import '../services/repository_provider.dart';
 import '../services/network/accounting_server_service.dart';
 import '../services/network/network_connection_service.dart';
-import '../widgets/network_share_dialog.dart';
+// import '../widgets/network_share_dialog.dart'; // bouton de partage réseau désactivé temporairement
 import 'network_data_page.dart';
 import '../models/user_session.dart';
 import 'entite_identification_page.dart';
@@ -25,6 +25,7 @@ import 'journal_page.dart';
 import 'journal_periode_selection_page.dart';
 import 'journaux_de_saisie_page.dart';
 import 'grand_livre_page.dart';
+import 'livre_page.dart';
 import 'saisie_ecriture_page.dart';
 import 'balance_comptes_page.dart';
 import 'permissions_page.dart';
@@ -219,6 +220,7 @@ class _HomePageState extends State<HomePage> {
       16: 'journaux_de_saisie',
       11: 'interrogations',
       13: 'balance_comptes',
+      19: 'balance_comptes',
       14: 'grand_livre',
       15: 'journal',
       12: 'exercices',
@@ -237,11 +239,12 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    // En mode réseau, seuls comptes/tiers/journaux (CRUD) et la liste des
-    // exercices (lecture) sont câblés sur `RemoteRepository` (voir
-    // `_buildContentPage`). Les autres pages dépendent encore directement de
-    // `DatabaseService` (connexion SQLite locale) et planteraient.
-    const networkAvailablePages = {0, 4, 5, 6, 17};
+    // En mode réseau, seuls comptes/tiers/journaux/bailleurs/projets (CRUD)
+    // et la liste des exercices (lecture) sont câblés sur `RemoteRepository`
+    // (voir `_buildContentPage`). Les autres pages dépendent encore
+    // directement de `DatabaseService` (connexion SQLite locale) et
+    // planteraient.
+    const networkAvailablePages = {0, 4, 5, 6, 7, 8, 17};
     if (_isNetworkMode && !networkAvailablePages.contains(index)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -705,27 +708,30 @@ class _HomePageState extends State<HomePage> {
                 onPressed: _reloadCurrentPage,
                 tooltip: 'Actualiser la page',
               ),
-              if (!_isNetworkMode)
-                IconButton(
-                  icon: Icon(
-                    AccountingServerService.instance.isRunning
-                        ? Icons.wifi_tethering
-                        : Icons.wifi_tethering_off,
-                    color:
-                        AccountingServerService.instance.isRunning
-                            ? Colors.greenAccent
-                            : Colors.white,
-                  ),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => const NetworkShareDialog(),
-                    ).then((_) {
-                      if (mounted) setState(() {});
-                    });
-                  },
-                  tooltip: 'Partager cette base sur le réseau',
-                ),
+              // Bouton "Partager cette base sur le réseau" désactivé temporairement :
+              // la mise en réseau de l'écriture comptable n'est pas encore prête (voir CLAUDE.md).
+              // if (!_isNetworkMode)
+              //   IconButton(
+              //     icon: Icon(
+              //       AccountingServerService.instance.isRunning
+              //           ? Icons.wifi_tethering
+              //           : Icons.wifi_tethering_off,
+              //       color:
+              //           AccountingServerService.instance.isRunning
+              //               ? Colors.greenAccent
+              //               : Colors.white,
+              //     ),
+              //     onPressed: () {
+              //       showDialog(
+              //         context: context,
+              //         builder: (_) => const NetworkShareDialog(),
+              //       ).then((_) {
+              //         if (mounted) setState(() {});
+              //       });
+              //     },
+              //     tooltip: 'Partager cette base sur le réseau',
+              //   ),
+              // Selon le mode : ferme la session réseau (client) ou arrête le serveur local (hôte) avant de revenir à l'accueil.
               IconButton(
                 icon: const Icon(Icons.logout),
                 onPressed: () async {
@@ -893,8 +899,18 @@ class _HomePageState extends State<HomePage> {
                               moduleNom: 'balance_comptes',
                             ),
                             _SubMenuItem(
+                              'Balance',
+                              19,
+                              moduleNom: 'balance_comptes',
+                            ),
+                            _SubMenuItem(
                               'Grand livre',
                               14,
+                              moduleNom: 'grand_livre',
+                            ),
+                            _SubMenuItem(
+                              'Livre',
+                              20,
                               moduleNom: 'grand_livre',
                             ),
                             _SubMenuItem('Journal', 15, moduleNom: 'journal'),
@@ -1364,15 +1380,19 @@ class _HomePageState extends State<HomePage> {
             ? const NetworkJournauxView()
             : JournauxPage(userSession: _session, showAppBar: false);
       case 7:
-        return ListeBailleursPage(
-          showAppBar: false,
-          userSession: widget.userSession,
-        );
+        return _isNetworkMode
+            ? const NetworkBailleursView()
+            : ListeBailleursPage(
+                showAppBar: false,
+                userSession: widget.userSession,
+              );
       case 8:
-        return ListeProjetsPage(
-          showAppBar: false,
-          userSession: widget.userSession,
-        );
+        return _isNetworkMode
+            ? const NetworkProjetsView()
+            : ListeProjetsPage(
+                showAppBar: false,
+                userSession: widget.userSession,
+              );
       case 9:
         return GestionBudgetsPage(
           showAppBar: false,
@@ -1424,8 +1444,15 @@ class _HomePageState extends State<HomePage> {
           exerciceId: _activeExerciceId,
           showAppBar: false,
         );
+      case 19:
+        return BalanceComptesPage(
+          exerciceId: _activeExerciceId,
+          showAppBar: false,
+        );
       case 14:
         return const GrandLivreScreen();
+      case 20:
+        return const LivreScreen();
       case 15:
         return const JournalPage(showAppBar: false);
       case 16:

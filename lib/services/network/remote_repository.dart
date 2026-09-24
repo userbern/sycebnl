@@ -40,9 +40,17 @@ class RemoteRepository implements IAccountingRepository {
     'journal': '/journaux',
     'exercice': '/exercices',
     'entite': '/entite',
+    'bailleur': '/bailleurs',
+    'projet': '/projets',
   };
 
-  static const Set<String> _writableTables = {'compte', 'tiers', 'journal'};
+  static const Set<String> _writableTables = {
+    'compte',
+    'tiers',
+    'journal',
+    'bailleur',
+    'projet',
+  };
 
   String _requireListPath(String table) {
     final path = _listPaths[table];

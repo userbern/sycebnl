@@ -106,7 +106,8 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      _showError('Erreur: ${e.toString()}');
+      final message = e.toString().replaceFirst('Exception: ', '');
+      _showError(message);
     }
   }
 
